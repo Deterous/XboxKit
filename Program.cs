@@ -71,7 +71,7 @@ namespace XboxKit
                     using FileStream fs = new(isoPath, FileMode.Open, FileAccess.Read);
 
                     // Move the file stream position to the offset
-                    long pvdOffset = 0x832E;
+                    long pvdOffset = 0x832D;
                     fs.Seek(pvdOffset, SeekOrigin.Begin);
 
                     // Read 16 bytes from the file starting at the specified offset
@@ -81,7 +81,6 @@ namespace XboxKit
                     if (bytesRead == 16)
                     {
                         string pvdString = Encoding.ASCII.GetString(pvd);
-
 
                         for (int i = 0; i < WAVE_PVD.Length; i++)
                         {
