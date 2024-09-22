@@ -52,6 +52,7 @@ namespace XboxKit
                 }
             }
 
+            /*
             for (int i = 0; i < XISO_LENGTH.Length; i++)
             {
                 if (XISO_LENGTH[i] == isoSize)
@@ -60,6 +61,13 @@ namespace XboxKit
                     xgdType = i;
                     break;
                 }
+            }
+            */
+
+            if (xgdType == null)
+            {
+                Console.WriteLine("Unexpected ISO size. Is this a valid redump ISO?");
+                return;
             }
 
             // Compare PVD against known PVDs to determine wave
@@ -130,12 +138,19 @@ namespace XboxKit
                         19 => 12,
                         20 => 13,
                         21 => 14,
-                        _ => 16,
+                        _ => -1,
                     },
                     5 => 14,
                     6 => 15,
-                    7 or _ => 16,
+                    7 => 16,
+                    _ => -1,
                 };
+
+                if (videoType == -1)
+                {
+                    Console.WriteLine("Unexpected video partition. Cannot determine wave");
+                    return;
+                }
 
                 long l0Length = VIDEO_L0_LENGTH[videoType];
                 long l1Length = VIDEO_L1_LENGTH[videoType];
@@ -183,8 +198,15 @@ namespace XboxKit
                     0 => 0,
                     1 or 2 or 3 or 4 => 1,
                     5 => 2,
-                    6 or 7 or _ => 3,
+                    6 or 7 => 3,
+                    _ => -1,
                 };
+
+                if (xisoType == -1)
+                {
+                    Console.WriteLine("Unexpected ISO size. Is this a valid redump ISO?");
+                    return;
+                }
 
                 isoFS.Seek(XISO_OFFSET[xisoType], SeekOrigin.Begin);
 
