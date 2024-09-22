@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Assembly Properties -->
+    <OutputType>Exe</OutputType>
+    <TargetName>xboxkit</TargetName>
+    <AssemblyName>xboxkit</AssemblyName>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <LangVersion>latest</LangVersion>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>0.1.0</Version>
+    
+    <!-- Package Properties -->
+    <Authors>Deterous</Authors>
+    <Description>Xbox ISO Toolkit</Description>
+    <Copyright>Copyright (c) Deterous 2024</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Deterous/XboxKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>xbox iso redump</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="./README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
