@@ -19,6 +19,10 @@ Outputs:
 
 `xboxkit.exe input.iso --skip` will create input.xiso.iso only
 
+#### Only Video ISO
+
+`xboxkit.exe input.iso --video-only` will create input.video.iso only
+
 #### System Update extraction (XGD3 only)
 
 `xboxkit.exe input.iso --unpack`

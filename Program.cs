@@ -7,6 +7,7 @@ namespace XboxKit
     internal class Program
     {
         static readonly int SECTOR_SIZE = 2048;
+        static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
         static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
         static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
@@ -19,17 +20,17 @@ namespace XboxKit
         // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1
         static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500"];
 
-        static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
-
         static void PrintHelp()
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
-            Console.WriteLine("Redump Xbox/Xbox360 ISO <-> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-s] [-u] <input.iso> [video.iso] [system_update_file]");
+            Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
+            Console.WriteLine("Usage: xboxkit.exe [-s] [-u] [-v] <input.iso> [video.iso] [system_update_file]");
             Console.WriteLine("");
+            Console.WriteLine("Extraction Options:");
             Console.WriteLine("-s, --skip\t Skips creating video partition (only extract XISO)");
             Console.WriteLine("-u, --unpack\t Unpacks XGD3 video partition (separate system update file)");
-            Console.WriteLine("Note: -s and -u cannot be used together");
+            Console.WriteLine("-v, --video-only\t Skips creating game partition (only extract video ISO)");
+            Console.WriteLine("Note: -s cannot be used with -u or -v");
         }
 
         static void Main(string[] args)
@@ -40,12 +41,13 @@ namespace XboxKit
 
             bool skipVideo = false;
             bool unpackVideo = false;
+            bool onlyVideo = false;
             string isoPath = string.Empty;
             string videoPath = string.Empty;
             string updatePath = string.Empty;
 
             // Check arguments
-            if ((args.Length == 0) || (args.Length > 4))
+            if ((args.Length == 0) || (args.Length > 5))
             {
                 PrintHelp();
                 return;
@@ -66,6 +68,11 @@ namespace XboxKit
                         Console.WriteLine("Cannot use both --unpack and --skip");
                         return;
                     }
+                    else if (onlyVideo)
+                    {
+                        Console.WriteLine("Cannot use both --video-only and --skip");
+                        return;
+                    }
                     skipVideo = true;
                 }
                 else if (arg.Equals("-u", StringComparison.OrdinalIgnoreCase) || arg.Equals("--unpack", StringComparison.OrdinalIgnoreCase))
@@ -76,6 +83,15 @@ namespace XboxKit
                         return;
                     }
                     unpackVideo = true;
+                }
+                else if (arg.Equals("-v", StringComparison.OrdinalIgnoreCase) || arg.Equals("--video-only", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (skipVideo)
+                    {
+                        Console.WriteLine("Cannot use both --skip and --video-only");
+                        return;
+                    }
+                    onlyVideo = true;
                 }
                 else
                 {
@@ -299,25 +315,30 @@ namespace XboxKit
                     return;
                 }
 
-                // Write XISO to file
-                using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
-                isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
-                long xisoLength = XISO_LENGTH[outputXISOType];
-                numBytes = 0;
-                while (numBytes < xisoLength)
+                // Don't create XISO if only extracting video partition
+                if (!onlyVideo)
                 {
-                    int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
-                    if (bytesRead == 0)
-                        break;
 
-                    xisoFS.Write(buf, 0, bytesRead);
-                    numBytes += bytesRead;
-                }
-                if (numBytes != xisoLength)
-                {
-                    Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
-                    return;
+                    // Write XISO to file
+                    using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                    isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
+                    long xisoLength = XISO_LENGTH[outputXISOType];
+                    numBytes = 0;
+                    while (numBytes < xisoLength)
+                    {
+                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        xisoFS.Write(buf, 0, bytesRead);
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != xisoLength)
+                    {
+                        Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
+                        return;
+                    }
                 }
 
                 // If XGD3, try extract system update file from video partition
