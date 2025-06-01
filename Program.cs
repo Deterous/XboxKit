@@ -587,24 +587,24 @@ namespace XboxKit
                         Console.WriteLine("[ERROR] Failed writing system update file.");
                         return;
                     }
-                }
 
-                // Write final video partition sector
-                videoFS.Seek(-SECTOR_SIZE, SeekOrigin.End);
-                numBytes = 0;
-                while (numBytes < SECTOR_SIZE)
-                {
-                    int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, SECTOR_SIZE - numBytes));
-                    if (bytesRead == 0)
-                        break;
+                    // Write final video partition sector
+                    videoFS.Seek(-SECTOR_SIZE, SeekOrigin.End);
+                    numBytes = 0;
+                    while (numBytes < SECTOR_SIZE)
+                    {
+                        int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, SECTOR_SIZE - numBytes));
+                        if (bytesRead == 0)
+                            break;
 
-                    redumpFS.Write(buf, 0, bytesRead);
-                    numBytes += bytesRead;
-                }
-                if (numBytes != SECTOR_SIZE)
-                {
-                    Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
-                    return;
+                        redumpFS.Write(buf, 0, bytesRead);
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != SECTOR_SIZE)
+                    {
+                        Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
+                        return;
+                    }
                 }
             }
             // Mode 3: Extract system update file from video ISO
