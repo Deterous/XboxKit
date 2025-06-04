@@ -472,7 +472,7 @@ namespace XboxKit
                         Console.WriteLine("[ERROR] Failed reading first XISO sector");
                         return;
                     }
-                    if (GuessSeed(firstXISOSector, uint seed))
+                    if (GuessSeed(firstXISOSector, out uint seed))
                     {
                         if (version <= 4830)
                             Console.WriteLine($"[INFO] Found seed: {seed:X8}");
