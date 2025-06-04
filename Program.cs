@@ -38,7 +38,7 @@ namespace XboxKit
         }
 
         // Check two byte arrays are equal
-        bool SequenceEqual(byte[] a, byte[] b)
+        static bool SequenceEqual(byte[] a, byte[] b)
         {
             if (a == null || b == null)
                 return false;
@@ -53,7 +53,7 @@ namespace XboxKit
         }
 
         // Brute force seed for pseudo random number generator
-        private static uint GuessSeed(byte[] sector)
+        static uint GuessSeed(byte[] sector)
         {
             uint foundSeed = 0;
             bool seedFound = false;
@@ -420,11 +420,12 @@ namespace XboxKit
                         Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
                         return;
                     }
-                    int versionOffset = XISO_OFFSET[outputXISOType] + 0x10824;
+                    int versionOffset = 0x10824;
                     if (SequenceEqual(nextBuf, new byte[8]))
                         versionOffset += 0x10;
 
                     byte[] versionBuf = new byte[2];
+                    isoFS.Seek(XISO_OFFSET[outputXISOType] + versionOffset, SeekOrigin.Begin);
                     while (numBytes < versionBuf.Length)
                     {
                         bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
@@ -468,7 +469,7 @@ namespace XboxKit
                             return;
                         }
                         uint seed = GuessSeed(firstXISOSector);
-                        Console.WriteLine($"[INFO] Found seed: {seed}");
+                        Console.WriteLine($"[INFO] Found seed: {seed:X8}");
                     }
                 }
 
