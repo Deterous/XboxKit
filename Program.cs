@@ -446,7 +446,7 @@ namespace XboxKit
                             return;
                         }
                         uint seed = GuessSeed(firstXISOSector);
-                        Console.WriteLine($"[INFO] Found seed: {seed}")
+                        Console.WriteLine($"[INFO] Found seed: {seed}");
                     }
                 }
 
