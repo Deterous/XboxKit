@@ -428,7 +428,7 @@ namespace XboxKit
                     isoFS.Seek(XISO_OFFSET[outputXISOType] + versionOffset, SeekOrigin.Begin);
                     while (numBytes < versionBuf.Length)
                     {
-                        bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
+                        int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
                         if (bytesRead == 0)
                             break;
 
