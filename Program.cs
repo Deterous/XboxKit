@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace XboxKit
 {
@@ -8,6 +9,8 @@ namespace XboxKit
     {
         static readonly int SECTOR_SIZE = 2048;
         static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
+        static readonly byte[] XDVDFS_MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
+        static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
         static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
         static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
@@ -20,6 +23,7 @@ namespace XboxKit
         // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1
         static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500"];
 
+        // Print help for invalid command
         static void PrintHelp()
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
@@ -31,6 +35,52 @@ namespace XboxKit
             Console.WriteLine("-u, --unpack\t Unpacks XGD3 video partition (separate system update file)");
             Console.WriteLine("-v, --video-only\t Skips creating game partition (only extract video ISO)");
             Console.WriteLine("Note: -s cannot be used with -u or -v");
+        }
+
+        // Brute force seed for pseudo random number generator
+        private static uint GuessSeed(byte[] sector)
+        {
+            uint foundSeed = 0;
+            bool seedFound = false;
+
+            var range = Partitioner.Create(0L, (long)uint.MaxValue + 1);
+            Parallel.ForEach(range, (chunk, state) =>
+            {
+                for (long i = chunk.Item1; i < chunk.Item2; i++)
+                {
+                    if (seedFound)
+                    {
+                        state.Stop();
+                        break;
+                    }
+                    bool match = true;
+
+                    uint seed = (uint)i;
+                    uint f = FIXED_SEEDS[seed & 7];
+                    uint mask = (uint)((ulong)(seed + 1) * f) % 0xFFFFFFFB;
+                    uint c = seed;
+                    for (int j = 0; j < SECTOR_SIZE; j += 2)
+                    {
+                        c = (uint)(((ulong)(c + 1) * f) % 0xFFFFFFFB);
+                        ushort sample = (ushort)((c ^ mask) >> 8);
+
+                        if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                    {
+                        System.Threading.Volatile.Write(ref foundSeed, seed);
+                        System.Threading.Volatile.Write(ref seedFound, true);
+                        state.Stop();
+                        break;
+                    }
+                }
+            });
+
+            return foundSeed;
         }
 
         static void Main(string[] args)
@@ -71,7 +121,7 @@ namespace XboxKit
                     else if (onlyVideo)
                     {
                         Console.WriteLine("Cannot use both --video-only and --skip");
-                        return;
+                        //return;
                     }
                     skipVideo = true;
                 }
@@ -89,7 +139,7 @@ namespace XboxKit
                     if (skipVideo)
                     {
                         Console.WriteLine("Cannot use both --skip and --video-only");
-                        return;
+                        //return;
                     }
                     onlyVideo = true;
                 }
@@ -313,6 +363,91 @@ namespace XboxKit
                 {
                     Console.WriteLine("[ERROR] Unexpected ISO size. Is this a valid redump ISO?");
                     return;
+                }
+
+                // Get XGD1 Version
+                if (outputXISOType == 0)
+                {
+                    isoFS.Seek(XISO_OFFSET[outputXISOType] + 0x10800, SeekOrigin.Begin);
+                    byte[] magic = new byte[XDVDFS_MAGIC.Length];
+                    magicLength = XDVDFS_MAGIC.Length;
+                    while (numBytes < magicLength)
+                    {
+                        int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != magicLength)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
+                        return;
+                    }
+                    if (!magic.SequenceEqual(XDVDFS_MAGIC))
+                    {
+                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
+                        return;
+                    }
+
+                    // Determine XGD1 wave
+                    byte[] nextBuf = new byte[8];
+                    while (numBytes < 8)
+                    {
+                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, 8 - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != 8)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
+                        return;
+                    }
+                    versionOffset = XISO_OFFSET[outputXISOType] + 0x10824;
+                    if (nextBuf.SequenceEqual(new byte[8]))
+                        versionOffset += 0x10;
+
+                    byte[] versionBuf = new byte[2];
+                    bytesRead = fileStream.Read(versionBuf, 0, 2);
+                    if (bytesRead != 2)
+                    {
+                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
+                        return;
+                    }
+                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+                    if (version == 0)
+                    {
+                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[INFO] XGD1 Version: {version}");
+                    }
+
+                    if (version <= 4830)
+                    {
+                        Console.WriteLine("Guessing seed...");
+                        isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
+                        byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                        while (numBytes < SECTOR_SIZE)
+                        {
+                            int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, SECTOR_SIZE - numBytes));
+                            if (bytesRead == 0)
+                                break;
+
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != SECTOR_SIZE)
+                        {
+                            Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                            return;
+                        }
+                        uint seed = GuessSeed(firstXISOSector);
+                        Console.WriteLine($"[INFO] Found seed: {seed}")
+                    }
                 }
 
                 // Don't create XISO if only extracting video partition
