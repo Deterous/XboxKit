@@ -37,13 +37,28 @@ namespace XboxKit
             Console.WriteLine("Note: -s cannot be used with -u or -v");
         }
 
+        // Check two byte arrays are equal
+        bool SequenceEqual(byte[] a, byte[] b)
+        {
+            if (a == null || b == null)
+                return false;
+            if (a.Length != b.Length)
+                return false;
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] != b[i])
+                    return false;
+            }
+            return true;
+        }
+
         // Brute force seed for pseudo random number generator
         private static uint GuessSeed(byte[] sector)
         {
             uint foundSeed = 0;
             bool seedFound = false;
 
-            var range = Partitioner.Create(0L, (long)uint.MaxValue + 1);
+            var range = System.Collections.Concurrent.Partitioner.Create(0L, (long)uint.MaxValue + 1);
             Parallel.ForEach(range, (chunk, state) =>
             {
                 for (long i = chunk.Item1; i < chunk.Item2; i++)
@@ -370,7 +385,7 @@ namespace XboxKit
                 {
                     isoFS.Seek(XISO_OFFSET[outputXISOType] + 0x10800, SeekOrigin.Begin);
                     byte[] magic = new byte[XDVDFS_MAGIC.Length];
-                    magicLength = XDVDFS_MAGIC.Length;
+                    int magicLength = XDVDFS_MAGIC.Length;
                     while (numBytes < magicLength)
                     {
                         int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
@@ -384,7 +399,7 @@ namespace XboxKit
                         Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                         return;
                     }
-                    if (!magic.SequenceEqual(XDVDFS_MAGIC))
+                    if (!SequenceEqual(magic, XDVDFS_MAGIC))
                     {
                         Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
                         return;
@@ -392,25 +407,32 @@ namespace XboxKit
 
                     // Determine XGD1 wave
                     byte[] nextBuf = new byte[8];
-                    while (numBytes < 8)
+                    while (numBytes < nextBuf.Length)
                     {
-                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, 8 - numBytes));
+                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
                         if (bytesRead == 0)
                             break;
 
                         numBytes += bytesRead;
                     }
-                    if (numBytes != 8)
+                    if (numBytes != nextBuf.Length)
                     {
                         Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
                         return;
                     }
-                    versionOffset = XISO_OFFSET[outputXISOType] + 0x10824;
-                    if (nextBuf.SequenceEqual(new byte[8]))
+                    int versionOffset = XISO_OFFSET[outputXISOType] + 0x10824;
+                    if (SequenceEqual(nextBuf, new byte[8]))
                         versionOffset += 0x10;
 
                     byte[] versionBuf = new byte[2];
-                    bytesRead = fileStream.Read(versionBuf, 0, 2);
+                    while (numBytes < versionBuf.Length)
+                    {
+                        bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
                     if (bytesRead != 2)
                     {
                         Console.WriteLine("[ERROR] Failed to read XGD1 version.");
