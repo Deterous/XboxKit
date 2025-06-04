@@ -410,6 +410,7 @@ namespace XboxKit
 
                     // Determine XGD1 wave
                     byte[] nextBuf = new byte[8];
+                    isoFS.Seek(XISO_OFFSET[outputXISOType] + 0x10820, SeekOrigin.Begin);
                     numBytes = 0;
                     while (numBytes < nextBuf.Length)
                     {
