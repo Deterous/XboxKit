@@ -53,7 +53,7 @@ namespace XboxKit
         }
 
         // Brute force seed for pseudo random number generator
-        static uint GuessSeed(byte[] sector)
+        static bool GuessSeed(byte[] sector, out uint seed)
         {
             uint foundSeed = 0;
             bool seedFound = false;
@@ -95,7 +95,8 @@ namespace XboxKit
                 }
             });
 
-            return foundSeed;
+            seed = foundSeed;
+            return seedFound;
         }
 
         static void Main(string[] args)
@@ -326,6 +327,7 @@ namespace XboxKit
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
                     isoFS.Seek(0, SeekOrigin.Begin);
+                    numBytes = 0;
                     while (numBytes < l0Length)
                     {
                         int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, l0Length - numBytes));
@@ -386,6 +388,7 @@ namespace XboxKit
                     isoFS.Seek(XISO_OFFSET[outputXISOType] + 0x10800, SeekOrigin.Begin);
                     byte[] magic = new byte[XDVDFS_MAGIC.Length];
                     int magicLength = XDVDFS_MAGIC.Length;
+                    numBytes = 0;
                     while (numBytes < magicLength)
                     {
                         int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
@@ -407,6 +410,7 @@ namespace XboxKit
 
                     // Determine XGD1 wave
                     byte[] nextBuf = new byte[8];
+                    numBytes = 0;
                     while (numBytes < nextBuf.Length)
                     {
                         int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
@@ -426,6 +430,7 @@ namespace XboxKit
 
                     byte[] versionBuf = new byte[2];
                     isoFS.Seek(XISO_OFFSET[outputXISOType] + versionOffset, SeekOrigin.Begin);
+                    numBytes = 0;
                     while (numBytes < versionBuf.Length)
                     {
                         int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
@@ -434,7 +439,7 @@ namespace XboxKit
 
                         numBytes += bytesRead;
                     }
-                    if (bytesRead != 2)
+                    if (numBytes != 2)
                     {
                         Console.WriteLine("[ERROR] Failed to read XGD1 version.");
                         return;
@@ -455,6 +460,7 @@ namespace XboxKit
                         Console.WriteLine("Guessing seed...");
                         isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
                         byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                        numBytes = 0;
                         while (numBytes < SECTOR_SIZE)
                         {
                             int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, SECTOR_SIZE - numBytes));
@@ -470,6 +476,10 @@ namespace XboxKit
                         }
                         uint seed = GuessSeed(firstXISOSector);
                         Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Version too late to brute force...");
                     }
                 }
 
