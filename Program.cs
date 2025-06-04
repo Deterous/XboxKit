@@ -455,31 +455,38 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] XGD1 Version: {version}");
                     }
 
-                    if (version <= 4830)
+                    Console.WriteLine("Guessing seed...");
+                    isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
+                    byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                    numBytes = 0;
+                    while (numBytes < SECTOR_SIZE)
                     {
-                        Console.WriteLine("Guessing seed...");
-                        isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
-                        byte[] firstXISOSector = new byte[SECTOR_SIZE];
-                        numBytes = 0;
-                        while (numBytes < SECTOR_SIZE)
-                        {
-                            int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, SECTOR_SIZE - numBytes));
-                            if (bytesRead == 0)
-                                break;
+                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, SECTOR_SIZE - numBytes));
+                        if (bytesRead == 0)
+                            break;
 
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != SECTOR_SIZE)
-                        {
-                            Console.WriteLine("[ERROR] Failed reading first XISO sector");
-                            return;
-                        }
-                        uint seed = GuessSeed(firstXISOSector);
-                        Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != SECTOR_SIZE)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                        return;
+                    }
+                    if (GuessSeed(firstXISOSector, uint seed))
+                    {
+                        if (version <= 4830)
+                            Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                        else
+                            Console.WriteLine($"[INFO] RC4 but found seed?: {seed:X8}");
                     }
                     else
                     {
-                        Console.WriteLine("Version too late to brute force...");
+                        if (version < 4721)
+                            Console.WriteLine("[INFO Could not determine seed");
+                        if (version < 5000)
+                            Console.WriteLine("[INFO] Could not determine seed, RC4?");
+                        else
+                            Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
                     }
                 }
 
