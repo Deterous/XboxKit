@@ -58,19 +58,29 @@ namespace XboxKit
             uint foundSeed = 0;
             bool seedFound = false;
 
-            Parallel.For(0L, 4294967296L, (i, state) =>
+            Parallel.For(0L, 4294967296L, (i, state) => // 0x00000000 to 0xFFFFFFFF
             {
                 bool match = true;
-                uint seed = (uint)i;
-                uint mult = FIXED_SEEDS[seed & 7];
-                uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
-                uint c = seed;
+                //uint seed = (uint)i;
+                //uint mult = FIXED_SEEDS[seed & 7];
+                //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
+                //uint c = seed;
+                uint a_t = 0;
+                uint b_t = 0;
+                uint c_t = 0;
+
+                Seed((uint)i, ref a_t, ref b_t, ref c_t);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
-                    c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
-                    ushort sample = (ushort)((c ^ mask) >> 8);
+                    //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
+                    //ushort sample = (ushort)((c ^ mask) >> 8);
 
-                    if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                    //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                    UInt16 sampleGenerated = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
+                    byte low = (byte)(sampleGenerated & 0xff);
+                    byte high = (byte)((sampleGenerated >> 8) & 0xff);
+
+                    if ((sector[0 + j] != low) && (sector[1 + j] != high))
                     {
                         match = false;
                         break;
@@ -78,16 +88,33 @@ namespace XboxKit
                 }
                 if (match)
                 {
-                    //System.Threading.Volatile.Write(ref foundSeed, seed);
-                    //System.Threading.Volatile.Write(ref seedFound, true);
-                    foundSeed = seed;
-                    seedFound = true;
+                    System.Threading.Volatile.Write(ref foundSeed, seed);
+                    System.Threading.Volatile.Write(ref seedFound, true);
                     state.Stop();
                 }
             });
 
             outSeed = foundSeed;
             return seedFound;
+        }
+
+        private static void Seed(uint seed, ref uint a_t, ref uint b_t, ref uint c_t)
+        {
+            a_t = 0;
+            b_t = b_seeds[seed & 7];
+            c_t = seed;
+            a_t = Value(ref a_t, ref b_t, ref c_t);
+        }
+
+        private static uint Value(ref uint a_t, ref uint b_t, ref uint c_t)
+        {
+            UInt64 result;
+            result = c_t;
+            result += 1;
+            result *= b_t;
+            result %= 0xFFFFFFFB;
+            c_t = (UInt32)(result & 0xFFFFFFFF);
+            return c_t ^ a_t;
         }
 
         static void Main(string[] args)
