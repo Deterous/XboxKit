@@ -68,9 +68,15 @@ namespace XboxKit
                 uint c = seed;
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
-                    c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
-                    ushort sample = (ushort)((c ^ mask) >> 8);
-                    if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                    //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
+                    //ushort sample = (ushort)((c ^ mask) >> 8); // wrong?
+
+                    //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                    UInt16 sample = (UInt16)(Value(ref mask, ref mult, ref c) >> 8);
+                    byte low = (byte)(sample & 0xff);
+                    byte high = (byte)((sample >> 8) & 0xff);
+
+                    if ((sector[0 + j] != low) || (sector[1 + j] != high))
                     {
                         match = false;
                         break;
@@ -86,6 +92,17 @@ namespace XboxKit
 
             outSeed = foundSeed;
             return seedFound;
+        }
+
+        private static uint Value(ref uint a_t, ref uint b_t, ref uint c_t)
+        {
+            UInt64 result;
+            result = c_t;
+            result += 1;
+            result *= b_t;
+            result %= 0xFFFFFFFB;
+            c_t = (UInt32)(result & 0xFFFFFFFF);
+            return c_t ^ a_t;
         }
 
         static void Main(string[] args)
