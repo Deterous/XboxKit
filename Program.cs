@@ -62,19 +62,24 @@ namespace XboxKit
             Parallel.For(0L, 4294967296L, (i, state) =>
             {
                 bool match = true;
-                uint seed = (uint)i;
-                uint mult = FIXED_SEEDS[seed & 7];
-                uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
-                uint c = seed;
+                //uint seed = (uint)i;
+                //uint mult = FIXED_SEEDS[seed & 7];
+                //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
+                //uint c = seed;
+                uint mask = 0;
+                uint mult = 0;
+                uint c_t = 0;
+
+                Seed((uint)i, ref mask, ref mult, ref c_t);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
                     //ushort sample = (ushort)((c ^ mask) >> 8); // wrong?
 
                     //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
-                    UInt16 sample = (UInt16)(Value(ref mask, ref mult, ref c) >> 8);
-                    byte low = (byte)(sample & 0xff);
-                    byte high = (byte)((sample >> 8) & 0xff);
+                    UInt16 sampleGenerated = (UInt16)(Value(ref mask, ref mult, ref c_t) >> 8);
+                    byte low = (byte)(sampleGenerated & 0xff);
+                    byte high = (byte)((sampleGenerated >> 8) & 0xff);
 
                     if ((sector[0 + j] != low) || (sector[1 + j] != high))
                     {
@@ -94,15 +99,21 @@ namespace XboxKit
             return seedFound;
         }
 
-        private static uint Value(ref uint a_t, ref uint b_t, ref uint c_t)
+        private static void Seed(uint seed, ref uint mask, ref uint mult, ref uint c_t)
+        {
+            c_t = seed;
+            mask = Value(ref mask, ref mult, ref c_t);
+        }
+
+        private static uint Value(ref uint mask, ref uint mult, ref uint c_t)
         {
             UInt64 result;
             result = c_t;
             result += 1;
-            result *= b_t;
+            result *= mult;
             result %= 0xFFFFFFFB;
             c_t = (UInt32)(result & 0xFFFFFFFF);
-            return c_t ^ a_t;
+            return c_t ^ mask;
         }
 
         static void Main(string[] args)
