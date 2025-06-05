@@ -69,7 +69,7 @@ namespace XboxKit
                 mask = Value(ref mask, ref mult, ref state_var);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
-                    ushort sample = Value(ref mask, ref mult, ref state_var);
+                    ushort sample = (ushort)(Value(ref mask, ref mult, ref state_var) >> 8);
                     if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     {
                         match = false;
@@ -88,11 +88,12 @@ namespace XboxKit
             return seedFound;
         }
 
-        private static ushort Value(ref uint mask, ref uint mult, ref uint state_var)
+        private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
         {
-            ulong result = ((state_var + 1) * mult) % 0xFFFFFFFB;
+            ulong result = (state_var + 1) * mult;
+            result %= 0xFFFFFFFB;
             state_var = (UInt32)(result & 0xFFFFFFFF);
-            return (ushort)((state_var ^ mask) >> 8);
+            return state_var ^ mask;
         }
 
         static void Main(string[] args)
