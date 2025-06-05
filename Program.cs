@@ -88,8 +88,11 @@ namespace XboxKit
                 }
                 if (match)
                 {
-                    System.Threading.Volatile.Write(ref foundSeed, (uint)i);
-                    System.Threading.Volatile.Write(ref seedFound, true);
+                    Console.WriteLine("Seed found: 0x{0:x8}", i);
+                    foundSeed = (uint)i;
+                    seedFound = true;
+                    //System.Threading.Volatile.Write(ref foundSeed, (uint)i);
+                    //System.Threading.Volatile.Write(ref seedFound, true);
                     state.Stop();
                 }
             });
