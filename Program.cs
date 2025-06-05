@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 
 namespace XboxKit
 {
@@ -126,7 +127,7 @@ namespace XboxKit
                 {
                     case "--h":
                     case "--help":
-                        helpRequested = true;
+                        help = true;
                         break;
                     case "-x":
                     case "--xiso-only":
@@ -149,11 +150,11 @@ namespace XboxKit
                         break;
                 }
             }
-            //if (help || (onlyXISO && onlyVideo) || (onlyXISO && unpackVideo) || (onlyVideo && wipeXISO))
-            //{
-            //    PrintHelp();
-            //    return;
-            //}
+            if (help)// || (onlyXISO && onlyVideo) || (onlyXISO && unpackVideo) || (onlyVideo && wipeXISO))
+            {
+                PrintHelp();
+                return;
+            }
             if (filePaths.Count > 0)
                 isoPath = filePaths[0];
             if (filePaths.Count > 1)
