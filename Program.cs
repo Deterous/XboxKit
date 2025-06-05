@@ -53,49 +53,46 @@ namespace XboxKit
         }
 
         // Brute force seed for pseudo random number generator
-        static bool GuessSeed(byte[] sector, out uint seed)
+        static bool GuessSeed(byte[] sector, out uint foundSeed)
         {
-            uint foundSeed = 0;
+            foundSeed = 0;
             bool seedFound = false;
 
-            var range = System.Collections.Concurrent.Partitioner.Create(0L, (long)uint.MaxValue + 1);
-            Parallel.ForEach(range, (chunk, state) =>
+            Parallel.For(0L, 4294967296L, (i, state) =>
             {
-                for (long i = chunk.Item1; i < chunk.Item2; i++)
+                if (seedFound)
                 {
-                    if (seedFound)
-                    {
-                        state.Stop();
-                        break;
-                    }
-                    bool match = true;
+                    state.Stop();
+                    break;
+                }
+                bool match = true;
 
-                    uint seed = (uint)i;
-                    uint f = FIXED_SEEDS[seed & 7];
-                    uint mask = (uint)((ulong)(seed + 1) * f) % 0xFFFFFFFB;
-                    uint c = seed;
-                    for (int j = 0; j < SECTOR_SIZE; j += 2)
-                    {
-                        c = (uint)(((ulong)(c + 1) * f) % 0xFFFFFFFB);
-                        ushort sample = (ushort)((c ^ mask) >> 8);
+                uint seed = (uint)i;
+                uint mult = FIXED_SEEDS[seed & 7];
+                uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
+                uint c = seed;
+                for (int j = 0; j < SECTOR_SIZE; j += 2)
+                {
+                    c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
+                    ushort sample = (ushort)((c ^ mask) >> 8);
 
-                        if (sector[j] != (byte)sample && sector[j + 1] != (byte)(sample >> 8))
-                        {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match)
+                    if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     {
-                        System.Threading.Volatile.Write(ref foundSeed, seed);
-                        System.Threading.Volatile.Write(ref seedFound, true);
-                        state.Stop();
+                        match = false;
                         break;
                     }
                 }
+                if (match)
+                {
+                    //System.Threading.Volatile.Write(ref foundSeed, seed);
+                    //System.Threading.Volatile.Write(ref seedFound, true);
+                    foundSeed = seed;
+                    seedFound = true;
+                    state.Stop();
+                    break;
+                }
             });
 
-            seed = foundSeed;
             return seedFound;
         }
 
