@@ -483,7 +483,7 @@ namespace XboxKit
                     numBytes = 0;
                     while (numBytes < SECTOR_SIZE)
                     {
-                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, SECTOR_SIZE - numBytes));
+                        int bytesRead = isoFS.Read(firstXISOSector, 0, (int)Math.Min(firstXISOSector.Length, SECTOR_SIZE - numBytes));
                         if (bytesRead == 0)
                             break;
 
