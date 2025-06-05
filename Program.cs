@@ -1,8 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Security.Cryptography;
+using System.Collections.Concurrent;
 
 namespace XboxKit
 {
@@ -29,13 +30,14 @@ namespace XboxKit
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
             Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-s] [-u] [-v] <input.iso> [video.iso] [system_update_file]");
+            Console.WriteLine("Usage: xboxkit.exe [-u] [-v] [-w] [-x] <input.iso> [video.iso] [system_update_file]");
             Console.WriteLine("");
             Console.WriteLine("Extraction Options:");
-            Console.WriteLine("-s, --skip\t Skips creating video partition (only extract XISO)");
-            Console.WriteLine("-u, --unpack\t Unpacks XGD3 video partition (separate system update file)");
+            Console.WriteLine("-u, --unpack-video\t Unpacks XGD3 video partition (separate system update file)");
             Console.WriteLine("-v, --video-only\t Skips creating game partition (only extract video ISO)");
-            Console.WriteLine("Note: -s cannot be used with -u or -v");
+            Console.WriteLine("-w, --wipe-xiso\t Wipes filler data in game partition");
+            Console.WriteLine("-x, --xiso-only\t Skips creating video partition (only extract XISO)");
+            Console.WriteLine("Note: -x cannot be used with -u or -v");
         }
 
         // Check two byte arrays are equal
@@ -59,28 +61,36 @@ namespace XboxKit
             uint foundSeed = 0;
             bool seedFound = false;
 
-            Parallel.For(0L, 4294967296L, (i, state) =>
+            const long MaxUInt32 = (long)uint.MaxValue + 1;
+            var range = Partitioner.Create(0L, MaxUInt32);
+            Parallel.ForEach(range, (chunk, state) =>
             {
-                bool match = true;
-                uint seed = (uint)i;
-                uint mult = FIXED_SEEDS[seed & 7];
-                uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
-                uint mask = state_var;
-                for (int j = 0; j < SECTOR_SIZE; j += 2)
+                for (long i = chunk.Item1; i < chunk.Item2; i++)
                 {
-                    state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
-                    ushort sample = (ushort)((state_var ^ mask) >> 8);
-                    if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                    if (Volatile.Read(ref seedFound))
+                        break;
+                    uint seed = (uint)i;
+                    uint mult = FIXED_SEEDS[seed & 7];
+                    uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
+                    uint mask = state_var;
+                    bool match = true;
+                    for (int j = 0; j < SECTOR_SIZE; j += 2)
                     {
-                        match = false;
+                        state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
+                        ushort sample = (ushort)((state_var ^ mask) >> 8);
+                        if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                    {
+                        Volatile.Write(ref foundSeed, seed);
+                        Volatile.Write(ref seedFound, true);
+                        state.Stop();
                         break;
                     }
-                }
-                if (match)
-                {
-                    System.Threading.Volatile.Write(ref foundSeed, seed);
-                    System.Threading.Volatile.Write(ref seedFound, true);
-                    state.Stop();
                 }
             });
 
@@ -94,12 +104,15 @@ namespace XboxKit
             for (int i = 0; i < VIDEO_LENGTH.Length; i++)
                 VIDEO_LENGTH[i] = VIDEO_L0_LENGTH[i] + VIDEO_L1_LENGTH[i];
 
-            bool skipVideo = false;
-            bool unpackVideo = false;
+            bool help = false;
+            bool onlyXISO = false;
             bool onlyVideo = false;
+            bool wipeXISO = false;
+            bool unpackVideo = false;
             string isoPath = string.Empty;
             string videoPath = string.Empty;
             string updatePath = string.Empty;
+            List<string> filePaths = new();
 
             // Check arguments
             if ((args.Length == 0) || (args.Length > 5))
@@ -107,63 +120,46 @@ namespace XboxKit
                 PrintHelp();
                 return;
             }
-            bool helpPrinted = false;
-            for (int i = 0; i < args.Length; i++)
+            foreach (var arg in args)
             {
-                string arg = args[i];
-                if (arg.Equals("--h", StringComparison.OrdinalIgnoreCase) || arg.Equals("--help", StringComparison.OrdinalIgnoreCase))
+                switch (arg.ToLowerInvariant())
                 {
-                    if (!helpPrinted)
-                        PrintHelp();
-                }
-                else if (arg.Equals("-s", StringComparison.OrdinalIgnoreCase) || arg.Equals("--skip", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (unpackVideo)
-                    {
-                        Console.WriteLine("Cannot use both --unpack and --skip");
-                        return;
-                    }
-                    else if (onlyVideo)
-                    {
-                        Console.WriteLine("Cannot use both --video-only and --skip");
-                        //return;
-                    }
-                    skipVideo = true;
-                }
-                else if (arg.Equals("-u", StringComparison.OrdinalIgnoreCase) || arg.Equals("--unpack", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (skipVideo)
-                    {
-                        Console.WriteLine("Cannot use both --skip and --unpack");
-                        return;
-                    }
-                    unpackVideo = true;
-                }
-                else if (arg.Equals("-v", StringComparison.OrdinalIgnoreCase) || arg.Equals("--video-only", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (skipVideo)
-                    {
-                        Console.WriteLine("Cannot use both --skip and --video-only");
-                        //return;
-                    }
-                    onlyVideo = true;
-                }
-                else
-                {
-                    if(string.IsNullOrEmpty(isoPath))
-                        isoPath = arg;
-                    else if (string.IsNullOrEmpty(videoPath))
-                        videoPath = arg;
-                    else if (string.IsNullOrEmpty(updatePath))
-                        updatePath = arg;
-                    else
-                    {
-                        if (!helpPrinted)
-                            PrintHelp();
-                        return;
-                    }
+                    case "--h":
+                    case "--help":
+                        helpRequested = true;
+                        break;
+                    case "-x":
+                    case "--xiso-only":
+                        onlyXISO = true;
+                        break;
+                    case "-u":
+                    case "--unpack-video":
+                        unpackVideo = true;
+                        break;
+                    case "-v":
+                    case "--video-only":
+                        onlyVideo = true;
+                        break;
+                    case "-w":
+                    case "--wipe-xiso":
+                        wipeXISO = true;
+                        break;
+                    default:
+                        filePaths.Add(arg);
+                        break;
                 }
             }
+            //if (help || (onlyXISO && onlyVideo) || (onlyXISO && unpackVideo) || (onlyVideo && wipeXISO))
+            //{
+            //    PrintHelp();
+            //    return;
+            //}
+            if (filePaths.Count > 0)
+                isoPath = filePaths[0];
+            if (filePaths.Count > 1)
+                videoPath = filePaths[1];
+            if (filePaths.Count > 2)
+                updatePath = filePaths[2];
 
             // Determine input filenames
             string dir = Path.GetDirectoryName(isoPath);
@@ -310,7 +306,7 @@ namespace XboxKit
                 Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
                 long numBytes = 0;
                 byte[] buf = new byte[64 * SECTOR_SIZE];
-                if (!skipVideo)
+                if (!onlyXISO)
                 {
                     long l0Length = VIDEO_L0_LENGTH[videoType];
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -351,9 +347,9 @@ namespace XboxKit
                         return;
                     }
                 }
-                else
+                else if (!wipeXISO)
                 {
-                    Console.WriteLine("[INFO] Skipping video partition creation");
+                    //Console.WriteLine("[INFO] Skipping video partition creation");
                 }
 
                 // Determine size of output XISO
@@ -371,6 +367,214 @@ namespace XboxKit
                     return;
                 }
 
+                // Get XGD1 Version
+                if (xgdType == 0)
+                {
+                    isoFS.Seek(XISO_OFFSET[xgdType] + 0x10800, SeekOrigin.Begin);
+                    byte[] magic = new byte[XDVDFS_MAGIC.Length];
+                    int magicLength = XDVDFS_MAGIC.Length;
+                    numBytes = 0;
+                    while (numBytes < magicLength)
+                    {
+                        int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != magicLength)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
+                        return;
+                    }
+                    if (!SequenceEqual(magic, XDVDFS_MAGIC))
+                    {
+                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
+                        return;
+                    }
+
+                    // Determine XGD1 wave
+                    byte[] nextBuf = new byte[8];
+                    isoFS.Seek(XISO_OFFSET[xgdType] + 0x10820, SeekOrigin.Begin);
+                    numBytes = 0;
+                    while (numBytes < nextBuf.Length)
+                    {
+                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != nextBuf.Length)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
+                        return;
+                    }
+                    int versionOffset = 0x10824;
+                    if (SequenceEqual(nextBuf, new byte[8]))
+                        versionOffset += 0x10;
+
+                    byte[] versionBuf = new byte[2];
+                    isoFS.Seek(XISO_OFFSET[xgdType] + versionOffset, SeekOrigin.Begin);
+                    numBytes = 0;
+                    while (numBytes < versionBuf.Length)
+                    {
+                        int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != 2)
+                    {
+                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
+                        return;
+                    }
+                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+                    if (version == 0)
+                    {
+                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[INFO] XGD1 Version: {version}");
+                    }
+
+                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                    byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                    numBytes = 0;
+                    while (numBytes < SECTOR_SIZE)
+                    {
+                        int bytesRead = isoFS.Read(firstXISOSector, 0, (int)Math.Min(firstXISOSector.Length, SECTOR_SIZE - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != SECTOR_SIZE)
+                    {
+                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                        return;
+                    }
+                    if (GuessSeed(firstXISOSector, out uint seed))
+                    {
+                        if (version <= 4830)
+                            Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                        else
+                            Console.WriteLine($"[INFO] RC4? But found seed: {seed:X8}");
+                    }
+                    else
+                    {
+                        if (version < 4721)
+                            Console.WriteLine("[INFO Could not determine seed");
+                        if (version < 5000)
+                            Console.WriteLine("[INFO] Could not determine seed, RC4?");
+                        else
+                            Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
+                        Console.WriteLine($"[INFO] Seed: {seed:X8}");
+                    }
+                }
+
+                // Don't create XISO if only extracting video partition
+                if (!onlyVideo)
+                {
+
+                    // Write XISO to file
+                    using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                    isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
+                    long xisoLength = XISO_LENGTH[outputXISOType];
+                    numBytes = 0;
+                    while (numBytes < xisoLength)
+                    {
+                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
+                        if (bytesRead == 0)
+                            break;
+
+                        xisoFS.Write(buf, 0, bytesRead);
+                        numBytes += bytesRead;
+                    }
+                    if (numBytes != xisoLength)
+                    {
+                        Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
+                        return;
+                    }
+                }
+                else
+                {
+                    //Console.WriteLine("[INFO] Skipping XISO creation");
+                }
+
+                // If XGD3, try extract system update file from video partition
+                if (outputXISOType == 3 && unpackVideo)
+                {
+                    using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    long videoLength = videoFS.Length;
+                    long pos = videoLength;
+                    byte[] videoBuf = new byte[16];
+                    while (pos > 0)
+                    {
+                        videoFS.Seek(pos - SECTOR_SIZE, SeekOrigin.Begin);
+                        videoFS.Read(videoBuf, 0, 16);
+                        if (FILLER.AsSpan().SequenceEqual(videoBuf))
+                            break;
+
+                        pos -= SECTOR_SIZE;
+                    }
+
+                    // Set update path to default if unset
+                    if (string.IsNullOrEmpty(updatePath))
+                        updatePath = Path.Combine(dir, "su20076000_00000000");
+
+                    if (File.Exists(updatePath))
+                        Console.WriteLine($"[INFO] Skipping unpacking, system update file already exists: {updatePath}");
+                    else
+                    {
+                        Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
+                        using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                        long updateOffset = pos;
+                        long updateLength = videoLength - updateOffset - SECTOR_SIZE;
+                        numBytes = 0;
+                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
+                        while (numBytes < updateLength)
+                        {
+                            int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, updateLength - numBytes));
+                            if (bytesRead == 0)
+                                break;
+
+                            updateFS.Write(buf, 0, bytesRead);
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != updateLength)
+                        {
+                            Console.WriteLine("[ERROR] Failed writing system update file.");
+                            return;
+                        }
+
+                        byte[] emptyArray = new byte[64 * SECTOR_SIZE];
+                        numBytes = 0;
+                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
+                        while (numBytes < updateLength)
+                        {
+                            int bytesToWrite = (int)Math.Min(buf.Length, updateLength - numBytes);
+                            if (bytesToWrite == 0)
+                                break;
+                            
+                            videoFS.Write(emptyArray, 0, bytesToWrite);
+                            numBytes += bytesToWrite;
+                        }
+                        if (numBytes != updateLength)
+                        {
+                            Console.WriteLine("[ERROR] Failed zeroing system update file in video partition.");
+                            return;
+                        }
+                    }
+                }
+            }
+            // Mode 2: Wipe filler data from XISO
+            else if (wipeXISO && xisoType >= 0)
+            {
                 // Get XGD1 Version
                 if (outputXISOType == 0)
                 {
@@ -479,104 +683,8 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] Seed: {seed:X8}");
                     }
                 }
-
-                // Don't create XISO if only extracting video partition
-                if (!onlyVideo)
-                {
-
-                    // Write XISO to file
-                    using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
-                    isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
-                    long xisoLength = XISO_LENGTH[outputXISOType];
-                    numBytes = 0;
-                    while (numBytes < xisoLength)
-                    {
-                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        xisoFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != xisoLength)
-                    {
-                        Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
-                        return;
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("[INFO] Skipping XISO creation");
-                }
-
-                // If XGD3, try extract system update file from video partition
-                if (outputXISOType == 3 && unpackVideo)
-                {
-                    using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    long videoLength = videoFS.Length;
-                    long pos = videoLength;
-                    byte[] videoBuf = new byte[16];
-                    while (pos > 0)
-                    {
-                        videoFS.Seek(pos - SECTOR_SIZE, SeekOrigin.Begin);
-                        videoFS.Read(videoBuf, 0, 16);
-                        if (FILLER.AsSpan().SequenceEqual(videoBuf))
-                            break;
-
-                        pos -= SECTOR_SIZE;
-                    }
-
-                    // Set update path to default if unset
-                    if (string.IsNullOrEmpty(updatePath))
-                        updatePath = Path.Combine(dir, "su20076000_00000000");
-
-                    if (File.Exists(updatePath))
-                        Console.WriteLine($"[INFO] Skipping unpacking, system update file already exists: {updatePath}");
-                    else
-                    {
-                        Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                        using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                        long updateOffset = pos;
-                        long updateLength = videoLength - updateOffset - SECTOR_SIZE;
-                        numBytes = 0;
-                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                        while (numBytes < updateLength)
-                        {
-                            int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, updateLength - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            updateFS.Write(buf, 0, bytesRead);
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != updateLength)
-                        {
-                            Console.WriteLine("[ERROR] Failed writing system update file.");
-                            return;
-                        }
-
-                        byte[] emptyArray = new byte[64 * SECTOR_SIZE];
-                        numBytes = 0;
-                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                        while (numBytes < updateLength)
-                        {
-                            int bytesToWrite = (int)Math.Min(buf.Length, updateLength - numBytes);
-                            if (bytesToWrite == 0)
-                                break;
-                            
-                            videoFS.Write(emptyArray, 0, bytesToWrite);
-                            numBytes += bytesToWrite;
-                        }
-                        if (numBytes != updateLength)
-                        {
-                            Console.WriteLine("[ERROR] Failed zeroing system update file in video partition.");
-                            return;
-                        }
-                    }
-                }
             }
-            // Mode 2: Combine XISO and video ISO into redump ISO
+            // Mode 3: Combine XISO and video ISO into redump ISO
             else if (xisoType >= 0)
             {
                 // Check that video partition exists
@@ -776,7 +884,7 @@ namespace XboxKit
                     }
                 }
             }
-            // Mode 3: Extract system update file from video ISO
+            // Mode 4: Extract system update file from video ISO
             else if (videoIsoType >= 0)
             {
                 // Check that no other file paths are given
