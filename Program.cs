@@ -90,8 +90,8 @@ namespace XboxKit
 
         private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
         {
-            state = (uint)(((state + 1UL) * mult) % 0xFFFFFFFB);
-            return state ^ mask;
+            state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
+            return state_var ^ mask;
         }
 
         static void Main(string[] args)
