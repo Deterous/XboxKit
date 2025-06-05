@@ -99,15 +99,15 @@ namespace XboxKit
             return seedFound;
         }
 
-        private static uint Value(ref uint mask, ref uint mult, ref uint c)
+        private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
         {
             UInt64 result;
             result = state_var;
             result += 1;
             result *= mult;
             result %= 0xFFFFFFFB;
-            c = (UInt32)(result & 0xFFFFFFFF);
-            return c ^ mask;
+            state_var = (UInt32)(result & 0xFFFFFFFF);
+            return state_var ^ mask;
         }
 
         static void Main(string[] args)
