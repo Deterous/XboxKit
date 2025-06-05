@@ -62,13 +62,13 @@ namespace XboxKit
             Parallel.For(0L, 4294967296L, (i, state) =>
             {
                 bool match = true;
-                //uint seed = (uint)i;
+                uint seed = (uint)i;
                 //uint mult = FIXED_SEEDS[seed & 7];
                 //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
                 //uint c = seed;
                 uint a_t = 0;
                 uint b_t = FIXED_SEEDS[seed & 7];
-                uint c_t = (uint)i;
+                uint c_t = seed;
                 a_t = Value(ref a_t, ref b_t, ref c_t);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
@@ -88,7 +88,7 @@ namespace XboxKit
                 }
                 if (match)
                 {
-                    System.Threading.Volatile.Write(ref foundSeed, (uint)i);
+                    System.Threading.Volatile.Write(ref foundSeed, seed);
                     System.Threading.Volatile.Write(ref seedFound, true);
                     state.Stop();
                 }
