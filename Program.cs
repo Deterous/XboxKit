@@ -63,12 +63,14 @@ namespace XboxKit
             {
                 bool match = true;
                 uint seed = (uint)i;
+                uint mask = 0;
                 uint mult = FIXED_SEEDS[seed & 7];
-                uint state_var = seed;
-                uint mask = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
+                uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
+                uint mask = state_var;
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
-                    ushort sample = (ushort)(Value(ref mask, ref mult, ref state_var) >> 8);
+                    state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
+                    ushort sample = (ushort)((state_var ^ mask) >> 8);
                     if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     {
                         match = false;
@@ -85,12 +87,6 @@ namespace XboxKit
 
             outSeed = foundSeed;
             return seedFound;
-        }
-
-        private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
-        {
-            state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
-            return state_var ^ mask;
         }
 
         static void Main(string[] args)
