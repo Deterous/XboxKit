@@ -60,13 +60,7 @@ namespace XboxKit
 
             Parallel.For(0L, 4294967296L, (i, state) =>
             {
-                if (seedFound)
-                {
-                    state.Stop();
-                    break;
-                }
                 bool match = true;
-
                 uint seed = (uint)i;
                 uint mult = FIXED_SEEDS[seed & 7];
                 uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
@@ -89,7 +83,6 @@ namespace XboxKit
                     foundSeed = seed;
                     seedFound = true;
                     state.Stop();
-                    break;
                 }
             });
 
