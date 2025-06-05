@@ -58,7 +58,7 @@ namespace XboxKit
             uint foundSeed = 0;
             bool seedFound = false;
 
-            Parallel.For(0x00000000, 0xFFFFFFFF, (i, state) => // 0L, 4294967296L
+            Parallel.For(0L, 4294967296L, (i, state) =>
             {
                 bool match = true;
                 //uint seed = (uint)i;
@@ -73,7 +73,7 @@ namespace XboxKit
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
-                    //ushort sample = (ushort)((c ^ mask) >> 8);
+                    //ushort sample = (ushort)((c ^ mask) >> 8); // wrong?
 
                     //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     UInt16 sampleGenerated = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
@@ -88,11 +88,8 @@ namespace XboxKit
                 }
                 if (match)
                 {
-                    Console.WriteLine("Seed found: 0x{0:x8}", i);
-                    foundSeed = (uint)i;
-                    seedFound = true;
-                    //System.Threading.Volatile.Write(ref foundSeed, (uint)i);
-                    //System.Threading.Volatile.Write(ref seedFound, true);
+                    System.Threading.Volatile.Write(ref foundSeed, (uint)i);
+                    System.Threading.Volatile.Write(ref seedFound, true);
                     state.Stop();
                 }
             });
