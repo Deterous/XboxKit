@@ -63,7 +63,6 @@ namespace XboxKit
             {
                 bool match = true;
                 uint seed = (uint)i;
-                uint mask = 0;
                 uint mult = FIXED_SEEDS[seed & 7];
                 uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
                 uint mask = state_var;
