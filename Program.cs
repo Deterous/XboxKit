@@ -63,24 +63,13 @@ namespace XboxKit
             {
                 bool match = true;
                 uint seed = (uint)i;
-                //uint mult = FIXED_SEEDS[seed & 7];
-                //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
-                //uint c = seed;
                 uint mask = 0;
                 uint mult = FIXED_SEEDS[seed & 7];
                 uint state_var = seed;
                 mask = Value(ref mask, ref mult, ref state_var);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
-                    //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
-                    //ushort sample = (ushort)((c ^ mask) >> 8); // wrong?
-
-                    //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
-                    UInt16 sample = (UInt16)(Value(ref mask, ref mult, ref state_var) >> 8);
-                    //byte low = (byte)(sampleGenerated & 0xff);
-                    //byte high = (byte)((sampleGenerated >> 8) & 0xff);
-
-                    //if ((sector[0 + j] != low) || (sector[1 + j] != high))
+                    ushort sample = Value(ref mask, ref mult, ref state_var);
                     if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     {
                         match = false;
@@ -99,15 +88,11 @@ namespace XboxKit
             return seedFound;
         }
 
-        private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
+        private static ushort Value(ref uint mask, ref uint mult, ref uint state_var)
         {
-            UInt64 result;
-            result = state_var;
-            result += 1;
-            result *= mult;
-            result %= 0xFFFFFFFB;
+            ulong result = ((state_var + 1) * mult) % 0xFFFFFFFB;
             state_var = (UInt32)(result & 0xFFFFFFFF);
-            return state_var ^ mask;
+            return (ushort)((state_var ^ mask) >> 8);
         }
 
         static void Main(string[] args)
