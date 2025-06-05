@@ -58,7 +58,7 @@ namespace XboxKit
             uint foundSeed = 0;
             bool seedFound = false;
 
-            Parallel.For(0L, 4294967296L, (i, state) => // 0x00000000 to 0xFFFFFFFF
+            Parallel.For(0x00000000, 0xFFFFFFFF, (i, state) => // 0L, 4294967296L
             {
                 bool match = true;
                 //uint seed = (uint)i;
@@ -80,7 +80,7 @@ namespace XboxKit
                     byte low = (byte)(sampleGenerated & 0xff);
                     byte high = (byte)((sampleGenerated >> 8) & 0xff);
 
-                    if ((sector[0 + j] != low) && (sector[1 + j] != high))
+                    if ((sector[0 + j] != low) || (sector[1 + j] != high))
                     {
                         match = false;
                         break;
