@@ -63,10 +63,9 @@ namespace XboxKit
             {
                 bool match = true;
                 uint seed = (uint)i;
-                uint mask = 0;
                 uint mult = FIXED_SEEDS[seed & 7];
                 uint state_var = seed;
-                mask = Value(ref mask, ref mult, ref state_var);
+                uint mask = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     ushort sample = (ushort)(Value(ref mask, ref mult, ref state_var) >> 8);
