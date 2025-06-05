@@ -79,7 +79,7 @@ namespace XboxKit
                         c = (uint)(((ulong)(c + 1) * f) % 0xFFFFFFFB);
                         ushort sample = (ushort)((c ^ mask) >> 8);
 
-                        if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
+                        if (sector[j] != (byte)sample && sector[j + 1] != (byte)(sample >> 8))
                         {
                             match = false;
                             break;
@@ -478,7 +478,7 @@ namespace XboxKit
                         if (version <= 4830)
                             Console.WriteLine($"[INFO] Found seed: {seed:X8}");
                         else
-                            Console.WriteLine($"[INFO] RC4 but found seed?: {seed:X8}");
+                            Console.WriteLine($"[INFO] RC4? But found seed: {seed:X8}");
                     }
                     else
                     {
@@ -488,6 +488,7 @@ namespace XboxKit
                             Console.WriteLine("[INFO] Could not determine seed, RC4?");
                         else
                             Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
+                        Console.WriteLine($"[INFO] Seed: {seed:X8}");
                     }
                 }
 
