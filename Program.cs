@@ -67,10 +67,9 @@ namespace XboxKit
                 //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
                 //uint c = seed;
                 uint a_t = 0;
-                uint b_t = 0;
-                uint c_t = 0;
-
-                Seed((uint)i, ref a_t, ref b_t, ref c_t);
+                uint b_t = FIXED_SEEDS[seed & 7];
+                uint c_t = (uint)i;
+                a_t = Value(ref a_t, ref b_t, ref c_t);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
@@ -97,14 +96,6 @@ namespace XboxKit
 
             outSeed = foundSeed;
             return seedFound;
-        }
-
-        private static void Seed(uint seed, ref uint a_t, ref uint b_t, ref uint c_t)
-        {
-            a_t = 0;
-            b_t = FIXED_SEEDS[seed & 7];
-            c_t = seed;
-            a_t = Value(ref a_t, ref b_t, ref c_t);
         }
 
         private static uint Value(ref uint a_t, ref uint b_t, ref uint c_t)
@@ -535,6 +526,10 @@ namespace XboxKit
                         Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                         return;
                     }
+                }
+                else
+                {
+                    Console.WriteLine("[INFO] Skipping XISO creation");
                 }
 
                 // If XGD3, try extract system update file from video partition
