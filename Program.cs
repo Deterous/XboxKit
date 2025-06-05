@@ -90,7 +90,9 @@ namespace XboxKit
 
         private static uint Value(ref uint mask, ref uint mult, ref uint state_var)
         {
-            ulong result = (state_var + 1) * mult;
+            ulong result = state_var;
+            result += 1;
+            result *= mult;
             result %= 0xFFFFFFFB;
             state_var = (UInt32)(result & 0xFFFFFFFF);
             return state_var ^ mask;
