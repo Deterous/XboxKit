@@ -88,7 +88,7 @@ namespace XboxKit
                 }
                 if (match)
                 {
-                    System.Threading.Volatile.Write(ref foundSeed, seed);
+                    System.Threading.Volatile.Write(ref foundSeed, (uint)i);
                     System.Threading.Volatile.Write(ref seedFound, true);
                     state.Stop();
                 }
@@ -101,7 +101,7 @@ namespace XboxKit
         private static void Seed(uint seed, ref uint a_t, ref uint b_t, ref uint c_t)
         {
             a_t = 0;
-            b_t = b_seeds[seed & 7];
+            b_t = FIXED_SEEDS[seed & 7];
             c_t = seed;
             a_t = Value(ref a_t, ref b_t, ref c_t);
         }
