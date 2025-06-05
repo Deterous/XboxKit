@@ -53,9 +53,9 @@ namespace XboxKit
         }
 
         // Brute force seed for pseudo random number generator
-        static bool GuessSeed(byte[] sector, out uint foundSeed)
+        static bool GuessSeed(byte[] sector, out uint outSeed)
         {
-            foundSeed = 0;
+            uint foundSeed = 0;
             bool seedFound = false;
 
             Parallel.For(0L, 4294967296L, (i, state) =>
@@ -86,6 +86,7 @@ namespace XboxKit
                 }
             });
 
+            outSeed = foundSeed;
             return seedFound;
         }
 
