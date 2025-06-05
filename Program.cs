@@ -55,6 +55,8 @@ namespace XboxKit
         // Brute force seed for pseudo random number generator
         static bool GuessSeed(byte[] sector, out uint outSeed)
         {
+            string hash = BitConverter.ToString(MD5.Create().ComputeHash(sector)).Replace("-", "").ToLower();
+            Console.WriteLine(string.Format("1st random sector md5 hash: {0}", hash));
             uint foundSeed = 0;
             bool seedFound = false;
 
