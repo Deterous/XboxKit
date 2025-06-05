@@ -66,21 +66,22 @@ namespace XboxKit
                 //uint mult = FIXED_SEEDS[seed & 7];
                 //uint mask = (uint)((ulong)(seed + 1) * mult) % 0xFFFFFFFB;
                 //uint c = seed;
-                uint a_t = 0;
-                uint b_t = FIXED_SEEDS[seed & 7];
-                uint c_t = seed;
-                a_t = Value(ref a_t, ref b_t, ref c_t);
+                uint mask = 0;
+                uint mult = FIXED_SEEDS[seed & 7];
+                uint state_var = seed;
+                mask = Value(ref mask, ref mult, ref state_var);
                 for (int j = 0; j < SECTOR_SIZE; j += 2)
                 {
                     //c = (uint)(((ulong)(c + 1) * mult) % 0xFFFFFFFB);
                     //ushort sample = (ushort)((c ^ mask) >> 8); // wrong?
 
                     //if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
-                    UInt16 sampleGenerated = (UInt16)(Value(ref a_t, ref b_t, ref c_t) >> 8);
-                    byte low = (byte)(sampleGenerated & 0xff);
-                    byte high = (byte)((sampleGenerated >> 8) & 0xff);
+                    UInt16 sample = (UInt16)(Value(ref mask, ref mult, ref state_var) >> 8);
+                    //byte low = (byte)(sampleGenerated & 0xff);
+                    //byte high = (byte)((sampleGenerated >> 8) & 0xff);
 
-                    if ((sector[0 + j] != low) || (sector[1 + j] != high))
+                    //if ((sector[0 + j] != low) || (sector[1 + j] != high))
+                    if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
                     {
                         match = false;
                         break;
@@ -98,15 +99,15 @@ namespace XboxKit
             return seedFound;
         }
 
-        private static uint Value(ref uint a_t, ref uint b_t, ref uint c_t)
+        private static uint Value(ref uint mask, ref uint mult, ref uint c)
         {
             UInt64 result;
-            result = c_t;
+            result = state_var;
             result += 1;
-            result *= b_t;
+            result *= mult;
             result %= 0xFFFFFFFB;
-            c_t = (UInt32)(result & 0xFFFFFFFF);
-            return c_t ^ a_t;
+            c = (UInt32)(result & 0xFFFFFFFF);
+            return c ^ mask;
         }
 
         static void Main(string[] args)
@@ -466,7 +467,6 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] XGD1 Version: {version}");
                     }
 
-                    Console.WriteLine("Guessing seed...");
                     isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
                     byte[] firstXISOSector = new byte[SECTOR_SIZE];
                     numBytes = 0;
