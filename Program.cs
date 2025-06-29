@@ -33,12 +33,10 @@ namespace XboxKit
             Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
             Console.WriteLine("Usage: xboxkit.exe [-u] [-v] [-w] [-x] <input.iso> [video.iso] [system_update_file]");
             Console.WriteLine("");
-            Console.WriteLine("Extraction Options:");
-            Console.WriteLine("-u, --unpack-video\t Unpacks XGD3 video partition (separate system update file)");
-            Console.WriteLine("-v, --video-only\t Skips creating game partition (only extract video ISO)");
-            Console.WriteLine("-w, --wipe-xiso\t Wipes filler data in game partition");
-            Console.WriteLine("-x, --xiso-only\t Skips creating video partition (only extract XISO)");
-            Console.WriteLine("Note: -x cannot be used with -u or -v");
+            Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
+            Console.WriteLine("-v, --video\t Extracts video ISO (video partition)");
+            Console.WriteLine("-w, --wipe\t Wipes filler data in game partition");
+            Console.WriteLine("-x, --xiso\t Extracts XISO (game partition)");
         }
 
         // Check two byte arrays are equal
@@ -106,8 +104,8 @@ namespace XboxKit
                 VIDEO_LENGTH[i] = VIDEO_L0_LENGTH[i] + VIDEO_L1_LENGTH[i];
 
             bool help = false;
-            bool onlyXISO = false;
-            bool onlyVideo = false;
+            bool extractXISO = false;
+            bool extractVideo = false;
             bool wipeXISO = false;
             bool unpackVideo = false;
             string isoPath = string.Empty;
@@ -130,19 +128,19 @@ namespace XboxKit
                         help = true;
                         break;
                     case "-x":
-                    case "--xiso-only":
-                        onlyXISO = true;
+                    case "--xiso":
+                        extractXISO = true;
                         break;
                     case "-u":
-                    case "--unpack-video":
+                    case "--update-file":
                         unpackVideo = true;
                         break;
                     case "-v":
-                    case "--video-only":
-                        onlyVideo = true;
+                    case "--video":
+                        extractVideo = true;
                         break;
                     case "-w":
-                    case "--wipe-xiso":
+                    case "--wipe":
                         wipeXISO = true;
                         break;
                     default:
@@ -150,7 +148,7 @@ namespace XboxKit
                         break;
                 }
             }
-            if (help)// || (onlyXISO && onlyVideo) || (onlyXISO && unpackVideo) || (onlyVideo && wipeXISO))
+            if (help)
             {
                 PrintHelp();
                 return;
@@ -165,6 +163,11 @@ namespace XboxKit
             // Determine input filenames
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
+            if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
+            {
+                Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
+                return;
+            }
 
             // Determine output filenames
             if (string.IsNullOrEmpty(videoPath))
@@ -190,125 +193,124 @@ namespace XboxKit
                 redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
             }
 
-            // Check that input ISO exists
-            if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
-            {
-                Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
-                return;
-            }
-            if (string.IsNullOrEmpty(videoPath))
-            {
-                Console.WriteLine($"[ERROR] Invalid file path: {videoPath}");
-                return;
-            }
-
-            // Compare input file size against known ISO sizes to determine XGD Type
+            // Compare input ISO file size to determine file type
             FileInfo isoInfo = new(isoPath);
             long isoSize = isoInfo.Length;
-            int xgdType = Array.IndexOf(REDUMP_ISO_LENGTH, isoSize);
+            int redumpIsoType = Array.IndexOf(REDUMP_ISO_LENGTH, isoSize);
             int xisoType = Array.IndexOf(XISO_LENGTH, isoSize);
             int videoIsoType = Array.IndexOf(VIDEO_LENGTH, isoSize);
             // Unknown Mode: Invalid file size
-            if (xgdType < 0 && xisoType < 0 && videoIsoType < 0)
+            if (redumpIsoType < 0 && xisoType < 0 && videoIsoType < 0)
             {
                 Console.WriteLine("[ERROR] Unexpected ISO size. Your file may be trimmed or corrupt.");
                 return;
             }
             // Unknown mode: (shouldn't happen)
-            else if (((xgdType >= 0 ? 1 : 0) + (xisoType >= 0 ? 1 : 0) + (videoIsoType >= 0 ? 1 : 0)) >= 2)
+            else if (((redumpIsoType >= 0 ? 1 : 0) + (xisoType >= 0 ? 1 : 0) + (videoIsoType >= 0 ? 1 : 0)) >= 2)
             {
                 Console.WriteLine("[ERROR] Unexpected ISO size. Report this issue");
                 return;
             }
-            // Mode 1: Extract XISO and video ISO from redump ISO
-            else if (xgdType >= 0)
+            // Mode 1: Redump ISO as input (Wipe XISO and/or Extract XISO and/or video ISO)
+            else if (redumpIsoType >= 0)
             {
-                // Check that unpack flag is set if third file path is given
-                if (!unpackVideo && !string.IsNullOrEmpty(updatePath))
-                {
-                    Console.WriteLine("[ERROR] To unpack the system update file use -u or --unpack");
-                    Console.WriteLine("        or exclude the third filename to write video partition intact");
-                    return;
-                }
-
                 // Check that video partition doesn't exist
-                if (xgdType >= 0 && File.Exists(videoPath))
+                if (extractVideo && redumpIsoType >= 0 && File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {videoPath}");
                     return;
                 }
 
-                // Compare PVD against known PVDs to determine wave
-                int? wave = null;
-                if (xgdType == 4)
-                {
-                    try
-                    {
-                        using FileStream fs = new(isoPath, FileMode.Open, FileAccess.Read);
-                        fs.Seek(0x832D, SeekOrigin.Begin);
-                        byte[] pvd = new byte[16];
-                        int bytesRead = fs.Read(pvd, 0, pvd.Length);
-                        if (bytesRead == 16)
-                        {
-                            string pvdString = Encoding.ASCII.GetString(pvd);
-                            wave = Array.IndexOf(WAVE_PVD, pvdString);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[ERROR] Failed to read PVD from {isoPath}");
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] {ex.Message}");
-                        return;
-                    }
-                }
-
-                int videoType = xgdType switch
+                // Determine disc type
+                long xgdType = redumpIsoType switch
                 {
                     0 => 0, // XGD1
-                    1 => 1, // XGD2 Wave 0
-                    2 => 2, // XGD2 Wave 1
-                    3 => 3, // XGD2 Wave 2
-                    4 => wave switch // XGD2 Wave 3-20
-                    {
-                        0 => 1,                // E9B8ECFE
-                        1 => 2,                // 739CEAB3
-                        2 => 3,                // A4CFB59C
-                        3 => 4,                // 2A4CCBD3
-                        4 or 5 or 6 or 7 => 5, // 05C6C409
-                        8 or 9 => 6,           // 0441D6A5
-                        10 or 11 or 12 => 7,   // E18BC70B
-                        13 => 8,               // 40DCB18F
-                        14 or 15 => 9,         // 23A198FC
-                        16 => 10,              // AB25DB47
-                        17 or 18 => 11,        // 169EF597
-                        19 => 12,              // 169EF597
-                        20 => 13,              // 032CCF37
-                        21 => 14,              // F48D24B8
-                        22 => 0,               // 8FC52135
-                        _ => -1,
-                    },
-                    5 => 14, // XGD2 (Hybrid)
-                    6 => 15, // XGD3 (v0)
-                    7 => 16, // XGD3
+                    1 or 2 or 3 or 4 => 1, // XGD2
+                    5 => 2, // XGD2 (Hybrid)
+                    6 or 7 => 3, // XGD3
                     _ => -1,
                 };
-                if (videoType == -1)
+                if (xgdType == -1)
                 {
-                    Console.WriteLine("[ERROR] Unexpected video partition. Cannot determine wave");
+                    Console.WriteLine("[ERROR] Unexpected ISO size. Is this a valid redump ISO?");
                     return;
                 }
 
-                // Write layer 0 portion of video partition
+                // Open redump ISO for reading
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
                 long numBytes = 0;
                 byte[] buf = new byte[64 * SECTOR_SIZE];
-                if (!onlyXISO)
+
+                // Extract video partition
+                if (extractVideo)
                 {
+                    // Compare PVD against known PVDs to determine wave
+                    int? wave = null;
+                    if (redumpIsoType == 4)
+                    {
+                        try
+                        {
+                            using FileStream fs = new(isoPath, FileMode.Open, FileAccess.Read);
+                            fs.Seek(0x832D, SeekOrigin.Begin);
+                            byte[] pvd = new byte[16];
+                            int bytesRead = fs.Read(pvd, 0, pvd.Length);
+                            if (bytesRead == 16)
+                            {
+                                string pvdString = Encoding.ASCII.GetString(pvd);
+                                wave = Array.IndexOf(WAVE_PVD, pvdString);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[ERROR] Failed to read PVD from {isoPath}");
+                                return;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ERROR] {ex.Message}");
+                            return;
+                        }
+                    }
+
+                    // Determine size of output video ISO
+                    int videoType = redumpIsoType switch
+                    {
+                        0 => 0, // XGD1
+                        1 => 1, // XGD2 Wave 0
+                        2 => 2, // XGD2 Wave 1
+                        3 => 3, // XGD2 Wave 2
+                        4 => wave switch // XGD2 Wave 3-20
+                        {
+                            0 => 1,                // E9B8ECFE
+                            1 => 2,                // 739CEAB3
+                            2 => 3,                // A4CFB59C
+                            3 => 4,                // 2A4CCBD3
+                            4 or 5 or 6 or 7 => 5, // 05C6C409
+                            8 or 9 => 6,           // 0441D6A5
+                            10 or 11 or 12 => 7,   // E18BC70B
+                            13 => 8,               // 40DCB18F
+                            14 or 15 => 9,         // 23A198FC
+                            16 => 10,              // AB25DB47
+                            17 or 18 => 11,        // 169EF597
+                            19 => 12,              // 169EF597
+                            20 => 13,              // 032CCF37
+                            21 => 14,              // F48D24B8
+                            22 => 0,               // 8FC52135
+                            _ => -1,
+                        },
+                        5 => 14, // XGD2 (Hybrid)
+                        6 => 15, // XGD3 (v0)
+                        7 => 16, // XGD3
+                        _ => -1,
+                    };
+                    if (videoType == -1)
+                    {
+                        Console.WriteLine("[ERROR] Unexpected video partition. Cannot determine wave");
+                        return;
+                    }
+
+                    // Write layer 0 portion of video partition
                     long l0Length = VIDEO_L0_LENGTH[videoType];
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
@@ -348,144 +350,127 @@ namespace XboxKit
                         return;
                     }
                 }
-                else if (!wipeXISO)
+                
+                if (wipeXISO)
                 {
-                    //Console.WriteLine("[INFO] Skipping video partition creation");
-                }
+                    // Get XGD1 Version
+                    if (xgdType == 0)
+                    {
+                        isoFS.Seek(XISO_OFFSET[xgdType] + 0x10800, SeekOrigin.Begin);
+                        byte[] magic = new byte[XDVDFS_MAGIC.Length];
+                        int magicLength = XDVDFS_MAGIC.Length;
+                        numBytes = 0;
+                        while (numBytes < magicLength)
+                        {
+                            int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
+                            if (bytesRead == 0)
+                                break;
 
-                // Determine size of output XISO
-                long outputXISOType = xgdType switch
-                {
-                    0 => 0, // XGD1
-                    1 or 2 or 3 or 4 => 1, // XGD2
-                    5 => 2, // XGD2 (Hybrid)
-                    6 or 7 => 3, // XGD3
-                    _ => -1,
-                };
-                if (outputXISOType == -1)
-                {
-                    Console.WriteLine("[ERROR] Unexpected ISO size. Is this a valid redump ISO?");
-                    return;
-                }
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != magicLength)
+                        {
+                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
+                            return;
+                        }
+                        if (!SequenceEqual(magic, XDVDFS_MAGIC))
+                        {
+                            Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
+                            return;
+                        }
 
-                // Get XGD1 Version
-                if (xgdType == 0)
-                {
-                    isoFS.Seek(XISO_OFFSET[xgdType] + 0x10800, SeekOrigin.Begin);
-                    byte[] magic = new byte[XDVDFS_MAGIC.Length];
-                    int magicLength = XDVDFS_MAGIC.Length;
-                    numBytes = 0;
-                    while (numBytes < magicLength)
-                    {
-                        int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
-                        if (bytesRead == 0)
-                            break;
+                        // Determine XGD1 wave
+                        byte[] nextBuf = new byte[8];
+                        isoFS.Seek(XISO_OFFSET[xgdType] + 0x10820, SeekOrigin.Begin);
+                        numBytes = 0;
+                        while (numBytes < nextBuf.Length)
+                        {
+                            int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
+                            if (bytesRead == 0)
+                                break;
 
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != magicLength)
-                    {
-                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
-                        return;
-                    }
-                    if (!SequenceEqual(magic, XDVDFS_MAGIC))
-                    {
-                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
-                        return;
-                    }
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != nextBuf.Length)
+                        {
+                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
+                            return;
+                        }
+                        int versionOffset = 0x10824;
+                        if (SequenceEqual(nextBuf, new byte[8]))
+                            versionOffset += 0x10;
 
-                    // Determine XGD1 wave
-                    byte[] nextBuf = new byte[8];
-                    isoFS.Seek(XISO_OFFSET[xgdType] + 0x10820, SeekOrigin.Begin);
-                    numBytes = 0;
-                    while (numBytes < nextBuf.Length)
-                    {
-                        int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
-                        if (bytesRead == 0)
-                            break;
+                        byte[] versionBuf = new byte[2];
+                        isoFS.Seek(XISO_OFFSET[xgdType] + versionOffset, SeekOrigin.Begin);
+                        numBytes = 0;
+                        while (numBytes < versionBuf.Length)
+                        {
+                            int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
+                            if (bytesRead == 0)
+                                break;
 
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != nextBuf.Length)
-                    {
-                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
-                        return;
-                    }
-                    int versionOffset = 0x10824;
-                    if (SequenceEqual(nextBuf, new byte[8]))
-                        versionOffset += 0x10;
-
-                    byte[] versionBuf = new byte[2];
-                    isoFS.Seek(XISO_OFFSET[xgdType] + versionOffset, SeekOrigin.Begin);
-                    numBytes = 0;
-                    while (numBytes < versionBuf.Length)
-                    {
-                        int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != 2)
-                    {
-                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
-                        return;
-                    }
-                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
-                    if (version == 0)
-                    {
-                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[INFO] XGD1 Version: {version}");
-                    }
-
-                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                    byte[] firstXISOSector = new byte[SECTOR_SIZE];
-                    numBytes = 0;
-                    while (numBytes < SECTOR_SIZE)
-                    {
-                        int bytesRead = isoFS.Read(firstXISOSector, 0, (int)Math.Min(firstXISOSector.Length, SECTOR_SIZE - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != SECTOR_SIZE)
-                    {
-                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
-                        return;
-                    }
-                    if (GuessSeed(firstXISOSector, out uint seed))
-                    {
-                        if (version <= 4830)
-                            Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != 2)
+                        {
+                            Console.WriteLine("[ERROR] Failed to read XGD1 version.");
+                            return;
+                        }
+                        ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+                        if (version == 0)
+                        {
+                            Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
+                            return;
+                        }
                         else
-                            Console.WriteLine($"[INFO] RC4? But found seed: {seed:X8}");
-                    }
-                    else
-                    {
-                        if (version < 4721)
-                            Console.WriteLine("[INFO Could not determine seed");
-                        if (version < 5000)
-                            Console.WriteLine("[INFO] Could not determine seed, RC4?");
+                        {
+                            Console.WriteLine($"[INFO] XGD1 Version: {version}");
+                        }
+
+                        isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                        byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                        numBytes = 0;
+                        while (numBytes < SECTOR_SIZE)
+                        {
+                            int bytesRead = isoFS.Read(firstXISOSector, 0, (int)Math.Min(firstXISOSector.Length, SECTOR_SIZE - numBytes));
+                            if (bytesRead == 0)
+                                break;
+
+                            numBytes += bytesRead;
+                        }
+                        if (numBytes != SECTOR_SIZE)
+                        {
+                            Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                            return;
+                        }
+                        if (GuessSeed(firstXISOSector, out uint seed))
+                        {
+                            if (version <= 4830)
+                                Console.WriteLine($"[INFO] Found seed: {seed:X8}");
+                            else
+                                Console.WriteLine($"[INFO] RC4? But found seed: {seed:X8}");
+                        }
                         else
-                            Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
-                        Console.WriteLine($"[INFO] Seed: {seed:X8}");
+                        {
+                            if (version < 4721)
+                                Console.WriteLine("[INFO Could not determine seed");
+                            if (version < 5000)
+                                Console.WriteLine("[INFO] Could not determine seed, RC4?");
+                            else
+                                Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
+                            Console.WriteLine($"[INFO] Seed: {seed:X8}");
+                        }
                     }
                 }
 
-                // Don't create XISO if only extracting video partition
-                if (!onlyVideo)
+                // Extract game partition
+                if (extractXISO)
                 {
-
                     // Write XISO to file
                     using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
-                    isoFS.Seek(XISO_OFFSET[outputXISOType], SeekOrigin.Begin);
-                    long xisoLength = XISO_LENGTH[outputXISOType];
+                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                    long xisoLength = XISO_LENGTH[xgdType];
                     numBytes = 0;
                     while (numBytes < xisoLength)
                     {
@@ -502,13 +487,9 @@ namespace XboxKit
                         return;
                     }
                 }
-                else
-                {
-                    //Console.WriteLine("[INFO] Skipping XISO creation");
-                }
 
                 // If XGD3, try extract system update file from video partition
-                if (outputXISOType == 3 && unpackVideo)
+                if (unpackVideo && xgdType == 3)
                 {
                     using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                     long videoLength = videoFS.Length;
@@ -573,16 +554,11 @@ namespace XboxKit
                     }
                 }
             }
-            // Mode 2: Wipe filler data from XISO
-            else if (wipeXISO && xisoType >= 0)
-            {
-                //
-            }
-            // Mode 3: Combine XISO and video ISO into redump ISO
+            // Mode 2: XISO as input (Combine XISO and video ISO into redump ISO and/or wipe filler data from XISO)
             else if (xisoType >= 0)
             {
                 // Check that video partition exists
-                if (xisoType >= 0 && !File.Exists(videoPath))
+                if (!wipeXISO !File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] Invalid file path: {videoPath}");
                     Console.WriteLine("Provide a file path to the video partition to rebuild the redump ISO.");
@@ -778,7 +754,7 @@ namespace XboxKit
                     }
                 }
             }
-            // Mode 4: Extract system update file from video ISO
+            // Mode 3: Video ISO as input (Extract system update file from video ISO)
             else if (videoIsoType >= 0)
             {
                 // Check that no other file paths are given
@@ -788,12 +764,14 @@ namespace XboxKit
                     Console.WriteLine("        To extract system update from video, provide only one ISO path");
                 }
 
-                // Must explicitly ask to extract system update
+                // Check that user explicitly asks to extract system update
                 if (!unpackVideo)
                 {
                     Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
                     return;
                 }
+
+                // Check that video partition is from XGD3 disc
                 if (videoIsoType != 15 && videoIsoType != 16)
                 {
                     Console.WriteLine("[ERROR] Can only extract su20076000_00000000 from XGD3 video partitions.");
