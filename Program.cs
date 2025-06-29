@@ -353,9 +353,12 @@ namespace XboxKit
                 
                 if (wipeXISO)
                 {
-                    // Get XGD1 Version
+                    // Wipe XGD1
+                    bool 
+                    int xgd1Seed;
                     if (xgdType == 0)
                     {
+                        // Validate XGD1 magic bytes
                         isoFS.Seek(XISO_OFFSET[xgdType] + 0x10800, SeekOrigin.Begin);
                         byte[] magic = new byte[XDVDFS_MAGIC.Length];
                         int magicLength = XDVDFS_MAGIC.Length;
@@ -379,7 +382,7 @@ namespace XboxKit
                             return;
                         }
 
-                        // Determine XGD1 wave
+                        // Determine version offset
                         byte[] nextBuf = new byte[8];
                         isoFS.Seek(XISO_OFFSET[xgdType] + 0x10820, SeekOrigin.Begin);
                         numBytes = 0;
@@ -400,6 +403,7 @@ namespace XboxKit
                         if (SequenceEqual(nextBuf, new byte[8]))
                             versionOffset += 0x10;
 
+                        // Determine XGD1 version
                         byte[] versionBuf = new byte[2];
                         isoFS.Seek(XISO_OFFSET[xgdType] + versionOffset, SeekOrigin.Begin);
                         numBytes = 0;
@@ -427,6 +431,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] XGD1 Version: {version}");
                         }
 
+                        // Determine XGD1 seed, if possible
                         isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                         byte[] firstXISOSector = new byte[SECTOR_SIZE];
                         numBytes = 0;
@@ -445,20 +450,13 @@ namespace XboxKit
                         }
                         if (GuessSeed(firstXISOSector, out uint seed))
                         {
-                            if (version <= 4830)
-                                Console.WriteLine($"[INFO] Found seed: {seed:X8}");
-                            else
-                                Console.WriteLine($"[INFO] RC4? But found seed: {seed:X8}");
+                            Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                         }
                         else
                         {
+                            // Probably RC4-256-drop-2048
                             if (version < 4721)
-                                Console.WriteLine("[INFO Could not determine seed");
-                            if (version < 5000)
-                                Console.WriteLine("[INFO] Could not determine seed, RC4?");
-                            else
-                                Console.WriteLine("[INFO] This disc has RC4, cannot determine seed.");
-                            Console.WriteLine($"[INFO] Seed: {seed:X8}");
+                                Console.WriteLine("[INFO] Could not determine seed");
                         }
                     }
                 }
@@ -558,13 +556,13 @@ namespace XboxKit
             else if (xisoType >= 0)
             {
                 // Check that video partition exists
-                if (!wipeXISO !File.Exists(videoPath))
+                if (!wipeXISO && !File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] Invalid file path: {videoPath}");
                     Console.WriteLine("Provide a file path to the video partition to rebuild the redump ISO.");
                     return;
                 }
-                // Check that update file exists, if needed
+                // Check that update file exists, if given
                 if (!string.IsNullOrEmpty(updatePath) && !File.Exists(updatePath))
                 {
                     Console.WriteLine($"[ERROR] Invalid file path: {updatePath}");
