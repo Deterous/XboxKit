@@ -354,8 +354,8 @@ namespace XboxKit
                 if (wipeXISO)
                 {
                     // Wipe XGD1
-                    bool foundSeed;
-                    int xgd1Seed;
+                    bool foundSeed = false;
+                    uint xgd1Seed;
                     if (xgdType == 0)
                     {
                         // Validate XGD1 magic bytes
@@ -451,6 +451,7 @@ namespace XboxKit
                         foundSeed = GuessSeed(firstXISOSector, out uint seed);
                         if (foundSeed)
                         {
+                            xgd1Seed = seed;
                             Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                         }
                         else
