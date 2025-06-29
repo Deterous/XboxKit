@@ -354,7 +354,7 @@ namespace XboxKit
                 if (wipeXISO)
                 {
                     // Wipe XGD1
-                    bool 
+                    bool foundSeed;
                     int xgd1Seed;
                     if (xgdType == 0)
                     {
@@ -448,7 +448,8 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
                             return;
                         }
-                        if (GuessSeed(firstXISOSector, out uint seed))
+                        foundSeed = GuessSeed(firstXISOSector, out uint seed);
+                        if (foundSeed)
                         {
                             Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                         }
