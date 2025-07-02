@@ -593,8 +593,8 @@ namespace XboxKit
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
-                            isoFS.Seek(bytesToWipe, SeekOrigin.Begin);
-                            numBytes += bytesToWipe;
+                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                            numBytes += bytesWiped;
                         }
                         else
                         {
