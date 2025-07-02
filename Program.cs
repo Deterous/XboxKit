@@ -107,11 +107,9 @@ namespace XboxKit
             long cur = XISO_OFFSET[0] + rootOffset + childOffset;
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
+            Console.WriteLine($"Root: {rootOffset}, Sector: {curOffset}-{curOffset+curSize}");
             for (long i = curOffset; i < curOffset + curSize; i++)
-            {
-                Console.WriteLine($"Root: {rootOffset}, Sector: {i}");
                 validSectors.Add((uint)i);
-            }
 
             br.BaseStream.Position = cur;
 
@@ -136,11 +134,9 @@ namespace XboxKit
             {
                 long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                Console.WriteLine($"File: {entryOffset}, Sector: {fileOffset}-{fileOffset+fileSize}");
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
-                {
-                    Console.WriteLine($"File: {entryOffset}, Sector: {i}");
                     validSectors.Add((uint)i);
-                }
             }
 
             if (rightChildOffset != 0)
