@@ -113,17 +113,19 @@ namespace XboxKit
 
             br.BaseStream.Position = cur;
 
-            ushort leftChildOffset = br.ReadUInt16();
+            ushort leftChildOffset = br.ReadUInt16();            
             if (leftChildOffset == 0xFFFF)
                 return;
-            else if (leftChildOffset != 0)
+
+            ushort rightChildOffset = br.ReadUInt16();
+            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
+            uint entrySize = br.ReadUInt32();
+
+            if (leftChildOffset != 0)
             {
                 Console.WriteLine($"Left child: {leftChildOffset}");
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
             }
-            ushort rightChildOffset = br.ReadUInt16();
-            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
-            uint entrySize = br.ReadUInt32();
 
             if ((br.ReadByte() & 0x10) != 0)
             {
