@@ -546,7 +546,7 @@ namespace XboxKit
                     {
                         using (BinaryReader isoBR = new BinaryReader(isoFS))
                             validRanges = GetXISORanges(isoBR);
-                        if (validRanges.Length > 1)
+                        if (validRanges.Count > 1)
                             wipeableXISO = true;
                         foreach (var (start, end) in validRanges)
                             Console.WriteLine($"Start: {start}, End: {end}");
@@ -569,16 +569,16 @@ namespace XboxKit
                         if (wipeableXISO)
                         {
                             long currentSector = (numBytes / SECTOR_SIZE) + XISO_LENGTH[xgdType];
-                            for (int i = 0; i < ranges.Count; i++)
+                            for (int i = 0; i < validRanges.Count; i++)
                             {
-                                if (currentSector >= ranges[i].Start && currentSector <= ranges[i].End)
+                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
-                                    bytesUntilEnd = (ranges[i].End - currentSector) * SECTOR_SIZE;
+                                    bytesUntilEnd = (validRanges[i].End - currentSector) * SECTOR_SIZE;
                                     break;
                                 }
-                                else if (currentSector < ranges[i].Start && (i == 0 || currentSector > ranges[i - 1].End))
+                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
-                                    bytesToWipe = (ranges[i].Start - currentSector) * SECTOR_SIZE;
+                                    bytesToWipe = (validRanges[i].Start - currentSector) * SECTOR_SIZE;
                                     break;
                                 }
                             }
