@@ -32,8 +32,9 @@ namespace XboxKit
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
             Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-u] [-v] [-w] [-x] <input.iso> [video.iso] [system_update_file]");
+            Console.WriteLine("Usage: xboxkit.exe [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [system_update_file]");
             Console.WriteLine("");
+            Console.WriteLine("-t, --trim\t Trims end of game partition (use with --wipe)");
             Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video\t Extracts video ISO (video partition)");
             Console.WriteLine("-w, --wipe\t Wipes filler data in game partition");
@@ -181,6 +182,7 @@ namespace XboxKit
             bool help = false;
             bool extractXISO = false;
             bool extractVideo = false;
+            bool trimXISO = false;
             bool wipeXISO = false;
             bool unpackVideo = false;
             string isoPath = string.Empty;
@@ -202,9 +204,9 @@ namespace XboxKit
                     case "--help":
                         help = true;
                         break;
-                    case "-x":
-                    case "--xiso":
-                        extractXISO = true;
+                    case "-t":
+                    case "--trim":
+                        trimXISO = true;
                         break;
                     case "-u":
                     case "--update-file":
@@ -217,6 +219,10 @@ namespace XboxKit
                     case "-w":
                     case "--wipe":
                         wipeXISO = true;
+                        break;
+                    case "-x":
+                    case "--xiso":
+                        extractXISO = true;
                         break;
                     default:
                         filePaths.Add(arg);
@@ -572,8 +578,13 @@ namespace XboxKit
                             long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
                             if (currentSector > validRanges[validRanges.Count - 1].End)
                             {
-                                // Wipe remainder of XISO
+                                // Wipe or trim remainder of XISO
                                 bytesToWipe = XISO_OFFSET[xgdType] + xisoLength - currentByte;
+                                if (trimXISO)
+                                {
+                                    numBytes += bytesToWipe;
+                                    break;
+                                }
                             }
                             else
                             {
