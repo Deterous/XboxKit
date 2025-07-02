@@ -569,6 +569,7 @@ namespace XboxKit
                         if (wipeableXISO)
                         {
                             long currentSector = (numBytes + XISO_OFFSET[xgdType]) / SECTOR_SIZE;
+                            Console.WriteLine($"cur: {currentSector}");
                             for (int i = 0; i < validRanges.Count; i++)
                             {
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
@@ -594,6 +595,7 @@ namespace XboxKit
                                 bytesWiped += bytesToWrite;
                             }
                             isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                            Console.WriteLine($"numBytes: {numBytes} += {bytesWiped}");
                             numBytes += bytesWiped;
                         }
                         else
