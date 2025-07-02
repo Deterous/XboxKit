@@ -119,7 +119,7 @@ namespace XboxKit
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
 
             ushort rightChildOffset = br.ReadUInt16();
-            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE * 4;
+            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
             uint entrySize = br.ReadUInt32();
 
             if ((br.ReadByte() & 0x10) != 0)
@@ -426,9 +426,13 @@ namespace XboxKit
                 
                 if (wipeXISO)
                 {
+                    List<(uint, uint)> validRanges = new List<(uint, uint)>();
+
                     // Wipe XGD1
                     bool foundSeed = false;
                     uint xgd1Seed;
+
+                    // If XGD1, try brute force the seed
                     if (xgdType == 0)
                     {
                         // Validate XGD1 magic bytes
@@ -534,14 +538,17 @@ namespace XboxKit
                                 Console.WriteLine("[INFO] Could not determine seed");
                         }
                     }
+
+                    // If XGD1 with RC4, determine valid data ranges
                     if (xgdType == 0)
                     {
-                        List<(uint, uint)> ranges = new List<(uint, uint)>();
                         using (BinaryReader isoBR = new BinaryReader(isoFS))
-                            ranges = GetXISORanges(isoBR);
-                        foreach (var (start, end) in ranges)
+                            validRanges = GetXISORanges(isoBR);
+                        foreach (var (start, end) in validRanges)
                             Console.WriteLine($"Start: {start}, End: {end}");
                     }
+
+                    // Zero non-valid data ranges
                 }
 
                 // Extract game partition
