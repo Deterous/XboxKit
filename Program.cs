@@ -426,7 +426,7 @@ namespace XboxKit
                     }
                 }
                 
-                List<(uint, uint)> validRanges = new List<(uint, uint)>();
+                List<(uint Start, uint End)> validRanges = new List<(uint, uint)>();
                 bool wipeableXISO = false;
                 if (wipeXISO)
                 {
