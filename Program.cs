@@ -590,19 +590,23 @@ namespace XboxKit
                             while (bytesWiped < bytesToWipe)
                             {
                                 int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
+                                Console.WriteLine("1");
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
+                            Console.WriteLine("2");
                             isoFS.Seek(bytesWiped, SeekOrigin.Current);
                             numBytes += bytesWiped;
                         }
                         else
                         {
                             int bytesToRead = (int)Math.Min(bytesUntilEnd, xisoLength - numBytes);
+                            Console.WriteLine("3");
                             int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
                             if (bytesRead == 0)
                                 break;
 
+                            Console.WriteLine("4");
                             xisoFS.Write(buf, 0, bytesRead);
                             numBytes += bytesRead;
                         }
