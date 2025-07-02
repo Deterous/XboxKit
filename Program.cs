@@ -120,6 +120,7 @@ namespace XboxKit
             ushort rightChildOffset = br.ReadUInt16();
             long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
             uint entrySize = br.ReadUInt32();
+            bool isDirectory = (br.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
             {
@@ -127,7 +128,7 @@ namespace XboxKit
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
             }
 
-            if ((br.ReadByte() & 0x10) != 0)
+            if (isDirectory)
             {
                 Console.WriteLine("Entering dir..");
                 GetValidSectors(br, validSectors, entryOffset, entrySize, 0);
