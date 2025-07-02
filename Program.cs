@@ -569,6 +569,7 @@ namespace XboxKit
                         if (wipeableXISO)
                         {
                             long currentSector = (numBytes + XISO_LENGTH[xgdType]) / SECTOR_SIZE;
+                            Console.WriteLine($"cur sector: {currentSector}");
                             for (int i = 0; i < validRanges.Count; i++)
                             {
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
