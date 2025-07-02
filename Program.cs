@@ -55,7 +55,7 @@ namespace XboxKit
             return true;
         }
 
-        // Brute force seed for pseudo random number generator (thanks to JayFoxRox for algorithm)
+        // Brute force seed for pseudo random number generator
         static bool GuessSeed(byte[] sector, out uint outSeed)
         {
             uint foundSeed = 0;
@@ -107,7 +107,6 @@ namespace XboxKit
             long cur = XISO_OFFSET[0] + rootOffset + childOffset;
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
-            Console.WriteLine($"Root: {rootOffset}, Sector: {curOffset}-{curOffset+curSize}");
             for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
@@ -123,30 +122,20 @@ namespace XboxKit
             bool isDirectory = (br.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
-            {
-                Console.WriteLine($"Left child: {leftChildOffset}");
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
-            }
 
             if (isDirectory)
-            {
-                Console.WriteLine("Entering dir..");
                 GetValidSectors(br, validSectors, entryOffset, entrySize, 0);
-            }
             else
             {
                 long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
-                Console.WriteLine($"File: {entryOffset}, Sector: {fileOffset}-{fileOffset+fileSize}");
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
             }
 
             if (rightChildOffset != 0)
-            {
-                Console.WriteLine($"Right child: {rightChildOffset}");
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
-            }
         }
 
         // Get list of valid XISO ranges
@@ -437,10 +426,10 @@ namespace XboxKit
                     }
                 }
                 
+                List<(uint, uint)> validRanges = new List<(uint, uint)>();
+                bool wipeableXISO = false;
                 if (wipeXISO)
                 {
-                    List<(uint, uint)> validRanges = new List<(uint, uint)>();
-
                     // Wipe XGD1
                     bool foundSeed = false;
                     uint xgd1Seed;
@@ -553,15 +542,15 @@ namespace XboxKit
                     }
 
                     // If XGD1 with RC4, determine valid data ranges
-                    if (xgdType == 0)
+                    if (xgdType == 0 && !foundSeed)
                     {
                         using (BinaryReader isoBR = new BinaryReader(isoFS))
                             validRanges = GetXISORanges(isoBR);
+                        if (validRanges.Length > 1)
+                            wipeableXISO = true;
                         foreach (var (start, end) in validRanges)
                             Console.WriteLine($"Start: {start}, End: {end}");
                     }
-
-                    // Zero non-valid data ranges
                 }
 
                 // Extract game partition
@@ -575,12 +564,48 @@ namespace XboxKit
                     numBytes = 0;
                     while (numBytes < xisoLength)
                     {
-                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
-                        if (bytesRead == 0)
-                            break;
+                        long bytesUntilEnd = -1;
+                        long bytesToWipe = -1;
+                        if (wipeableXISO)
+                        {
+                            long currentSector = (numBytes / SECTOR_SIZE) + XISO_LENGTH[xgdType];
+                            for (int i = 0; i < ranges.Count; i++)
+                            {
+                                if (currentSector >= ranges[i].Start && currentSector <= ranges[i].End)
+                                {
+                                    bytesUntilEnd = (ranges[i].End - currentSector) * SECTOR_SIZE;
+                                    break;
+                                }
+                                else if (currentSector < ranges[i].Start && (i == 0 || currentSector > ranges[i - 1].End))
+                                {
+                                    bytesToWipe = (ranges[i].Start - currentSector) * SECTOR_SIZE;
+                                    break;
+                                }
+                            }
+                        }
+                        if (bytesToWipe > 0)
+                        {
+                            byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
+                            long bytesWiped = 0;
+                            while (bytesWiped < bytesToWipe)
+                            {
+                                int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
+                                xisoFS.Write(zeroBuf, 0, bytesToWrite);
+                                bytesWiped += bytesToWrite;
+                            }
+                            isoFS.Seek(bytesToWipe, SeekOrigin.Begin);
+                            numBytes += bytesToWipe;
+                        }
+                        else
+                        {
+                            int bytesToRead = (int)Math.Min(bytesUntilEnd, xisoLength - numBytes);
+                            int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
+                            if (bytesRead == 0)
+                                break;
 
-                        xisoFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
+                            xisoFS.Write(buf, 0, bytesRead);
+                            numBytes += bytesRead;
+                        }
                     }
                     if (numBytes != xisoLength)
                     {
