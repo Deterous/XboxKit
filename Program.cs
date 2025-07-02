@@ -54,7 +54,7 @@ namespace XboxKit
             return true;
         }
 
-        // Brute force seed for pseudo random number generator
+        // Brute force seed for pseudo random number generator (thanks to JayFoxRox for algorithm)
         static bool GuessSeed(byte[] sector, out uint outSeed)
         {
             uint foundSeed = 0;
@@ -95,6 +95,78 @@ namespace XboxKit
 
             outSeed = foundSeed;
             return seedFound;
+        }
+
+        // Traverse file tree to get all valid data sectors in XISO
+        private static void GetValidSectors(BinaryReader br, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
+        {
+            if (childOffset >= rootSize)
+                return;
+
+            long cur = XISO_OFFSET[0] + rootOffset + childOffset;
+            long curOffset = cur / SECTOR_SIZE;
+            long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
+            for (long i = curSector; i < curSector + curSize; i++)
+                validSectors.Add((uint)i);
+
+            br.BaseStream.Position = cur;
+
+            ushort leftChildOffset = br.ReadUInt16();
+            if (leftChildOffset == 0xFFFF)
+                return;
+            else if (leftChildOffset != 0)
+                GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
+
+            ushort rightChildOffset = br.ReadUInt16();
+            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE * 4;
+            uint entrySize = br.ReadUInt32();
+
+            if ((br.ReadByte() & 0x10) != 0)
+                GetValidSectors(br, validSectors, entryOffset, entrySize, 0);
+            else
+            {
+                long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
+                long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                for (long i = fileOffset; i < fileOffset + fileSize; i++)
+                    validSectors.Add((uint)i);
+            }
+
+            if (rightChildOffset != 0)
+                GetValidSectors(br, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
+        }
+
+        // Get list of valid XISO ranges
+        List<(uint, uint)> GetXISORanges(BinaryReader br)
+        {
+            List<uint> validSectors;
+            uint headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
+            validSectors.Add(headerOffset);
+            validSectors.Add(headerOffset+1);
+            br.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
+            uint rootOffset = br.ReadUInt32();
+            uint rootSize = br.ReadUInt32();
+
+            GetValidSectors(br, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
+
+            var ranges = new List<(uint, uint)>();
+            var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
+            uint start = sortedSectors[0];
+            uint prev = sortedSectors[0];
+            for (int i = 1; i < sortedSectors.Count; i++)
+            {
+                uint current = sortedSectors[i];
+                if (current == prev + 1)
+                    prev = current;
+                else
+                {
+                    ranges.Add((start, prev));
+                    start = current;
+                    prev = current;
+                }
+            }
+            ranges.Add((start, prev));
+
+            return ranges;
         }
 
         static void Main(string[] args)
@@ -431,7 +503,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] XGD1 Version: {version}");
                         }
 
-                        // Determine XGD1 seed, if possible
+                        // Determine XGD1 pseudo random number generator seed, if possible
                         isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                         byte[] firstXISOSector = new byte[SECTOR_SIZE];
                         numBytes = 0;
@@ -460,6 +532,14 @@ namespace XboxKit
                             if (version < 4721)
                                 Console.WriteLine("[INFO] Could not determine seed");
                         }
+                    }
+                    if (xgdType == 0)
+                    {
+                        List<(uint, uint)> ranges;
+                        using (BinaryReader isoBR = new BinaryReader(isoFS))
+                            ranges = GetXISORanges(isoBR);
+                        foreach (var (start, end) in ranges)
+                            Console.WriteLine($"Start: {start}, End: {end}");
                     }
                 }
 
