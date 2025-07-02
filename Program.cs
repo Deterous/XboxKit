@@ -569,18 +569,23 @@ namespace XboxKit
                         if (wipeableXISO)
                         {
                             long currentByte = XISO_OFFSET[xgdType] + numBytes;
-                            long currentSector = (currentByte  + SECTOR_SIZE - 1) / SECTOR_SIZE;
-                            for (int i = 0; i < validRanges.Count; i++)
+                            long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                            if (currentSector > validRanges[validRanges.Count - 1].End)
+                                bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                            else
                             {
-                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
+                                for (int i = 0; i < validRanges.Count; i++)
                                 {
-                                    bytesUntilEnd = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
-                                {
-                                    bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
-                                    break;
+                                    if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
+                                    {
+                                        bytesUntilEnd = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                        break;
+                                    }
+                                    else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                                    {
+                                        bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                                        break;
+                                    }
                                 }
                             }
                         }
