@@ -568,7 +568,7 @@ namespace XboxKit
                         long bytesToWipe = -1;
                         if (wipeableXISO)
                         {
-                            long currentSector = (numBytes / SECTOR_SIZE) + XISO_LENGTH[xgdType];
+                            long currentSector = (numBytes + XISO_LENGTH[xgdType]) / SECTOR_SIZE;
                             for (int i = 0; i < validRanges.Count; i++)
                             {
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
@@ -590,23 +590,19 @@ namespace XboxKit
                             while (bytesWiped < bytesToWipe)
                             {
                                 int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                                Console.WriteLine($"1: {bytesToWrite}");
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
-                            Console.WriteLine($"2: {bytesWiped}");
                             isoFS.Seek(bytesWiped, SeekOrigin.Current);
                             numBytes += bytesWiped;
                         }
                         else
                         {
                             long bytesToRead = Math.Min(bytesUntilEnd, xisoLength - numBytes);
-                            Console.WriteLine($"3: {bytesToRead}");
                             int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
                             if (bytesRead == 0)
                                 break;
 
-                            Console.WriteLine("4");
                             xisoFS.Write(buf, 0, bytesRead);
                             numBytes += bytesRead;
                         }
