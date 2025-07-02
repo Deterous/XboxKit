@@ -564,7 +564,7 @@ namespace XboxKit
                     numBytes = 0;
                     while (numBytes < xisoLength)
                     {
-                        long bytesUntilEnd = -1;
+                        long bytesUntilEnd = long.MaxValue;
                         long bytesToWipe = -1;
                         if (wipeableXISO)
                         {
