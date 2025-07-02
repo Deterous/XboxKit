@@ -574,7 +574,7 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     bytesUntilEnd = (validRanges[i].End - currentSector) * SECTOR_SIZE;
-                                    Console.WriteLine($"Bytes until end: {bytesUntilEnd}")
+                                    Console.WriteLine($"Bytes until end: {bytesUntilEnd}");
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
