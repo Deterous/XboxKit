@@ -574,7 +574,6 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     bytesUntilEnd = (validRanges[i].End - currentSector) * SECTOR_SIZE;
-                                    Console.WriteLine($"Bytes until end: {bytesUntilEnd}");
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
@@ -591,18 +590,18 @@ namespace XboxKit
                             while (bytesWiped < bytesToWipe)
                             {
                                 int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                                Console.WriteLine("1");
+                                Console.WriteLine($"1: {bytesToWrite}");
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
-                            Console.WriteLine("2");
+                            Console.WriteLine($"2: {bytesWiped}");
                             isoFS.Seek(bytesWiped, SeekOrigin.Current);
                             numBytes += bytesWiped;
                         }
                         else
                         {
-                            int bytesToRead = (int)Math.Min(bytesUntilEnd, xisoLength - numBytes);
-                            Console.WriteLine("3");
+                            long bytesToRead = Math.Min(bytesUntilEnd, xisoLength - numBytes);
+                            Console.WriteLine($"3: {bytesToRead}");
                             int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
                             if (bytesRead == 0)
                                 break;
