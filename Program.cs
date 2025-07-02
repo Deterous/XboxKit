@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -98,7 +99,7 @@ namespace XboxKit
         }
 
         // Traverse file tree to get all valid data sectors in XISO
-        private static void GetValidSectors(BinaryReader br, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
+        static void GetValidSectors(BinaryReader br, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
         {
             if (childOffset >= rootSize)
                 return;
@@ -106,7 +107,7 @@ namespace XboxKit
             long cur = XISO_OFFSET[0] + rootOffset + childOffset;
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
-            for (long i = curSector; i < curSector + curSize; i++)
+            for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
             br.BaseStream.Position = cur;
@@ -136,12 +137,12 @@ namespace XboxKit
         }
 
         // Get list of valid XISO ranges
-        List<(uint, uint)> GetXISORanges(BinaryReader br)
+        static List<(uint, uint)> GetXISORanges(BinaryReader br)
         {
-            List<uint> validSectors;
-            uint headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
-            validSectors.Add(headerOffset);
-            validSectors.Add(headerOffset+1);
+            List<uint> validSectors = new List<uint>();
+            long headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
+            validSectors.Add((uint)headerOffset);
+            validSectors.Add((uint)headerOffset + 1);
             br.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
             uint rootOffset = br.ReadUInt32();
             uint rootSize = br.ReadUInt32();
@@ -535,7 +536,7 @@ namespace XboxKit
                     }
                     if (xgdType == 0)
                     {
-                        List<(uint, uint)> ranges;
+                        List<(uint, uint)> ranges = new List<(uint, uint)>();
                         using (BinaryReader isoBR = new BinaryReader(isoFS))
                             ranges = GetXISORanges(isoBR);
                         foreach (var (start, end) in ranges)
