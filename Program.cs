@@ -544,8 +544,8 @@ namespace XboxKit
                     // If XGD1 with RC4, determine valid data ranges
                     if (xgdType == 0 && !foundSeed)
                     {
-                        using (BinaryReader isoBR = new BinaryReader(isoFS))
-                            validRanges = GetXISORanges(isoBR);
+                        var isoBR = new BinaryReader(isoFS))
+                        validRanges = GetXISORanges(isoBR);
                         if (validRanges.Count > 1)
                             wipeableXISO = true;
                         foreach (var (start, end) in validRanges)
