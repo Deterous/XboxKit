@@ -108,7 +108,10 @@ namespace XboxKit
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
+            {
+                Console.WriteLine($"Root: {rootOffset}, Sector: {i}");
                 validSectors.Add((uint)i);
+            }
 
             br.BaseStream.Position = cur;
 
@@ -116,24 +119,35 @@ namespace XboxKit
             if (leftChildOffset == 0xFFFF)
                 return;
             else if (leftChildOffset != 0)
+            {
+                Console.WriteLine($"Left child: {leftChildOffset}");
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
-
+            }
             ushort rightChildOffset = br.ReadUInt16();
             long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
             uint entrySize = br.ReadUInt32();
 
             if ((br.ReadByte() & 0x10) != 0)
+            {
+                Console.WriteLine("Entering dir..");
                 GetValidSectors(br, validSectors, entryOffset, entrySize, 0);
+            }
             else
             {
                 long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
+                {
+                    Console.WriteLine($"File: {entryOffset}, Sector: {i}");
                     validSectors.Add((uint)i);
+                }
             }
 
             if (rightChildOffset != 0)
+            {
+                Console.WriteLine($"Right child: {rightChildOffset}");
                 GetValidSectors(br, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
+            }
         }
 
         // Get list of valid XISO ranges
