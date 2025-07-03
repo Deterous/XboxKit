@@ -101,7 +101,7 @@ namespace XboxKit
         }
 
         // Read uint16 from filestream
-        ushort ReadUShort(FileStream fs)
+        static ushort ReadUShort(FileStream fs)
         {
             byte[] buffer = new byte[2];
             if (fs.Read(buffer, 0, 2) != 2)
@@ -110,7 +110,7 @@ namespace XboxKit
         }
 
         // Read uint32 from filestream
-        uint ReadUInt(FileStream fs)
+        static uint ReadUInt(FileStream fs)
         {
             byte[] buffer = new byte[4];
             if (fs.Read(buffer, 0, 4) != 4)
@@ -130,7 +130,7 @@ namespace XboxKit
             for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
-            isoFS.BaseStream.Position = cur;
+            isoFS.Seek(cur, SeekOrigin.Begin);
 
             ushort leftChildOffset = ReadUShort(isoFS);
             ushort rightChildOffset = ReadUShort(isoFS);
@@ -165,10 +165,10 @@ namespace XboxKit
             long headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
-            isoFS.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
+            
+            isoFS.Seek(XISO_OFFSET[0] + 0x10000 + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
-
             GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
 
             var ranges = new List<(uint, uint)>();
@@ -631,41 +631,38 @@ namespace XboxKit
                             }
                         }
 
-                        if ((extractFiller || wipeXISO) && bytesToWipe > 0)
+                        // Write zeroes to XISO (unless trimming end)
+                        if (wipeXISO && bytesToWipe > 0 && !xisoEnd)
                         {
-                            // Write zeroes to XISO (unless trimming end)
-                            if (wipeXISO && !xisoEnd)
+                            byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
+                            long bytesWiped = 0;
+                            while (bytesWiped < bytesToWipe)
                             {
-                                byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
-                                long bytesWiped = 0;
-                                while (bytesWiped < bytesToWipe)
-                                {
-                                    int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                                    xisoFS.Write(zeroBuf, 0, bytesToWrite);
-                                    bytesWiped += bytesToWrite;
-                                }
+                                int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
+                                xisoFS.Write(zeroBuf, 0, bytesToWrite);
+                                bytesWiped += bytesToWrite;
                             }
-
                             if (!extractFiller)
                                 isoFS.Seek(bytesWiped, SeekOrigin.Current);
-                            else
-                            {
-                                // Write RC4 filler data to file
-                                int bytesFilled = 0;
-                                while (bytesFilled < bytesToWipe)
-                                {
-                                    int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
-                                    if (bytesRead == 0)
-                                        break;
+                        }
 
-                                    fillerFS.Write(buf, 0, bytesRead);
-                                    bytesFilled += bytesRead;
-                                }
-                                if (bytesFilled != bytesToWipe)
-                                {
-                                    Console.WriteLine("[ERROR] Failed writing filler data.");
-                                    return;
-                                }
+                        // Write RC4 filler data to file
+                        if (extractFiller && bytesToWipe > 0)
+                        {
+                            int bytesFilled = 0;
+                            while (bytesFilled < bytesToWipe)
+                            {
+                                int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
+                                if (bytesRead == 0)
+                                    break;
+
+                                fillerFS.Write(buf, 0, bytesRead);
+                                bytesFilled += bytesRead;
+                            }
+                            if (bytesFilled != bytesToWipe)
+                            {
+                                Console.WriteLine("[ERROR] Failed writing filler data.");
+                                return;
                             }
                         }
 
