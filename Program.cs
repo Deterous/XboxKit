@@ -32,8 +32,9 @@ namespace XboxKit
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
             Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [filler_data] [system_update_file]");
+            Console.WriteLine("Usage: xboxkit.exe [-r] [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [filler_data] [system_update_file]");
             Console.WriteLine("");
+            Console.WriteLine("-r, --rc4\t Extracts RC4 filler data from game partition");
             Console.WriteLine("-t, --trim\t Trims end of game partition");
             Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video\t Extracts video ISO (video partition)");
@@ -99,6 +100,24 @@ namespace XboxKit
             return seedFound;
         }
 
+        // Read uint16 from filestream
+        ushort ReadUShort(FileStream fs)
+        {
+            byte[] buffer = new byte[2];
+            if (fs.Read(buffer, 0, 2) != 2)
+                throw new EndOfStreamException("[ERROR] Failed to read from ");
+            return BitConverter.ToUInt16(buffer, 0);
+        }
+
+        // Read uint32 from filestream
+        uint ReadUInt(FileStream fs)
+        {
+            byte[] buffer = new byte[4];
+            if (fs.Read(buffer, 0, 4) != 4)
+                throw new EndOfStreamException("[ERROR] Failed to read UInt32");
+            return BitConverter.ToUInt32(buffer, 0);
+        }
+
         // Traverse file tree to get all valid data sectors in XISO
         static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
         {
@@ -113,14 +132,14 @@ namespace XboxKit
 
             isoFS.BaseStream.Position = cur;
 
-            ushort leftChildOffset = isoFS.ReadUInt16();            
+            ushort leftChildOffset = ReadUShort(isoFS);
+            ushort rightChildOffset = ReadUShort(isoFS);
+            long entryOffset = (long)ReadUInt(isoFS) * SECTOR_SIZE;
+            uint entrySize = ReadUInt(isoFS);
+            bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
+ 
             if (leftChildOffset == 0xFFFF)
                 return;
-
-            ushort rightChildOffset = isoFS.ReadUInt16();
-            long entryOffset = (long)isoFS.ReadUInt32() * SECTOR_SIZE;
-            uint entrySize = isoFS.ReadUInt32();
-            bool isDirectory = (isoFS.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
                 GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
@@ -147,8 +166,8 @@ namespace XboxKit
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
             isoFS.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
-            uint rootOffset = isoFS.ReadUInt32();
-            uint rootSize = isoFS.ReadUInt32();
+            uint rootOffset = ReadUInt(isoFS);
+            uint rootSize = ReadUInt(isoFS);
 
             GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
 
@@ -182,6 +201,7 @@ namespace XboxKit
             bool help = false;
             bool extractXISO = false;
             bool extractVideo = false;
+            bool extractFiller = false;
             bool trimXISO = false;
             bool wipeXISO = false;
             bool unpackVideo = false;
@@ -204,6 +224,10 @@ namespace XboxKit
                     case "--h":
                     case "--help":
                         help = true;
+                        break;
+                    case "-r":
+                    case "--rc4":
+                        extractFiller = true;
                         break;
                     case "-t":
                     case "--trim":
@@ -423,7 +447,7 @@ namespace XboxKit
                 }
                 
                 List<(uint Start, uint End)> validRanges = new List<(uint, uint)>();
-                if (wipeXISO || trimXISO)
+                if (extractFiller || wipeXISO || trimXISO)
                 {
                     // Wipe XGD1
                     bool foundSeed = false;
@@ -554,7 +578,7 @@ namespace XboxKit
                     if (string.IsNullOrEmpty(fillerPath))
                         updatePath = Path.Combine(dir, "su20076000_00000000");
                     FileStream fillerFS = null!;
-                    if (wipeXISO)
+                    if (extractFiller)
                     {
                         if (string.IsNullOrEmpty(fillerPath))
                             fillerPath = Path.Combine(dir, $"{filename}.filler");
@@ -569,16 +593,17 @@ namespace XboxKit
                     numBytes = 0;
                     while (numBytes < xisoLength)
                     {
-                        long bytesUntilEnd = long.MaxValue;
+                        long bytesUntilEndOfExtent = long.MaxValue;
                         long bytesToWipe = -1;
                         long currentByte = XISO_OFFSET[xgdType] + numBytes;
                         long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
                         bool xisoEnd = false;
-                        if ((wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
+                        // Determine whether current sector is after last file extent
+                        if ((extractFiller || wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
                         {
                             // Wipe or trim remainder of XISO
                             bytesToWipe = xisoLength - currentByte;
-                            if (trimXISO && !wipeXISO)
+                            if (trimXISO && !extractFiller)
                             {
                                 numBytes += bytesToWipe;
                                 break;
@@ -586,15 +611,15 @@ namespace XboxKit
                             else if (trimXISO)
                                 xisoEnd = true;
                         }
-                        else if (wipeXISO)
+                        else if (extractFiller || wipeXISO)
                         {
-                            // Determine whether we are in a file extent or filler data
+                            // Determine whether current sector is within a file extent or filler data
                             for (int i = 0; i < validRanges.Count; i++)
                             {
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    bytesUntilEnd = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
@@ -606,10 +631,10 @@ namespace XboxKit
                             }
                         }
 
-                        if (wipeXISO && bytesToWipe > 0)
+                        if ((extractFiller || wipeXISO) && bytesToWipe > 0)
                         {
                             // Write zeroes to XISO (unless trimming end)
-                            if (!xisoEnd)
+                            if (wipeXISO && !xisoEnd)
                             {
                                 byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
                                 long bytesWiped = 0;
@@ -621,11 +646,11 @@ namespace XboxKit
                                 }
                             }
 
-                            numBytes += bytesToWipe;
-                            if (fillerFS == null)
+                            if (!extractFiller)
                                 isoFS.Seek(bytesWiped, SeekOrigin.Current);
                             else
                             {
+                                // Write RC4 filler data to file
                                 int bytesFilled = 0;
                                 while (bytesFilled < bytesToWipe)
                                 {
@@ -643,9 +668,12 @@ namespace XboxKit
                                 }
                             }
                         }
+
+                        if (wipeXISO && bytesToWipe > 0)
+                            numBytes += bytesToWipe;
                         else
                         {
-                            long bytesToRead = Math.Min(bytesUntilEnd, xisoLength - numBytes);
+                            long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
                             int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
                             if (bytesRead == 0)
                                 break;
@@ -654,8 +682,10 @@ namespace XboxKit
                             numBytes += bytesRead;
                         }
                     }
+
                     if (fillerFS != null)
                         fillerFS.Dispose();
+
                     if (numBytes != xisoLength)
                     {
                         Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
