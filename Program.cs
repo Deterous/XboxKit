@@ -165,7 +165,7 @@ namespace XboxKit
             long headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
-            
+
             isoFS.Seek(XISO_OFFSET[0] + 0x10000 + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
@@ -569,125 +569,124 @@ namespace XboxKit
                     }
                 }
 
-                // Extract game partition
+                // Process game partition
+                FileStream xisoFS = null!;
                 if (extractXISO)
+                    xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+                FileStream fillerFS = null!;
+                if (extractFiller)
                 {
-                    // Write XISO to file
-                    using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    
                     if (string.IsNullOrEmpty(fillerPath))
-                        updatePath = Path.Combine(dir, "su20076000_00000000");
-                    FileStream fillerFS = null!;
-                    if (extractFiller)
+                        fillerPath = Path.Combine(dir, $"{filename}.filler");
+                    if (File.Exists(fillerPath))
+                        Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
+                    else
+                        fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                }
+                Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                long xisoLength = XISO_LENGTH[xgdType];
+                numBytes = 0;
+                while (numBytes < xisoLength)
+                {
+                    long bytesUntilEndOfExtent = long.MaxValue;
+                    long bytesToWipe = -1;
+                    long currentByte = XISO_OFFSET[xgdType] + numBytes;
+                    long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                    bool xisoEnd = false;
+                    // Determine whether current sector is after last file extent
+                    if ((extractFiller || wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
                     {
-                        if (string.IsNullOrEmpty(fillerPath))
-                            fillerPath = Path.Combine(dir, $"{filename}.filler");
-                        if (File.Exists(fillerPath))
-                            Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
-                        else
-                            fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    }
-                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
-                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                    long xisoLength = XISO_LENGTH[xgdType];
-                    numBytes = 0;
-                    while (numBytes < xisoLength)
-                    {
-                        long bytesUntilEndOfExtent = long.MaxValue;
-                        long bytesToWipe = -1;
-                        long currentByte = XISO_OFFSET[xgdType] + numBytes;
-                        long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
-                        bool xisoEnd = false;
-                        // Determine whether current sector is after last file extent
-                        if ((extractFiller || wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
+                        // Wipe or trim remainder of XISO
+                        bytesToWipe = xisoLength - currentByte;
+                        if (trimXISO && !extractFiller)
                         {
-                            // Wipe or trim remainder of XISO
-                            bytesToWipe = xisoLength - currentByte;
-                            if (trimXISO && !extractFiller)
+                            numBytes += bytesToWipe;
+                            break;
+                        }
+                        else if (trimXISO)
+                            xisoEnd = true;
+                    }
+                    else if (extractFiller || wipeXISO)
+                    {
+                        // Determine whether current sector is within a file extent or filler data
+                        for (int i = 0; i < validRanges.Count; i++)
+                        {
+                            if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                             {
-                                numBytes += bytesToWipe;
+                                // Number of bytes remaining in current file extent
+                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
                                 break;
                             }
-                            else if (trimXISO)
-                                xisoEnd = true;
-                        }
-                        else if (extractFiller || wipeXISO)
-                        {
-                            // Determine whether current sector is within a file extent or filler data
-                            for (int i = 0; i < validRanges.Count; i++)
+                            else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                             {
-                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
-                                {
-                                    // Number of bytes remaining in current file extent
-                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
-                                {
-                                    // Wipe until next file extent
-                                    bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
-                                    break;
-                                }
+                                // Wipe until next file extent
+                                bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                                break;
                             }
                         }
+                    }
 
-                        // Write zeroes to XISO (unless trimming end)
-                        if (wipeXISO && bytesToWipe > 0 && !xisoEnd)
+                    // Write zeroes to XISO (unless trimming end)
+                    if (extractXISO && wipeXISO && bytesToWipe > 0 && !xisoEnd)
+                    {
+                        byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
+                        long bytesWiped = 0;
+                        while (bytesWiped < bytesToWipe)
                         {
-                            byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
-                            long bytesWiped = 0;
-                            while (bytesWiped < bytesToWipe)
-                            {
-                                int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                                xisoFS.Write(zeroBuf, 0, bytesToWrite);
-                                bytesWiped += bytesToWrite;
-                            }
-                            if (!extractFiller)
-                                isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                            int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
+                            xisoFS.Write(zeroBuf, 0, bytesToWrite);
+                            bytesWiped += bytesToWrite;
                         }
+                        if (!extractFiller)
+                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                    }
 
-                        // Write RC4 filler data to file
-                        if (extractFiller && bytesToWipe > 0)
+                    // Write RC4 filler data to file
+                    if (extractFiller && bytesToWipe > 0)
+                    {
+                        int bytesFilled = 0;
+                        while (bytesFilled < bytesToWipe)
                         {
-                            int bytesFilled = 0;
-                            while (bytesFilled < bytesToWipe)
-                            {
-                                int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
-                                if (bytesRead == 0)
-                                    break;
-
-                                fillerFS.Write(buf, 0, bytesRead);
-                                bytesFilled += bytesRead;
-                            }
-                            if (bytesFilled != bytesToWipe)
-                            {
-                                Console.WriteLine("[ERROR] Failed writing filler data.");
-                                return;
-                            }
-                        }
-
-                        if (wipeXISO && bytesToWipe > 0)
-                            numBytes += bytesToWipe;
-                        else
-                        {
-                            long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
-                            int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
+                            int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
                             if (bytesRead == 0)
                                 break;
 
-                            xisoFS.Write(buf, 0, bytesRead);
-                            numBytes += bytesRead;
+                            fillerFS.Write(buf, 0, bytesRead);
+                            bytesFilled += bytesRead;
+                        }
+                        if (bytesFilled != bytesToWipe)
+                        {
+                            Console.WriteLine($"[ERROR] Failed writing filler data. {bytesFilled}/{bytesToWipe}");
+                            return;
                         }
                     }
 
-                    if (fillerFS != null)
-                        fillerFS.Dispose();
-
-                    if (numBytes != xisoLength)
+                    if (wipeXISO && bytesToWipe > 0)
+                        numBytes += bytesToWipe;
+                    else if (extractXISO)
                     {
-                        Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
-                        return;
+                        long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
+                        if (bytesRead == 0)
+                            break;
+
+                        xisoFS.Write(buf, 0, bytesRead);
+                        numBytes += bytesRead;
                     }
+                    else
+                        numBytes += Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                }
+                if (xisoFS != null)
+                    xisoFS.Dispose();
+                if (fillerFS != null)
+                    fillerFS.Dispose();
+
+                if (numBytes != xisoLength)
+                {
+                    Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
+                    return;
                 }
 
                 // If XGD3, try extract system update file from video partition
