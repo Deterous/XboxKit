@@ -572,7 +572,10 @@ namespace XboxKit
                 // Process game partition
                 FileStream xisoFS = null!;
                 if (extractXISO)
+                {
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                }
 
                 FileStream fillerFS = null!;
                 if (extractFiller)
@@ -583,8 +586,8 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
                     else
                         fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    Console.WriteLine($"[INFO] Writing filler data to {fillerPath}");
                 }
-                Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                 isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                 long xisoLength = XISO_LENGTH[xgdType];
                 numBytes = 0;
@@ -663,7 +666,7 @@ namespace XboxKit
                         }
                     }
 
-                    if (wipeXISO && bytesToWipe > 0)
+                    if (!extractXISO && bytesToWipe > 0)
                         numBytes += bytesToWipe;
                     else if (extractXISO)
                     {
