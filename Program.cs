@@ -436,7 +436,7 @@ namespace XboxKit
                 }
                 
                 List<(uint Start, uint End)> validRanges = new List<(uint, uint)>();
-                if (wipeXISO)
+                if (wipeXISO || trimXISO)
                 {
                     // Wipe XGD1
                     bool foundSeed = false;
@@ -587,7 +587,7 @@ namespace XboxKit
                         long bytesToWipe = -1;
                         long currentByte = XISO_OFFSET[xgdType] + numBytes;
                         long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
-                        if (currentSector > validRanges[validRanges.Count - 1].End)
+                        if ((wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
                         {
                             // Wipe or trim remainder of XISO
                             bytesToWipe = XISO_OFFSET[xgdType] + xisoLength - currentByte;
