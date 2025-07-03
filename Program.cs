@@ -564,9 +564,18 @@ namespace XboxKit
                 {
                     // Write XISO to file
                     using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    
+                    if (string.IsNullOrEmpty(fillerPath))
+                        updatePath = Path.Combine(dir, "su20076000_00000000");
                     FileStream? fillerFS = null;
                     if (wipeXISO)
-                        fillerFS = new FileStream(fillerPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    {
+                        if (string.IsNullOrEmpty(fillerPath))
+                            fillerPath = Path.Combine(dir, $"{filename}.filler");
+                        if (File.Exists(fillerPath))
+                            Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
+                        else
+                            fillerFS = new FileStream(fillerPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                     long xisoLength = XISO_LENGTH[xgdType];
