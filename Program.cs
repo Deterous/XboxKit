@@ -575,7 +575,7 @@ namespace XboxKit
                         if (File.Exists(fillerPath))
                             Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
                         else
-                            fillerFS = new FileStream(fillerPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                            fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     }
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
