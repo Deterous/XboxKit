@@ -100,7 +100,7 @@ namespace XboxKit
         }
 
         // Traverse file tree to get all valid data sectors in XISO
-        static void GetValidSectors(BinaryReader br, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
+        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
         {
             if (childOffset >= rootSize)
                 return;
@@ -111,22 +111,22 @@ namespace XboxKit
             for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
-            br.BaseStream.Position = cur;
+            isoFS.BaseStream.Position = cur;
 
-            ushort leftChildOffset = br.ReadUInt16();            
+            ushort leftChildOffset = isoFS.ReadUInt16();            
             if (leftChildOffset == 0xFFFF)
                 return;
 
-            ushort rightChildOffset = br.ReadUInt16();
-            long entryOffset = (long)br.ReadUInt32() * SECTOR_SIZE;
-            uint entrySize = br.ReadUInt32();
-            bool isDirectory = (br.ReadByte() & 0x10) != 0;
+            ushort rightChildOffset = isoFS.ReadUInt16();
+            long entryOffset = (long)isoFS.ReadUInt32() * SECTOR_SIZE;
+            uint entrySize = isoFS.ReadUInt32();
+            bool isDirectory = (isoFS.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
-                GetValidSectors(br, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
 
             if (isDirectory)
-                GetValidSectors(br, validSectors, entryOffset, entrySize, 0);
+                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0);
             else
             {
                 long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
@@ -136,21 +136,21 @@ namespace XboxKit
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(br, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
         }
 
         // Get list of valid XISO ranges
-        static List<(uint, uint)> GetXISORanges(BinaryReader br)
+        static List<(uint, uint)> GetXISORanges(FileStream isoFS)
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
-            br.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
-            uint rootOffset = br.ReadUInt32();
-            uint rootSize = br.ReadUInt32();
+            isoFS.BaseStream.Position = XISO_OFFSET[0] + 0x10000 + 20;
+            uint rootOffset = isoFS.ReadUInt32();
+            uint rootSize = isoFS.ReadUInt32();
 
-            GetValidSectors(br, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
+            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -289,17 +289,11 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Unexpected ISO size. Your file may be trimmed or corrupt.");
                 return;
             }
-            // Unknown mode: (shouldn't happen)
-            else if (((redumpIsoType >= 0 ? 1 : 0) + (xisoType >= 0 ? 1 : 0) + (videoIsoType >= 0 ? 1 : 0)) >= 2)
-            {
-                Console.WriteLine("[ERROR] Unexpected ISO size. Report this issue");
-                return;
-            }
             // Mode 1: Redump ISO as input (Wipe XISO and/or Extract XISO and/or video ISO)
             else if (redumpIsoType >= 0)
             {
                 // Check that video partition doesn't exist
-                if (extractVideo && redumpIsoType >= 0 && File.Exists(videoPath))
+                if (extractVideo && File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {videoPath}");
                     return;
@@ -312,13 +306,8 @@ namespace XboxKit
                     1 or 2 or 3 or 4 => 1, // XGD2
                     5 => 2, // XGD2 (Hybrid)
                     6 or 7 => 3, // XGD3
-                    _ => -1,
+                    _ => 0,
                 };
-                if (xgdType == -1)
-                {
-                    Console.WriteLine("[ERROR] Unexpected ISO size. Is this a valid redump ISO?");
-                    return;
-                }
 
                 // Open redump ISO for reading
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -329,20 +318,18 @@ namespace XboxKit
                 // Extract video partition
                 if (extractVideo)
                 {
-                    // Compare PVD against known PVDs to determine wave
+                    // Compare PVD creation datetime against known datetimes to determine wave
                     int? wave = null;
                     if (redumpIsoType == 4)
                     {
                         try
                         {
-                            using FileStream fs = new(isoPath, FileMode.Open, FileAccess.Read);
-                            fs.Seek(0x832D, SeekOrigin.Begin);
+                            isoFS.Seek(0x832D, SeekOrigin.Begin);
                             byte[] pvd = new byte[16];
-                            int bytesRead = fs.Read(pvd, 0, pvd.Length);
+                            int bytesRead = isoFS.Read(pvd, 0, pvd.Length);
                             if (bytesRead == 16)
                             {
-                                string pvdString = Encoding.ASCII.GetString(pvd);
-                                wave = Array.IndexOf(WAVE_PVD, pvdString);
+                                wave = Array.IndexOf(WAVE_PVD, Encoding.ASCII.GetString(pvd));
                             }
                             else
                             {
@@ -552,8 +539,7 @@ namespace XboxKit
                     // If XGD1 with RC4, determine valid data ranges
                     if (xgdType == 0 && !foundSeed)
                     {
-                        var isoBR = new BinaryReader(isoFS);
-                        validRanges = GetXISORanges(isoBR);
+                        validRanges = GetXISORanges(isoFS);
                         foreach (var (start, end) in validRanges)
                             Console.WriteLine($"[INFO] File Extent: {start}-{end}");
                     }
@@ -587,15 +573,18 @@ namespace XboxKit
                         long bytesToWipe = -1;
                         long currentByte = XISO_OFFSET[xgdType] + numBytes;
                         long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                        bool xisoEnd = false;
                         if ((wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
                         {
                             // Wipe or trim remainder of XISO
-                            bytesToWipe = XISO_OFFSET[xgdType] + xisoLength - currentByte;
-                            if (trimXISO)
+                            bytesToWipe = xisoLength - currentByte;
+                            if (trimXISO && !wipeXISO)
                             {
                                 numBytes += bytesToWipe;
                                 break;
                             }
+                            else if (trimXISO)
+                                xisoEnd = true;
                         }
                         else if (wipeXISO)
                         {
@@ -619,15 +608,20 @@ namespace XboxKit
 
                         if (wipeXISO && bytesToWipe > 0)
                         {
-                            byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
-                            long bytesWiped = 0;
-                            while (bytesWiped < bytesToWipe)
+                            // Write zeroes to XISO (unless trimming end)
+                            if (!xisoEnd)
                             {
-                                int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                                xisoFS.Write(zeroBuf, 0, bytesToWrite);
-                                bytesWiped += bytesToWrite;
+                                byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
+                                long bytesWiped = 0;
+                                while (bytesWiped < bytesToWipe)
+                                {
+                                    int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
+                                    xisoFS.Write(zeroBuf, 0, bytesToWrite);
+                                    bytesWiped += bytesToWrite;
+                                }
                             }
-                            numBytes += bytesWiped;
+
+                            numBytes += bytesToWipe;
                             if (fillerFS == null)
                                 isoFS.Seek(bytesWiped, SeekOrigin.Current);
                             else
