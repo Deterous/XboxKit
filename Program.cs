@@ -32,9 +32,9 @@ namespace XboxKit
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
             Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [system_update_file]");
+            Console.WriteLine("Usage: xboxkit.exe [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [filler_data] [system_update_file]");
             Console.WriteLine("");
-            Console.WriteLine("-t, --trim\t Trims end of game partition (use with --wipe)");
+            Console.WriteLine("-t, --trim\t Trims end of game partition");
             Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video\t Extracts video ISO (video partition)");
             Console.WriteLine("-w, --wipe\t Wipes filler data in game partition");
@@ -187,6 +187,7 @@ namespace XboxKit
             bool unpackVideo = false;
             string isoPath = string.Empty;
             string videoPath = string.Empty;
+            string fillerPath = string.Empty;
             string updatePath = string.Empty;
             List<string> filePaths = new();
 
@@ -239,7 +240,9 @@ namespace XboxKit
             if (filePaths.Count > 1)
                 videoPath = filePaths[1];
             if (filePaths.Count > 2)
-                updatePath = filePaths[2];
+                fillerPath = filePaths[2];
+            if (filePaths.Count > 3)
+                updatePath = filePaths[3];
 
             // Determine input filenames
             string dir = Path.GetDirectoryName(isoPath);
@@ -433,7 +436,6 @@ namespace XboxKit
                 }
                 
                 List<(uint Start, uint End)> validRanges = new List<(uint, uint)>();
-                bool wipeableXISO = false;
                 if (wipeXISO)
                 {
                     // Wipe XGD1
@@ -552,10 +554,8 @@ namespace XboxKit
                     {
                         var isoBR = new BinaryReader(isoFS);
                         validRanges = GetXISORanges(isoBR);
-                        if (validRanges.Count > 1)
-                            wipeableXISO = true;
                         foreach (var (start, end) in validRanges)
-                            Console.WriteLine($"Start: {start}, End: {end}");
+                            Console.WriteLine($"[INFO] File Extent: {start}-{end}");
                     }
                 }
 
@@ -564,6 +564,9 @@ namespace XboxKit
                 {
                     // Write XISO to file
                     using FileStream xisoFS = new(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    FileStream? fillerFS = null;
+                    if (wipeXISO)
+                        fillerFS = new FileStream(fillerPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                     long xisoLength = XISO_LENGTH[xgdType];
@@ -572,41 +575,39 @@ namespace XboxKit
                     {
                         long bytesUntilEnd = long.MaxValue;
                         long bytesToWipe = -1;
-                        if (wipeableXISO)
+                        long currentByte = XISO_OFFSET[xgdType] + numBytes;
+                        long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                        if (currentSector > validRanges[validRanges.Count - 1].End)
                         {
-                            long currentByte = XISO_OFFSET[xgdType] + numBytes;
-                            long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
-                            if (currentSector > validRanges[validRanges.Count - 1].End)
+                            // Wipe or trim remainder of XISO
+                            bytesToWipe = XISO_OFFSET[xgdType] + xisoLength - currentByte;
+                            if (trimXISO)
                             {
-                                // Wipe or trim remainder of XISO
-                                bytesToWipe = XISO_OFFSET[xgdType] + xisoLength - currentByte;
-                                if (trimXISO)
+                                numBytes += bytesToWipe;
+                                break;
+                            }
+                        }
+                        else if (wipeXISO)
+                        {
+                            // Determine whether we are in a file extent or filler data
+                            for (int i = 0; i < validRanges.Count; i++)
+                            {
+                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
-                                    numBytes += bytesToWipe;
+                                    // Number of bytes remaining in current file extent
+                                    bytesUntilEnd = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                    break;
+                                }
+                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                                {
+                                    // Wipe until next file extent
+                                    bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
-                            else
-                            {
-                                // Determine whether we are in a file extent or filler data
-                                for (int i = 0; i < validRanges.Count; i++)
-                                {
-                                    if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
-                                    {
-                                        // Number of bytes remaining in current file extent
-                                        bytesUntilEnd = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
-                                        break;
-                                    }
-                                    else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
-                                    {
-                                        // Wipe until next file extent
-                                        bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
-                                        break;
-                                    }
-                                }
-                            }
                         }
-                        if (bytesToWipe > 0)
+
+                        if (wipeXISO && bytesToWipe > 0)
                         {
                             byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
                             long bytesWiped = 0;
@@ -616,8 +617,26 @@ namespace XboxKit
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
-                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
-                            numBytes += bytesWiped;
+                            int bytesFilled = 0;
+                            while (fillerFS != null && bytesFilled < bytesToWipe)
+                            {
+                                int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
+                                if (bytesRead == 0)
+                                    break;
+
+                                fillerFS.Write(buf, 0, bytesRead);
+                                bytesFilled += bytesRead;
+                            }
+                            if (fillerFS != null && bytesFilled != bytesToWipe)
+                            {
+                                Console.WriteLine("[ERROR] Failed writing filler data.");
+                                return;
+                            }
+                            else if (fillerFS == null)
+                            {
+                                isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                                numBytes += bytesWiped;
+                            }
                         }
                         else
                         {
@@ -630,6 +649,8 @@ namespace XboxKit
                             numBytes += bytesRead;
                         }
                     }
+                    if (fillerFS != null)
+                        fillerFS.Dispose();
                     if (numBytes != xisoLength)
                     {
                         Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
