@@ -599,7 +599,7 @@ namespace XboxKit
                     if ((extractFiller || wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
                     {
                         // Wipe or trim remainder of XISO
-                        bytesToWipe = xisoLength - currentByte;
+                        bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
                         if (trimXISO && !extractFiller)
                         {
                             numBytes += bytesToWipe;
@@ -658,7 +658,7 @@ namespace XboxKit
                         }
                         if (bytesFilled != bytesToWipe)
                         {
-                            Console.WriteLine($"[ERROR] Failed writing filler data. {bytesFilled}/{bytesToWipe}");
+                            Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
                         }
                     }
