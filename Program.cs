@@ -627,25 +627,26 @@ namespace XboxKit
                                 xisoFS.Write(zeroBuf, 0, bytesToWrite);
                                 bytesWiped += bytesToWrite;
                             }
-                            int bytesFilled = 0;
-                            while (fillerFS != null && bytesFilled < bytesToWipe)
-                            {
-                                int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
-                                if (bytesRead == 0)
-                                    break;
-
-                                fillerFS.Write(buf, 0, bytesRead);
-                                bytesFilled += bytesRead;
-                            }
-                            if (fillerFS != null && bytesFilled != bytesToWipe)
-                            {
-                                Console.WriteLine("[ERROR] Failed writing filler data.");
-                                return;
-                            }
-                            else if (fillerFS == null)
-                            {
+                            numBytes += bytesWiped;
+                            if (fillerFS == null)
                                 isoFS.Seek(bytesWiped, SeekOrigin.Current);
-                                numBytes += bytesWiped;
+                            else
+                            {
+                                int bytesFilled = 0;
+                                while (bytesFilled < bytesToWipe)
+                                {
+                                    int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
+                                    if (bytesRead == 0)
+                                        break;
+
+                                    fillerFS.Write(buf, 0, bytesRead);
+                                    bytesFilled += bytesRead;
+                                }
+                                if (bytesFilled != bytesToWipe)
+                                {
+                                    Console.WriteLine("[ERROR] Failed writing filler data.");
+                                    return;
+                                }
                             }
                         }
                         else
