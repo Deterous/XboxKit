@@ -31,15 +31,17 @@ namespace XboxKit
         static void PrintHelp()
         {
             Console.WriteLine("XboxKit (c) Deterous 2024-2025");
-            Console.WriteLine("Redump Xbox/Xbox360 ISO <---> XISO + Video Partition (+ System Update)");
-            Console.WriteLine("Usage: xboxkit.exe [-r] [-t] [-u] [-v] [-w] [-x] <input.iso> [video.iso] [filler_data] [system_update_file]");
             Console.WriteLine("");
-            Console.WriteLine("-r, --rc4\t Extracts RC4 filler data from game partition");
-            Console.WriteLine("-t, --trim\t Trims end of game partition");
+            Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_update_file]");
+            Console.WriteLine("");
+            Console.WriteLine("Rebuild mode: Combine input files (no flags)");
+            Console.WriteLine("Extract mode: Use flags (optional paths are used for output file names)");
+            Console.WriteLine("-s, --save-filler\t Extracts XISO filler data to a separate file");
+            Console.WriteLine("-t, --trim       \t Trims end of XISO (game partition)");
             Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
-            Console.WriteLine("-v, --video\t Extracts video ISO (video partition)");
-            Console.WriteLine("-w, --wipe\t Wipes filler data in game partition");
-            Console.WriteLine("-x, --xiso\t Extracts XISO (game partition)");
+            Console.WriteLine("-v, --video      \t Extracts video ISO (video partition)");
+            Console.WriteLine("-w, --wipe       \t Wipes filler data in XISO");
+            Console.WriteLine("-x, --xiso       \t Extracts XISO (game partition)");
         }
 
         // Check two byte arrays are equal
@@ -212,46 +214,80 @@ namespace XboxKit
             List<string> filePaths = new();
 
             // Check arguments
-            if ((args.Length == 0) || (args.Length > 5))
+            if (args.Length == 0)
             {
                 PrintHelp();
                 return;
             }
             foreach (var arg in args)
             {
-                switch (arg.ToLowerInvariant())
+                if (arg.StartsWith("--"))
                 {
-                    case "--h":
-                    case "--help":
-                        help = true;
-                        break;
-                    case "-r":
-                    case "--rc4":
-                        extractFiller = true;
-                        break;
-                    case "-t":
-                    case "--trim":
-                        trimXISO = true;
-                        break;
-                    case "-u":
-                    case "--update-file":
-                        unpackVideo = true;
-                        break;
-                    case "-v":
-                    case "--video":
-                        extractVideo = true;
-                        break;
-                    case "-w":
-                    case "--wipe":
-                        wipeXISO = true;
-                        break;
-                    case "-x":
-                    case "--xiso":
-                        extractXISO = true;
-                        break;
-                    default:
-                        filePaths.Add(arg);
-                        break;
+                    switch (arg.ToLowerInvariant())
+                    {
+                        case "--help":
+                            help = true;
+                            break;
+                        case "--save-filler":
+                            extractFiller = true;
+                            break;
+                        case "--trim":
+                            trimXISO = true;
+                            break;
+                        case "--update-file":
+                            unpackVideo = true;
+                            break;
+                        case "--video":
+                            extractVideo = true;
+                            break;
+                        case "--wipe":
+                            wipeXISO = true;
+                            break;
+                        case "--xiso":
+                            extractXISO = true;
+                            break;
+                        default:
+                            filePaths.Add(arg);
+                            break;
+                    }
+                }
+                else if (arg.StartsWith("-") && !arg.StartsWith("--"))
+                {
+                    foreach (char flag in arg.Substring(1).ToLowerInvariant())
+                    {
+                        switch (flag)
+                        {
+                            case 'h':
+                                help = true;
+                                break;
+                            case 's':
+                                extractFiller = true;
+                                break;
+                            case 't':
+                                trimXISO = true;
+                                break;
+                            case 'u':
+                                unpackVideo = true;
+                                break;
+                            case 'v':
+                                extractVideo = true;
+                                break;
+                            case 'w':
+                                wipeXISO = true;
+                                break;
+                            case 'x':
+                                extractXISO = true;
+                                break;
+                            default:
+                                Console.WriteLine($"[ERROR] Unknown flag: -{flag}");
+                                return;
+                                break;
+                        }
+                    }
+                }
+                else
+                {
+                    filePaths.Add(arg);
                 }
             }
             if (help)
