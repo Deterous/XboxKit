@@ -281,7 +281,6 @@ namespace XboxKit
                             default:
                                 Console.WriteLine($"[ERROR] Unknown flag: -{flag}");
                                 return;
-                                break;
                         }
                     }
                 }
