@@ -643,6 +643,7 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
                         }
+                        numBytes += bytesToWipe;
                     }
 
                     if (!extractXISO && bytesToWipe > 0)
