@@ -116,7 +116,7 @@ namespace XboxKit
         {
             byte[] buffer = new byte[2];
             if (fs.Read(buffer, 0, 2) != 2)
-                throw new EndOfStreamException("[ERROR] Failed to read from ");
+                throw new EndOfStreamException("[ERROR] Failed to read UShort");
             return BitConverter.ToUInt16(buffer, 0);
         }
 
@@ -130,12 +130,12 @@ namespace XboxKit
         }
 
         // Traverse file tree to get all valid data sectors in XISO
-        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
+        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, long xgdType)
         {
             if (childOffset >= rootSize)
                 return;
 
-            long cur = XISO_OFFSET[0] + rootOffset + childOffset;
+            long cur = XISO_OFFSET[xgdType] + rootOffset + childOffset;
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
@@ -153,34 +153,34 @@ namespace XboxKit
                 return;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, xgdType);
 
             if (isDirectory)
-                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0);
+                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0, xgdType);
             else
             {
-                long fileOffset = (XISO_OFFSET[0] + entryOffset) / SECTOR_SIZE;
+                long fileOffset = (XISO_OFFSET[xgdType] + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, xgdType);
         }
 
         // Get list of valid XISO ranges
-        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
+        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long xgdType)
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = (offset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
 
-            isoFS.Seek(offset + 20, SeekOrigin.Begin);
+            isoFS.Seek(XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
-            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
+            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, xgdType);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -651,7 +651,7 @@ namespace XboxKit
                 }
 
                 // Parse XISO filesystem for all file extents 
-                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET);
+                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, xgdType);
                 foreach (var (start, end) in validRanges)
                     Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
