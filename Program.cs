@@ -877,7 +877,7 @@ namespace XboxKit
                 // Write layer 1 padding (zeroes)
                 long l1Length = VIDEO_L1_LENGTH[videoType];
                 long l1Padding = (redumpLength - l1Length) - (xisoOffset + xisoLength);
-                WriteZeroes(redumpFS, -1, l1Padding)
+                WriteZeroes(redumpFS, -1, l1Padding);
 
                 // If writing system update file, stop video partition early
                 if (File.Exists(updatePath))
