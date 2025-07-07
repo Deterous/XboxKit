@@ -174,7 +174,7 @@ namespace XboxKit
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET;
-            long headerOffsetSector = (offset) / SECTOR_SIZE;
+            long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
             validSectors.Add((uint)headerOffsetSector + 1);
 
