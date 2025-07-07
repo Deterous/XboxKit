@@ -11,7 +11,10 @@ namespace XboxKit
 {
     internal class Program
     {
+        #region Constants
+
         static readonly int SECTOR_SIZE = 2048;
+        static readonly long XISO_HEADER_OFFSET = 0x10000;
         static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
         static readonly byte[] XDVDFS_MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
         static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
@@ -26,6 +29,10 @@ namespace XboxKit
         static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
         // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1
         static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500"];
+
+        #endregion
+
+        #region Helper functions
 
         // Print help for invalid command
         static void PrintHelp()
@@ -230,8 +237,28 @@ namespace XboxKit
             return numBytes == length;
         }
 
+        // Write zeroes to filestream
+        static void WriteZeroes(FileStream outFS, long offset, long length)
+        {
+            byte[] buf = new byte[64 * SECTOR_SIZE];
+            long numBytes = 0;
+            if (offset > 0)
+                inFS.Seek(offset, SeekOrigin.Begin);
+            while (numBytes < length)
+            {
+                bytesToWrite = (int)Math.Min(buf.Length, length - numBytes);
+                outFS.Write(buf, 0, bytesToWrite);
+                numBytes += bytesToWrite;
+            }
+            return;
+        }
+
+        #endregion
+
         static void Main(string[] args)
         {
+            #region Initial Setup
+
             // Initialize VIDEO_LENGTH array
             for (int i = 0; i < VIDEO_LENGTH.Length; i++)
                 VIDEO_LENGTH[i] = VIDEO_L0_LENGTH[i] + VIDEO_L1_LENGTH[i];
@@ -342,6 +369,7 @@ namespace XboxKit
             // Determine input filenames
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
+            string extension = Path.GetExtension(isoPath);
             if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
             {
                 Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
@@ -351,25 +379,22 @@ namespace XboxKit
             // Determine output filenames
             if (string.IsNullOrEmpty(videoPath))
                 videoPath = Path.Combine(dir, $"{filename}.video.iso");
-            string xisoPath = string.Empty;
-            string redumpPath = string.Empty;
+            if (string.IsNullOrEmpty(fillerPath))
+                fillerPath = Path.Combine(dir, $"{filename}.filler");
+            if (string.IsNullOrEmpty(updatePath))
+                updatePath = Path.Combine(dir, "su20076000_00000000");
+            string xisoPath = Path.Combine(dir, $"{filename}.xiso.iso");
+            string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
             string subExtension = Path.GetExtension(filename);
-            if (subExtension == ".xiso")
+            if (extension == ".iso" && subExtension == ".xiso")
             {
-                xisoPath = Path.Combine(dir, $"{filename}.xiso.iso");
                 filename = Path.GetFileNameWithoutExtension(filename);
                 redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
             }
-            else if (subExtension == ".redump")
+            else if (extension == ".iso" && subExtension == ".redump")
             {
-                redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
                 filename = Path.GetFileNameWithoutExtension(filename);
                 xisoPath = Path.Combine(dir, $"{filename}.xiso.iso");
-            }
-            else
-            {
-                xisoPath = Path.Combine(dir, $"{filename}.xiso.iso");
-                redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
             }
 
             // Compare input ISO file size to determine file type
@@ -378,23 +403,35 @@ namespace XboxKit
             int redumpIsoType = Array.IndexOf(REDUMP_ISO_LENGTH, isoSize);
             int xisoType = Array.IndexOf(XISO_LENGTH, isoSize);
             int videoIsoType = Array.IndexOf(VIDEO_LENGTH, isoSize);
-            // Unknown Mode: Invalid file size
-            if (redumpIsoType < 0 && xisoType < 0 && videoIsoType < 0)
+
+            #endregion
+
+            if (redumpIsoType >= 0)
             {
-                Console.WriteLine("[ERROR] Unexpected ISO size. Your file may be trimmed or corrupt.");
-                return;
-            }
-            // Mode 1: Redump ISO as input (Wipe XISO and/or Extract XISO and/or video ISO)
-            else if (redumpIsoType >= 0)
-            {
-                // Check that video partition doesn't exist
+                #region Mode 1: Redump ISO as input
+
+                // Check that video ISO doesn't already exist
                 if (extractVideo && File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {videoPath}");
                     return;
                 }
 
-                // Determine disc type
+                // Check that filler data file doesn't already exist
+                if (extractFiller && File.Exists(fillerPath))
+                {
+                    Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
+                    return
+                }
+
+                // Check that update file doesn't already exist
+                if (unpackVideo && File.Exists(updatePath))
+                {
+                    Console.WriteLine($"[ERROR] File already exists: {updatePath}");
+                    return
+                }
+
+                // Determine disc layout type
                 long xgdType = redumpIsoType switch
                 {
                     0 => 0, // XGD1
@@ -474,11 +511,13 @@ namespace XboxKit
                         return;
                     }
 
+                    // Create file for video partition
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
 
                     // Write layer 0 portion of video partition
-                    if (!WriteBytes(isoFS, videoFS, 0, VIDEO_L0_LENGTH[videoType]))
+                    long l0Length = VIDEO_L0_LENGTH[videoType];
+                    if (!WriteBytes(isoFS, videoFS, 0, l0Length))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
@@ -492,6 +531,45 @@ namespace XboxKit
                         return;
                     }
                 }
+
+                // Extract system update file from XGD3 video partition
+                if (unpackVideo && xgdType == 3)
+                {
+                    // Open video ISO for reading and writing
+                    using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    long videoLength = videoFS.Length;
+
+                    // Determine update file offset within video ISO
+                    long updateOffset = videoLength;
+                    byte[] videoBuf = new byte[16];
+                    while (updateOffset > 0)
+                    {
+                        videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
+                        videoFS.Read(videoBuf, 0, 16);
+                        if (FILLER.AsSpan().SequenceEqual(videoBuf))
+                            break;
+
+                        updateOffset -= SECTOR_SIZE;
+                    }
+                    
+                    // Write update file contents to file
+                    Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
+                    using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    long updateLength = videoLength - updateOffset - SECTOR_SIZE;
+                    if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                    {
+                        Console.WriteLine("[ERROR] Failed writing system update file.");
+                        return;
+                    }
+
+                    // Zero update file within XISO
+                    Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
+                    WriteZeroes(videoFS, updateOffset, updateLength)
+                }
+
+                // Quit early if ignoring XISO
+                if (!extractXISO && !extractFiller && !wipeXISO && !trimXISO)
+                    return;
 
                 // If XGD1, try brute force the filler data seed
                 uint xgd1Seed;
@@ -552,9 +630,9 @@ namespace XboxKit
                 }
 
                 // Parse XISO filesystem for all file extents 
-                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType] + 0x10000);
+                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET);
                 foreach (var (start, end) in validRanges)
-                    Console.WriteLine($"[INFO] File Extent: {start}-{end}");
+                    Console.WriteLine($"[INFO] XISO File Extent: 0x{start:X}-0x{end:X}");
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
@@ -564,41 +642,39 @@ namespace XboxKit
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                 }
 
-
+                // Create file for filler data
                 FileStream fillerFS = null!;
                 if (extractFiller)
                 {
-                    if (string.IsNullOrEmpty(fillerPath))
-                        fillerPath = Path.Combine(dir, $"{filename}.filler");
-                    if (File.Exists(fillerPath))
-                        Console.WriteLine($"[INFO] Skipping writing filler data, file already exists: {fillerPath}");
-                    else
-                        fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing filler data to {fillerPath}");
                 }
+
+                // Process XISO
                 isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                 long xisoLength = XISO_LENGTH[xgdType];
                 long numBytes = 0;
                 while (numBytes < xisoLength)
                 {
-                    long bytesUntilEndOfExtent = long.MaxValue;
-                    long bytesToWipe = -1;
                     long currentByte = XISO_OFFSET[xgdType] + numBytes;
                     long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                    long bytesUntilEndOfExtent = long.MaxValue;
+                    long bytesToWipe = 0;
                     bool xisoEnd = false;
 
                     // Determine whether current sector is after last file extent
-                    if ((extractFiller || wipeXISO || trimXISO) && validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
+                    if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                     {
                         // Wipe or trim remainder of XISO
-                        bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        if (wipeXISO)
+                            bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        if (trimXISO)
+                            xisoEnd = true;
                         if (trimXISO && !extractFiller)
                         {
                             numBytes += bytesToWipe;
                             break;
                         }
-                        else if (trimXISO)
-                            xisoEnd = true;
                     }
                     else if (extractFiller || wipeXISO)
                     {
@@ -620,22 +696,7 @@ namespace XboxKit
                         }
                     }
 
-                    // Write zeroes to XISO (unless trimming end)
-                    if (extractXISO && wipeXISO && bytesToWipe > 0 && !xisoEnd)
-                    {
-                        byte[] zeroBuf = new byte[64 * SECTOR_SIZE];
-                        long bytesWiped = 0;
-                        while (bytesWiped < bytesToWipe)
-                        {
-                            int bytesToWrite = (int)Math.Min(zeroBuf.Length, bytesToWipe - bytesWiped);
-                            xisoFS.Write(zeroBuf, 0, bytesToWrite);
-                            bytesWiped += bytesToWrite;
-                        }
-                        if (!extractFiller)
-                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
-                    }
-
-                    // Write RC4 filler data to file
+                    // Write filler data to file
                     if (extractFiller && bytesToWipe > 0)
                     {
                         if (!WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
@@ -643,11 +704,16 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
                         }
-                        numBytes += bytesToWipe;
                     }
 
-                    if (!extractXISO && bytesToWipe > 0)
+                    // Write zeroes to XISO (unless trimming end)
+                    if (extractXISO && wipeXISO && bytesToWipe > 0 && !xisoEnd)
+                    {
+                        WriteZeroes(xisoFS, -1, bytesToWipe);
+                        if (!extractFiller)
+                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
                         numBytes += bytesToWipe;
+                    }
                     else if (extractXISO)
                     {
                         long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
@@ -658,78 +724,31 @@ namespace XboxKit
                         }
                         numBytes += bytesToRead;
                     }
+                    else if (!extractXISO && bytesToWipe > 0)
+                        numBytes += bytesToWipe;
                     else
                         numBytes += Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
                 }
+
+                // Close files
                 if (xisoFS != null)
                     xisoFS.Dispose();
                 if (fillerFS != null)
                     fillerFS.Dispose();
 
+                // Validity check
                 if (numBytes != xisoLength)
                 {
                     Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                     return;
                 }
 
-                // If XGD3, try extract system update file from video partition
-                if (unpackVideo && xgdType == 3)
-                {
-                    using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    long videoLength = videoFS.Length;
-                    long pos = videoLength;
-                    byte[] videoBuf = new byte[16];
-                    while (pos > 0)
-                    {
-                        videoFS.Seek(pos - SECTOR_SIZE, SeekOrigin.Begin);
-                        videoFS.Read(videoBuf, 0, 16);
-                        if (FILLER.AsSpan().SequenceEqual(videoBuf))
-                            break;
-
-                        pos -= SECTOR_SIZE;
-                    }
-
-                    // Set update path to default if unset
-                    if (string.IsNullOrEmpty(updatePath))
-                        updatePath = Path.Combine(dir, "su20076000_00000000");
-
-                    if (File.Exists(updatePath))
-                        Console.WriteLine($"[INFO] Skipping unpacking, system update file already exists: {updatePath}");
-                    else
-                    {
-                        Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                        using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                        long updateOffset = pos;
-                        long updateLength = videoLength - updateOffset - SECTOR_SIZE;
-                        if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
-                        {
-                            Console.WriteLine("[ERROR] Failed writing system update file.");
-                            return;
-                        }
-
-                        byte[] emptyArray = new byte[64 * SECTOR_SIZE];
-                        numBytes = 0;
-                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                        while (numBytes < updateLength)
-                        {
-                            int bytesToWrite = (int)Math.Min(emptyArray.Length, updateLength - numBytes);
-                            if (bytesToWrite == 0)
-                                break;
-                            
-                            videoFS.Write(emptyArray, 0, bytesToWrite);
-                            numBytes += bytesToWrite;
-                        }
-                        if (numBytes != updateLength)
-                        {
-                            Console.WriteLine("[ERROR] Failed zeroing system update file in video partition.");
-                            return;
-                        }
-                    }
-                }
+                #endregion
             }
-            // Mode 2: XISO as input (Combine XISO and video ISO into redump ISO and/or wipe filler data from XISO)
             else if (xisoType >= 0)
             {
+                #region Mode 2: XISO as input
+
                 // Check that video partition exists
                 if (!wipeXISO && !File.Exists(videoPath))
                 {
@@ -926,10 +945,14 @@ namespace XboxKit
                         return;
                     }
                 }
+
+                #endregion
             }
             // Mode 3: Video ISO as input (Extract system update file from video ISO)
             else if (videoIsoType >= 0)
             {
+                #region Mode 3: Video ISO as input
+
                 // Check that no other file paths are given
                 if (!string.IsNullOrEmpty(videoPath) || !string.IsNullOrEmpty(updatePath))
                 {
@@ -1014,6 +1037,14 @@ namespace XboxKit
                         return;
                     }
                 }
+
+                #endregion
+            }
+            else
+            {
+                // Unexpected input file size
+                Console.WriteLine("[ERROR] Unexpected ISO size. Your file may be trimmed or corrupt.");
+                return;
             }
         }
     }
