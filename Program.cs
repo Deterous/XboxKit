@@ -733,7 +733,7 @@ namespace XboxKit
                     else if (bytesToWipe <= 0)
                     {
                         // Skip file extent
-                        bytesToEnd = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                        long bytesToEnd = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
                         isoFS.Seek(bytesToEnd, SeekOrigin.Current);
                         numBytes += bytesToEnd;
                     }
