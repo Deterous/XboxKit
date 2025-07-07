@@ -208,7 +208,7 @@ namespace XboxKit
         static bool WriteBytes(FileStream fs, byte[] outBA, long offset)
         {
             long numBytes = 0;
-            if (offset > 0)
+            if (offset >= 0)
                 fs.Seek(offset, SeekOrigin.Begin);
             while (numBytes < outBA.Length)
             {
@@ -226,7 +226,7 @@ namespace XboxKit
         {
             byte[] buf = new byte[64 * SECTOR_SIZE];
             long numBytes = 0;
-            if (offset > 0)
+            if (offset >= 0)
                 inFS.Seek(offset, SeekOrigin.Begin);
             while (numBytes < length)
             {
@@ -245,7 +245,7 @@ namespace XboxKit
         {
             byte[] buf = new byte[64 * SECTOR_SIZE];
             long numBytes = 0;
-            if (offset > 0)
+            if (offset >= 0)
                 outFS.Seek(offset, SeekOrigin.Begin);
             while (numBytes < length)
             {
