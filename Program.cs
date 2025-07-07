@@ -415,7 +415,7 @@ namespace XboxKit
                 if (wipeXISO && !extractXISO)
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
                 if (trimXISO && !extractXISO)
-                    Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)")
+                    Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)");
 
                 if (extractXISO && extractFiller && !wipeXISO)
                 {
