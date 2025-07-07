@@ -567,8 +567,8 @@ namespace XboxKit
                     WriteZeroes(videoFS, updateOffset, updateLength);
                 }
 
-                // Quit early if ignoring XISO
-                if (!extractXISO && !extractFiller && !wipeXISO && !trimXISO)
+                // Quit early if we're not extracting data from XISO
+                if (!extractXISO && !extractFiller)
                     return;
 
                 // If XGD1, try brute force the filler data seed
@@ -666,8 +666,9 @@ namespace XboxKit
                     if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                     {
                         // Remainder of XISO is filler
-                        if (trimXISO || extractFiller || wipeXISO)
-                            bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        long bytesUntilEnd = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        if (extractFiller || wipeXISO)
+                            bytesToWipe = bytesUntilEnd;
                         
                         // Trim XISO
                         if (trimXISO)
@@ -675,7 +676,7 @@ namespace XboxKit
                         if (trimXISO && !extractFiller)
                         {
                             // Nothing else to do, finish processing XISO early
-                            numBytes += bytesToWipe;
+                            numBytes += bytesUntilEnd;
                             break;
                         }
                     }
@@ -707,30 +708,35 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
                         }
+                        if (!extractXISO)
+                            numBytes += bytesToWipe;
                     }
 
-                    // Write zeroes to XISO (unless trimming end)
                     if (extractXISO && wipeXISO && bytesToWipe > 0 && !xisoEnd)
                     {
+                        // Write zeroes to XISO (unless trimming end)
                         WriteZeroes(xisoFS, -1, bytesToWipe);
-                        if (!extractFiller)
-                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
+                        isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                         numBytes += bytesToWipe;
                     }
                     else if (extractXISO)
                     {
+                        // Write data to XISO
                         long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
                         if (!WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                         {
-                            Console.WriteLine("[ERROR] Failed writing filler data.");
+                            Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                             return;
                         }
                         numBytes += bytesToRead;
                     }
-                    else if (!extractXISO && bytesToWipe > 0)
-                        numBytes += bytesToWipe;
-                    else
-                        numBytes += Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                    else if (bytesToWipe <= 0)
+                    {
+                        // Skip file extent
+                        bytesToEnd = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                        isoFS.Seek(bytesToEnd, SeekOrigin.Current);
+                        numBytes += bytesToEnd;
+                    }
                 }
 
                 // Close files
@@ -742,7 +748,7 @@ namespace XboxKit
                 // Validity check
                 if (numBytes != xisoLength)
                 {
-                    Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
+                    Console.WriteLine("[ERROR] Unexpected error, please report this");
                     return;
                 }
 
