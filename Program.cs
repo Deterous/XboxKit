@@ -421,14 +421,14 @@ namespace XboxKit
                 if (extractFiller && File.Exists(fillerPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
-                    return
+                    return;
                 }
 
                 // Check that update file doesn't already exist
                 if (unpackVideo && File.Exists(updatePath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {updatePath}");
-                    return
+                    return;
                 }
 
                 // Determine disc layout type
@@ -564,7 +564,7 @@ namespace XboxKit
 
                     // Zero update file within XISO
                     Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
-                    WriteZeroes(videoFS, updateOffset, updateLength)
+                    WriteZeroes(videoFS, updateOffset, updateLength);
                 }
 
                 // Quit early if ignoring XISO
