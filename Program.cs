@@ -410,6 +410,13 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
+                // Check that XISO doesn't already exist
+                if (extractXISO && File.Exists(xisoPath))
+                {
+                    Console.WriteLine($"[ERROR] File already exists: {xisoPath}");
+                    return;
+                }
+
                 // Check that video ISO doesn't already exist
                 if (extractVideo && File.Exists(videoPath))
                 {
@@ -666,7 +673,7 @@ namespace XboxKit
                     if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                     {
                         // Remainder of XISO is filler
-                        long bytesUntilEnd = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        long bytesUntilEnd = xisoLength - numBytes;
                         if (extractFiller || wipeXISO)
                             bytesToWipe = bytesUntilEnd;
                         
@@ -730,7 +737,7 @@ namespace XboxKit
                         }
                         numBytes += bytesToRead;
                     }
-                    else if (bytesToWipe <= 0)
+                    else if (extractFiller && bytesToWipe <= 0)
                     {
                         // Skip file extent
                         long bytesToEnd = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
