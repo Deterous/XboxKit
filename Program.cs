@@ -632,7 +632,7 @@ namespace XboxKit
                 // Parse XISO filesystem for all file extents 
                 List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET);
                 foreach (var (start, end) in validRanges)
-                    Console.WriteLine($"[INFO] XISO File Extent: 0x{start:X}-0x{end:X}");
+                    Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
@@ -665,13 +665,16 @@ namespace XboxKit
                     // Determine whether current sector is after last file extent
                     if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                     {
-                        // Wipe or trim remainder of XISO
-                        if (wipeXISO)
+                        // Remainder of XISO is filler
+                        if (trimXISO || extractFiller || wipeXISO)
                             bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
+                        
+                        // Trim XISO
                         if (trimXISO)
                             xisoEnd = true;
                         if (trimXISO && !extractFiller)
                         {
+                            // Nothing else to do, finish processing XISO early
                             numBytes += bytesToWipe;
                             break;
                         }
