@@ -161,14 +161,14 @@ namespace XboxKit
         }
 
         // Get list of valid XISO ranges
-        static List<(uint, uint)> GetXISORanges(FileStream isoFS)
+        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
         {
             List<uint> validSectors = new List<uint>();
-            long headerOffset = (XISO_OFFSET[0] + 0x10000) / SECTOR_SIZE;
+            long headerOffset = (offset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffset);
             validSectors.Add((uint)headerOffset + 1);
 
-            isoFS.Seek(XISO_OFFSET[0] + 0x10000 + 20, SeekOrigin.Begin);
+            isoFS.Seek(offset + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
             GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
@@ -192,6 +192,42 @@ namespace XboxKit
             ranges.Add((start, prev));
 
             return ranges;
+        }
+
+        // Ensure proper writing to byte array
+        static bool WriteBytes(FileStream fs, byte[] outBA, long offset)
+        {
+            long numBytes = 0;
+            if (offset > 0)
+                fs.Seek(offset, SeekOrigin.Begin);
+            while (numBytes < outBA.Length)
+            {
+                int bytesRead = fs.Read(outBA, 0, outBA.Length - numBytes);
+                if (bytesRead == 0)
+                    break;
+
+                numBytes += bytesRead;
+            }
+            return numBytes == outBA.Length;
+        }
+
+        // Ensure proper writing to filestream
+        static bool WriteBytes(FileStream inFS, FileStream outFS, long offset, long length)
+        {
+            byte[] buf = new byte[64 * SECTOR_SIZE];
+            long numBytes = 0;
+            if (offset > 0)
+                inFS.Seek(offset, SeekOrigin.Begin);
+            while (numBytes < length)
+            {
+                int bytesRead = inFS.Read(buf, 0, (int)Math.Min(buf.Length, length - numBytes));
+                if (bytesRead == 0)
+                    break;
+
+                outFS.Write(buf, 0, bytesRead);
+                numBytes += bytesRead;
+            }
+            return numBytes == length;
         }
 
         static void Main(string[] args)
@@ -371,8 +407,6 @@ namespace XboxKit
                 // Open redump ISO for reading
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
-                long numBytes = 0;
-                byte[] buf = new byte[64 * SECTOR_SIZE];
 
                 // Extract video partition
                 if (extractVideo)
@@ -440,22 +474,11 @@ namespace XboxKit
                         return;
                     }
 
-                    // Write layer 0 portion of video partition
-                    long l0Length = VIDEO_L0_LENGTH[videoType];
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
-                    isoFS.Seek(0, SeekOrigin.Begin);
-                    numBytes = 0;
-                    while (numBytes < l0Length)
-                    {
-                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, l0Length - numBytes));
-                        if (bytesRead == 0)
-                            break;
 
-                        videoFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != l0Length)
+                    // Write layer 0 portion of video partition
+                    if (!WriteBytes(isoFS, videoFS, 0, VIDEO_L0_LENGTH[videoType]))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
@@ -463,154 +486,84 @@ namespace XboxKit
 
                     // Write layer 1 portion of video partition
                     long l1Length = VIDEO_L1_LENGTH[videoType];
-                    isoFS.Seek(isoSize - l1Length, SeekOrigin.Begin);
-                    numBytes = 0;
-                    while (numBytes < l1Length)
-                    {
-                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, l1Length - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        videoFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != l1Length)
+                    if (!WriteBytes(isoFS, videoFS, isoSize - l1Length, l1Length))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
                     }
                 }
-                
-                List<(uint Start, uint End)> validRanges = new List<(uint, uint)>();
-                if (extractFiller || wipeXISO || trimXISO)
+
+                // If XGD1, try brute force the filler data seed
+                uint xgd1Seed;
+                if (xgdType == 0)
                 {
-                    // Wipe XGD1
-                    bool foundSeed = false;
-                    uint xgd1Seed;
-
-                    // If XGD1, try brute force the seed
-                    if (xgdType == 0)
+                    // Validate XGD1 magic bytes
+                    byte[] magic = new byte[XDVDFS_MAGIC.Length];
+                    if (!WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
                     {
-                        // Validate XGD1 magic bytes
-                        isoFS.Seek(XISO_OFFSET[xgdType] + 0x10800, SeekOrigin.Begin);
-                        byte[] magic = new byte[XDVDFS_MAGIC.Length];
-                        int magicLength = XDVDFS_MAGIC.Length;
-                        numBytes = 0;
-                        while (numBytes < magicLength)
-                        {
-                            int bytesRead = isoFS.Read(magic, 0, (int)Math.Min(magic.Length, magicLength - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != magicLength)
-                        {
-                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
-                            return;
-                        }
-                        if (!SequenceEqual(magic, XDVDFS_MAGIC))
-                        {
-                            Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
-                            return;
-                        }
-
-                        // Determine version offset
-                        byte[] nextBuf = new byte[8];
-                        isoFS.Seek(XISO_OFFSET[xgdType] + 0x10820, SeekOrigin.Begin);
-                        numBytes = 0;
-                        while (numBytes < nextBuf.Length)
-                        {
-                            int bytesRead = isoFS.Read(nextBuf, 0, (int)Math.Min(nextBuf.Length, nextBuf.Length - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != nextBuf.Length)
-                        {
-                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
-                            return;
-                        }
-                        int versionOffset = 0x10824;
-                        if (SequenceEqual(nextBuf, new byte[8]))
-                            versionOffset += 0x10;
-
-                        // Determine XGD1 version
-                        byte[] versionBuf = new byte[2];
-                        isoFS.Seek(XISO_OFFSET[xgdType] + versionOffset, SeekOrigin.Begin);
-                        numBytes = 0;
-                        while (numBytes < versionBuf.Length)
-                        {
-                            int bytesRead = isoFS.Read(versionBuf, 0, (int)Math.Min(versionBuf.Length, versionBuf.Length - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != 2)
-                        {
-                            Console.WriteLine("[ERROR] Failed to read XGD1 version.");
-                            return;
-                        }
-                        ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
-                        if (version == 0)
-                        {
-                            Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
-                            return;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[INFO] XGD1 Version: {version}");
-                        }
-
-                        // Determine XGD1 pseudo random number generator seed, if possible
-                        isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                        byte[] firstXISOSector = new byte[SECTOR_SIZE];
-                        numBytes = 0;
-                        while (numBytes < SECTOR_SIZE)
-                        {
-                            int bytesRead = isoFS.Read(firstXISOSector, 0, (int)Math.Min(firstXISOSector.Length, SECTOR_SIZE - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != SECTOR_SIZE)
-                        {
-                            Console.WriteLine("[ERROR] Failed reading first XISO sector");
-                            return;
-                        }
-                        foundSeed = GuessSeed(firstXISOSector, out uint seed);
-                        if (foundSeed)
-                        {
-                            xgd1Seed = seed;
-                            Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
-                        }
-                        else
-                        {
-                            // Probably RC4-256-drop-2048
-                            if (version < 4721)
-                                Console.WriteLine("[INFO] Could not determine seed");
-                        }
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
+                        return;
+                    }
+                    if (!SequenceEqual(magic, XDVDFS_MAGIC))
+                    {
+                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
+                        return;
                     }
 
-                    // If XGD1 with RC4, determine valid data ranges
-                    if (xgdType == 0 && !foundSeed)
+                    // Determine version offset
+                    byte[] nextBuf = new byte[8];
+                    if (!WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
                     {
-                        validRanges = GetXISORanges(isoFS);
-                        foreach (var (start, end) in validRanges)
-                            Console.WriteLine($"[INFO] File Extent: {start}-{end}");
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
+                        return;
+                    }
+                    int versionOffset = 0x10824;
+                    if (SequenceEqual(nextBuf, new byte[8]))
+                        versionOffset += 0x10;
+
+                    // Determine XGD1 version
+                    byte[] versionBuf = new byte[2];
+                    if (!WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
+                    {
+                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
+                        return;
+                    }
+                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+                    if (version == 0)
+                    {
+                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
+                        return;
+                    }
+                    else
+                        Console.WriteLine($"[INFO] XGD1 Version: {version}");
+
+                    // Determine XGD1 pseudo random number generator seed, if possible
+                    byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                    if (!WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
+                    {
+                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                        return;
+                    }
+                    if (GuessSeed(firstXISOSector, out uint seed))
+                    {
+                        xgd1Seed = seed;
+                        Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                     }
                 }
 
-                // Process game partition
+                // Parse XISO filesystem for all file extents 
+                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType] + 0x10000);
+                foreach (var (start, end) in validRanges)
+                    Console.WriteLine($"[INFO] File Extent: {start}-{end}");
+
+                // Create file for game partition
                 FileStream xisoFS = null!;
                 if (extractXISO)
                 {
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                 }
+
 
                 FileStream fillerFS = null!;
                 if (extractFiller)
@@ -633,8 +586,9 @@ namespace XboxKit
                     long currentByte = XISO_OFFSET[xgdType] + numBytes;
                     long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
                     bool xisoEnd = false;
+
                     // Determine whether current sector is after last file extent
-                    if ((extractFiller || wipeXISO || trimXISO) && currentSector > validRanges[validRanges.Count - 1].End)
+                    if ((extractFiller || wipeXISO || trimXISO) && validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                     {
                         // Wipe or trim remainder of XISO
                         bytesToWipe = xisoLength - currentByte - XISO_OFFSET[xgdType];
@@ -684,17 +638,7 @@ namespace XboxKit
                     // Write RC4 filler data to file
                     if (extractFiller && bytesToWipe > 0)
                     {
-                        int bytesFilled = 0;
-                        while (bytesFilled < bytesToWipe)
-                        {
-                            int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToWipe - bytesFilled));
-                            if (bytesRead == 0)
-                                break;
-
-                            fillerFS.Write(buf, 0, bytesRead);
-                            bytesFilled += bytesRead;
-                        }
-                        if (bytesFilled != bytesToWipe)
+                        if (!WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
                         {
                             Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
@@ -706,11 +650,11 @@ namespace XboxKit
                     else if (extractXISO)
                     {
                         long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
-                        int bytesRead = isoFS.Read(buf, 0, (int)Math.Min(buf.Length, bytesToRead));
-                        if (bytesRead == 0)
-                            break;
-
-                        xisoFS.Write(buf, 0, bytesRead);
+                        if (!WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+                        {
+                            Console.WriteLine("[ERROR] Failed writing filler data.");
+                            return;
+                        }
                         numBytes += bytesRead;
                     }
                     else
