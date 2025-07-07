@@ -412,6 +412,11 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
+                if (wipeXISO && !extractXISO)
+                    Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
+                if (trimXISO && !extractXISO)
+                    Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)")
+
                 if (extractXISO && extractFiller && !wipeXISO)
                 {
                     Console.WriteLine("[ERROR] Cannot write filler data without wiping XISO");
