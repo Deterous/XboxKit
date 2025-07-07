@@ -173,11 +173,12 @@ namespace XboxKit
         static List<(uint, uint)> GetXISORanges(FileStream isoFS, long xgdType)
         {
             List<uint> validSectors = new List<uint>();
-            long headerOffset = (offset) / SECTOR_SIZE;
-            validSectors.Add((uint)headerOffset);
-            validSectors.Add((uint)headerOffset + 1);
+            long headerOffset = XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET;
+            long headerOffsetSector = (offset) / SECTOR_SIZE;
+            validSectors.Add((uint)headerOffsetSector);
+            validSectors.Add((uint)headerOffsetSector + 1);
 
-            isoFS.Seek(XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET + 20, SeekOrigin.Begin);
+            isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
             GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, xgdType);
