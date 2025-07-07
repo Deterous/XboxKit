@@ -700,18 +700,7 @@ namespace XboxKit
                         using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
                         long updateOffset = pos;
                         long updateLength = videoLength - updateOffset - SECTOR_SIZE;
-                        numBytes = 0;
-                        videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                        while (numBytes < updateLength)
-                        {
-                            int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, updateLength - numBytes));
-                            if (bytesRead == 0)
-                                break;
-
-                            updateFS.Write(buf, 0, bytesRead);
-                            numBytes += bytesRead;
-                        }
-                        if (numBytes != updateLength)
+                        if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                         {
                             Console.WriteLine("[ERROR] Failed writing system update file.");
                             return;
@@ -722,7 +711,7 @@ namespace XboxKit
                         videoFS.Seek(updateOffset, SeekOrigin.Begin);
                         while (numBytes < updateLength)
                         {
-                            int bytesToWrite = (int)Math.Min(buf.Length, updateLength - numBytes);
+                            int bytesToWrite = (int)Math.Min(emptyArray.Length, updateLength - numBytes);
                             if (bytesToWrite == 0)
                                 break;
                             
