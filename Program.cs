@@ -243,10 +243,10 @@ namespace XboxKit
             byte[] buf = new byte[64 * SECTOR_SIZE];
             long numBytes = 0;
             if (offset > 0)
-                inFS.Seek(offset, SeekOrigin.Begin);
+                outFS.Seek(offset, SeekOrigin.Begin);
             while (numBytes < length)
             {
-                bytesToWrite = (int)Math.Min(buf.Length, length - numBytes);
+                int bytesToWrite = (int)Math.Min(buf.Length, length - numBytes);
                 outFS.Write(buf, 0, bytesToWrite);
                 numBytes += bytesToWrite;
             }
@@ -711,7 +711,7 @@ namespace XboxKit
                     {
                         WriteZeroes(xisoFS, -1, bytesToWipe);
                         if (!extractFiller)
-                            isoFS.Seek(bytesWiped, SeekOrigin.Current);
+                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                         numBytes += bytesToWipe;
                     }
                     else if (extractXISO)
