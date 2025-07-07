@@ -202,7 +202,7 @@ namespace XboxKit
                 fs.Seek(offset, SeekOrigin.Begin);
             while (numBytes < outBA.Length)
             {
-                int bytesRead = fs.Read(outBA, 0, outBA.Length - numBytes);
+                int bytesRead = fs.Read(outBA, 0, (int)(outBA.Length - numBytes));
                 if (bytesRead == 0)
                     break;
 
@@ -578,7 +578,7 @@ namespace XboxKit
                 }
                 isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                 long xisoLength = XISO_LENGTH[xgdType];
-                numBytes = 0;
+                long numBytes = 0;
                 while (numBytes < xisoLength)
                 {
                     long bytesUntilEndOfExtent = long.MaxValue;
