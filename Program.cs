@@ -733,6 +733,8 @@ namespace XboxKit
                         if (!extractXISO)
                             numBytes += bytesToWipe;
                     }
+                    else if (extractXISO && bytesToWipe > 0 && xisoEnd)
+                        isoFS.Seek(bytesToWipe, SeekOrigin.Current);
 
                     if (extractXISO && wipeXISO && bytesToWipe > 0 && !xisoEnd)
                     {
