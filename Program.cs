@@ -723,8 +723,11 @@ namespace XboxKit
                     {
                         // Write zeroes to XISO (unless trimming end)
                         WriteZeroes(xisoFS, -1, bytesToWipe);
-                        isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                         numBytes += bytesToWipe;
+                        
+                        // Move ahead in ISO file if filler was not read
+                        if (!extractFiller)
+                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                     }
                     else if (extractXISO)
                     {
