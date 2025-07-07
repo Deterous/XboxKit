@@ -655,7 +655,7 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed writing filler data.");
                             return;
                         }
-                        numBytes += bytesRead;
+                        numBytes += bytesToRead;
                     }
                     else
                         numBytes += Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
