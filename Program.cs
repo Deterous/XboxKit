@@ -999,17 +999,17 @@ namespace XboxKit
             {
                 #region Mode 3: Video ISO as input
 
-                // Check that no other file paths are given
-                if (!string.IsNullOrEmpty(videoPath) || !string.IsNullOrEmpty(updatePath))
-                {
-                    Console.WriteLine("[ERROR] To combine XISO and Video ISO, provide XISO path first");
-                    Console.WriteLine("        To extract system update from video, provide only one ISO path");
-                }
-
                 // Check that user explicitly asks to extract system update
                 if (!unpackVideo)
                 {
                     Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
+                    return;
+                }
+
+                // Check that update file doesn't already exist
+                if (File.Exists(updatePath))
+                {
+                    Console.WriteLine($"[ERROR] System update file already exists: {updatePath}");
                     return;
                 }
 
@@ -1022,67 +1022,29 @@ namespace XboxKit
 
                 // Open ISO for reading and writing
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                long videoLength = videoFS.Length;
-                long pos = videoLength;
+                long updateOffset = videoFS.Length;
                 byte[] videoBuf = new byte[16];
-                while (pos > 0)
+                while (updateOffset > 0)
                 {
-                    videoFS.Seek(pos - SECTOR_SIZE, SeekOrigin.Begin);
+                    videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
                     videoFS.Read(videoBuf, 0, 16);
                     if (FILLER.AsSpan().SequenceEqual(videoBuf))
                         break;
 
-                    pos -= SECTOR_SIZE;
+                    updateOffset -= SECTOR_SIZE;
                 }
 
-                // Set update path to default if unset
-                if (!string.IsNullOrEmpty(updatePath))
-                    updatePath = Path.Combine(dir, "su20076000_00000000");
-
-                if (File.Exists(updatePath))
-                    Console.WriteLine($"[INFO] Skipping unpacking, system update file already exists: {updatePath}");
-                else
+                Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
+                using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                long updateLength = videoFS.Length - updateOffset - SECTOR_SIZE;
+                if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                 {
-                    Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                    using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    long updateOffset = pos;
-                    long updateLength = videoLength - updateOffset - SECTOR_SIZE;
-                    byte[] buf = new byte[64 * SECTOR_SIZE];
-                    int numBytes = 0;
-                    videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                    while (numBytes < updateLength)
-                    {
-                        int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, updateLength - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        updateFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != updateLength)
-                    {
-                        Console.WriteLine("[ERROR] Failed writing system update file.");
-                        return;
-                    }
-
-                    byte[] emptyArray = new byte[64 * SECTOR_SIZE];
-                    numBytes = 0;
-                    videoFS.Seek(updateOffset, SeekOrigin.Begin);
-                    while (numBytes < updateLength)
-                    {
-                        int bytesToWrite = (int)Math.Min(buf.Length, updateLength - numBytes);
-                        if (bytesToWrite == 0)
-                            break;
-                        
-                        videoFS.Write(emptyArray, 0, bytesToWrite);
-                        numBytes += bytesToWrite;
-                    }
-                    if (numBytes != updateLength)
-                    {
-                        Console.WriteLine("[ERROR] Failed zeroing system update file in video partition.");
-                        return;
-                    }
+                    Console.WriteLine("[ERROR] Failed writing system update file.");
+                    return;
                 }
+
+                // Zero out the update file in the video ISO
+                WriteZeroes(videoFS, updateOffset, updateLength);
 
                 #endregion
             }
