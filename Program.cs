@@ -793,19 +793,26 @@ namespace XboxKit
             }
             else if (xisoType >= 0)
             {
-                #region Mode 2: XISO as input
+                // Mode 2: XISO as input
+
+                #region Wipe XISO
+
+                if (wipeXISO)
+                {
+                    // Wipe XISO then quit
+                    Console.WriteLine("[ERROR] Wiping XISO standalone not yet implemented.");
+                    return;
+                }
+
+                #endregion
+
+                #region Rebuild Redump ISO
 
                 // Check that video partition exists
-                if (!wipeXISO && !File.Exists(videoPath))
+                if (!File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] Invalid file path: {videoPath}");
                     Console.WriteLine("Provide a file path to the video partition to rebuild the redump ISO.");
-                    return;
-                }
-                // Check that update file exists, if given
-                if (!string.IsNullOrEmpty(updatePath) && !File.Exists(updatePath))
-                {
-                    Console.WriteLine($"[ERROR] Invalid file path: {updatePath}");
                     return;
                 }
 
@@ -830,33 +837,20 @@ namespace XboxKit
                     14 => REDUMP_ISO_LENGTH[5], // XGD2-Hybrid
                     15 => REDUMP_ISO_LENGTH[6], // XGD3v0
                     16 => REDUMP_ISO_LENGTH[7], // XGD3
-                    _ => -1,
+                    _ => 0,
                 };
-                if (redumpLength == -1)
-                {
-                    Console.WriteLine("[ERROR] Unexpected video partition type");
-                    return;
-                }
+
+                // Create redump ISO
+                using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                Console.WriteLine($"[INFO] Writing redump ISO to {redumpPath}");
+
+                // Open video ISO for reading
+                using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
 
                 // Write Layer 0 portion of video partition
                 long l0Length = VIDEO_L0_LENGTH[videoType];
-                using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                Console.WriteLine($"[INFO] Writing redump ISO to {redumpPath}");
-                Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
-                using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                videoFS.Seek(0, SeekOrigin.Begin);
-                long numBytes = 0;
-                byte[] buf = new byte[64 * SECTOR_SIZE];
-                while (numBytes < l0Length)
-                {
-                    int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, l0Length - numBytes));
-                    if (bytesRead == 0)
-                        break;
-
-                    redumpFS.Write(buf, 0, bytesRead);
-                    numBytes += bytesRead;
-                }
-                if (numBytes != l0Length)
+                if (!WriteBytes(videoFS, redumpFS, 0, l0Length))
                 {
                     Console.WriteLine("[ERROR] Failed writing layer 0 portion of video partition.");
                     return;
@@ -865,39 +859,16 @@ namespace XboxKit
                 // Write layer 0 padding (zeroes)
                 long xisoOffset = XISO_OFFSET[xisoType];
                 long l0Padding = xisoOffset - l0Length;
-                numBytes = 0;
-                Array.Clear(buf, 0, buf.Length);
-                while (numBytes < l0Padding)
-                {
-                    int bytesToWrite = (int)Math.Min(buf.Length, l0Padding - numBytes);
-                    if (bytesToWrite == 0)
-                        break;
+                WriteZeroes(redumpFS, -1, l0Padding);
 
-                    redumpFS.Write(buf, 0, bytesToWrite);
-                    numBytes += bytesToWrite;
-                }
-                if (numBytes != l0Padding)
-                {
-                    Console.WriteLine("[ERROR] Failed writing layer 0 padding.");
-                    return;
-                }
-
-                // Write game partition
+                // Open XISO file for reading
                 using FileStream xisoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 Console.WriteLine($"[INFO] Reading XISO from {isoPath}");
+
+                // Write game partition
                 xisoFS.Seek(0, SeekOrigin.Begin);
                 long xisoLength = XISO_LENGTH[xisoType];
-                numBytes = 0;
-                while (numBytes < xisoLength)
-                {
-                    int bytesRead = xisoFS.Read(buf, 0, (int)Math.Min(buf.Length, xisoLength - numBytes));
-                    if (bytesRead == 0)
-                        break;
-
-                    redumpFS.Write(buf, 0, bytesRead);
-                    numBytes += bytesRead;
-                }
-                if (numBytes != xisoLength)
+                if (!WriteBytes(xisoFS, redumpFS, -1, xisoLength))
                 {
                     Console.WriteLine("[ERROR] Failed writing game partition.");
                     return;
@@ -906,68 +877,35 @@ namespace XboxKit
                 // Write layer 1 padding (zeroes)
                 long l1Length = VIDEO_L1_LENGTH[videoType];
                 long l1Padding = (redumpLength - l1Length) - (xisoOffset + xisoLength);
-                numBytes = 0;
-                Array.Clear(buf, 0, buf.Length);
-                while (numBytes < l1Padding)
-                {
-                    int bytesToWrite = (int)Math.Min(buf.Length, l1Padding - numBytes);
-                    if (bytesToWrite == 0)
-                        break;
-
-                    redumpFS.Write(buf, 0, bytesToWrite);
-                    numBytes += bytesToWrite;
-                }
-                if (numBytes != l1Padding)
-                {
-                    Console.WriteLine("[ERROR] Failed writing layer 1 padding.");
-                    return;
-                }
+                WriteZeroes(redumpFS, -1, l1Padding)
 
                 // If writing system update file, stop video partition early
-                if (!string.IsNullOrEmpty(updatePath))
+                if (File.Exists(updatePath))
                 {
+                    Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
                     FileInfo suInfo = new(updatePath);
                     long suSize = suInfo.Length;
                     l1Length -= suSize + SECTOR_SIZE;
                 }
 
                 // Write layer 1 portion of video partition
-                videoFS.Seek(l0Length, SeekOrigin.Begin);
-                numBytes = 0;
-                while (numBytes < l1Length)
-                {
-                    int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, l1Length - numBytes));
-                    if (bytesRead == 0)
-                        break;
-
-                    redumpFS.Write(buf, 0, bytesRead);
-                    numBytes += bytesRead;
-                }
-                if (numBytes != l1Length)
+                if (!WriteBytes(videoFS, redumpFS, l0Length, l1Length))
                 {
                     Console.WriteLine("[ERROR] Failed writing layer 1 portion of video partition.");
                     return;
                 }
 
                 // Write system update file
-                if (!string.IsNullOrEmpty(updatePath))
+                if (File.Exists(updatePath))
                 {
+                    // Open system update file for reading
                     FileInfo suInfo = new(updatePath);
                     long suSize = suInfo.Length;
                     using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     Console.WriteLine($"[INFO] Reading system update from {updatePath}");
-                    updateFS.Seek(0, SeekOrigin.Begin);
-                    numBytes = 0;
-                    while (numBytes < suSize)
-                    {
-                        int bytesRead = updateFS.Read(buf, 0, (int)Math.Min(buf.Length, suSize - numBytes));
-                        if (bytesRead == 0)
-                            break;
 
-                        redumpFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != suSize)
+                    // Write system update file to redump ISO
+                    if (!WriteBytes(updateFS, redumpFS, 0, suSize))
                     {
                         Console.WriteLine("[ERROR] Failed writing system update file.");
                         return;
@@ -975,17 +913,7 @@ namespace XboxKit
 
                     // Write final video partition sector
                     videoFS.Seek(-SECTOR_SIZE, SeekOrigin.End);
-                    numBytes = 0;
-                    while (numBytes < SECTOR_SIZE)
-                    {
-                        int bytesRead = videoFS.Read(buf, 0, (int)Math.Min(buf.Length, SECTOR_SIZE - numBytes));
-                        if (bytesRead == 0)
-                            break;
-
-                        redumpFS.Write(buf, 0, bytesRead);
-                        numBytes += bytesRead;
-                    }
-                    if (numBytes != SECTOR_SIZE)
+                    if (!WriteBytes(videoFS, redumpFS, -1, SECTOR_SIZE))
                     {
                         Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
                         return;
