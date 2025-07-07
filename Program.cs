@@ -43,7 +43,9 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Combine input files (no flags)");
             Console.WriteLine("Extract mode: Use flags (optional paths are used for output file names)");
-            Console.WriteLine("-s, --save-filler\t Extracts XISO filler data to a separate file");
+            //Console.WriteLine("-r, --rc4        \t Extracts RC4 filler data to a separate file");
+            //Console.WriteLine("-s, --silent     \t No [INFO] messages to console");
+            Console.WriteLine("-s, --save-filler\t Saves XISO filler data to a separate file");
             Console.WriteLine("-t, --trim       \t Trims end of XISO (game partition)");
             Console.WriteLine("-u, --update-file\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video      \t Extracts video ISO (video partition)");
@@ -410,6 +412,13 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
+                if (extractXISO && extractFiller && !wipeXISO)
+                {
+                    Console.WriteLine("[ERROR] Cannot write filler data without wiping XISO");
+                    Console.WriteLine("        For now, use -w with -s");
+                    return;
+                }
+
                 // Check that XISO doesn't already exist
                 if (extractXISO && File.Exists(xisoPath))
                 {
@@ -724,12 +733,12 @@ namespace XboxKit
                         // Write zeroes to XISO (unless trimming end)
                         WriteZeroes(xisoFS, -1, bytesToWipe);
                         numBytes += bytesToWipe;
-                        
+
                         // Move ahead in ISO file if filler was not read
                         if (!extractFiller)
                             isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                     }
-                    else if (extractXISO)
+                    else if (extractXISO && !xisoEnd)
                     {
                         // Write data to XISO
                         long bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
