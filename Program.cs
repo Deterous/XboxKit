@@ -769,7 +769,10 @@ namespace XboxKit
                             numBytes += bytesToRead;
                         }
                         else if (bytesToWipe > 0)
+                        {
                             isoFS.Seek(bytesToWipe, SeekOrigin.Current);
+                            numBytes += bytesToWipe;
+                        }
                     }
                 }
 
