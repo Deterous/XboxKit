@@ -834,6 +834,8 @@ namespace XboxKit
             {
                 // Mode 2: XISO as input
 
+                long xisoLength = XISO_LENGTH[xisoType];
+
                 #region Wipe XISO
 
                 // Check for invalid options
@@ -881,7 +883,6 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] Writing wiped XISO to {xisoPath}");
 
                     isoFS.Seek(0, SeekOrigin.Begin);
-                    long xisoLength = XISO_LENGTH[xisoType];
                     long currentByte = 0;
                     while (currentByte < xisoLength)
                     {
@@ -1059,14 +1060,9 @@ namespace XboxKit
                 long l0Padding = xisoOffset - l0Length;
                 WriteZeroes(redumpFS, -1, l0Padding);
 
-                // Open XISO file for reading
-                using FileStream xisoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                Console.WriteLine($"[INFO] Reading XISO from {isoPath}");
-
                 // Write game partition
-                xisoFS.Seek(0, SeekOrigin.Begin);
-                long xisoLength = XISO_LENGTH[xisoType];
-                if (!WriteBytes(xisoFS, redumpFS, -1, xisoLength))
+                isoFS.Seek(0, SeekOrigin.Begin);
+                if (!WriteBytes(isoFS, redumpFS, -1, xisoLength))
                 {
                     Console.WriteLine("[ERROR] Failed writing game partition.");
                     return;
