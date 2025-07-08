@@ -932,7 +932,7 @@ namespace XboxKit
                 WriteZeroes(redumpFS, -1, l1Padding);
 
                 // If writing system update file, stop video partition early
-                long suSize;
+                long suSize = 0;
                 if (File.Exists(updatePath))
                 {
                     Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
