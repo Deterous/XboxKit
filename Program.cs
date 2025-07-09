@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace XboxKit
 {
@@ -483,7 +484,7 @@ namespace XboxKit
                     return;
 
                 // Parse XISO filesystem for all file extents 
-                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType]);
+                List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, XISO_OFFSET[xgdType]);
                 if (!quiet)
                 {
                     foreach (var (start, end) in validRanges)
@@ -771,7 +772,7 @@ namespace XboxKit
                         fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     // Parse XISO filesystem for all file extents 
-                    List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, 0);
+                    List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0);
                     if (!quiet)
                     {
                         foreach (var (start, end) in validRanges)
@@ -1044,7 +1045,7 @@ namespace XboxKit
                     }
 
                     // Parse XISO filesystem for all file extents 
-                    List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, 0);
+                    List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0);
                     if (!quiet)
                     {
                         foreach (var (start, end) in validRanges)
