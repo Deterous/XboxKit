@@ -1112,7 +1112,7 @@ namespace XboxKit
                         else
                         {
                             // Write data to XISO
-                            long bytesToWrite = Math.Min(xisoBytes, xisoLength - numBytes);
+                            long bytesToWrite = Math.Min(xisoBytes, xisoLength - currentByte);
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
