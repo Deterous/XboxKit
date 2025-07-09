@@ -616,7 +616,6 @@ namespace XboxKit
                                 bytesToRead = bytesUntilEndOfExtent;
                             else
                                 bytesToRead = xisoLength - numBytes;
-                            Console.WriteLine($"Writing bytes: {bytesToRead}");
                             if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
@@ -894,7 +893,7 @@ namespace XboxKit
                                 // Write data to XISO
                                 long bytesToRead;
                                 if (bytesToWipe > 0)
-                                    bytesToRead = Math.Min(bytesToWipe, isoSize - currentByte);
+                                    bytesToRead = bytesToWipe;
                                 else if (bytesUntilEndOfExtent > 0)
                                     bytesToRead = bytesUntilEndOfExtent;
                                 else
@@ -1071,7 +1070,7 @@ namespace XboxKit
                     while (currentByte < xisoLength)
                     {
                         long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-                        long xisoBytes = long.MaxValue;
+                        long xisoBytes = 0;
                         long fillerBytes = 0;
 
                         // Determine whether current sector is after last file extent
@@ -1125,7 +1124,11 @@ namespace XboxKit
                         else
                         {
                             // Write data to XISO
-                            long bytesToWrite = Math.Min(xisoBytes, xisoLength - currentByte);
+                            long bytesToWrite;
+                            if (xisoBytes > 0)
+                                bytesToWrite = xisoBytes;
+                            else
+                                bytesToWrite = xisoLength - currentByte;
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
