@@ -760,6 +760,12 @@ namespace XboxKit
                     {
                         if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                         {
+                            // Validity check
+                            if (bytesToWipe % SECTOR_SIZE != 0)
+                            {
+                                Console.WriteLine("[ERROR] Unexpected Error 2, please report this.");
+                                return;
+                            }
                             // Write zeroes to XISO (unless trimming end)
                             WriteZeroes(xisoFS, -1, bytesToWipe);
                             numBytes += bytesToWipe;
@@ -800,7 +806,7 @@ namespace XboxKit
                 // Validity check
                 if (numBytes != xisoLength)
                 {
-                    Console.WriteLine("[ERROR] Unexpected error, please report this");
+                    Console.WriteLine("[ERROR] Unexpected Error 3, please report this");
                     return;
                 }
 
@@ -888,7 +894,7 @@ namespace XboxKit
             {
                 // Mode 3: XISO as input
 
-                long xisoLength = isoSize; // TODO: Set this to intended XISO length if input is trimmed
+                long xisoLength = isoSize; // Later updated to intended length if trimmed
 
                 #region Wipe XISO
 
@@ -1030,6 +1036,12 @@ namespace XboxKit
                         {
                             if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                             {
+                                // Validity check
+                                if (bytesToWipe % SECTOR_SIZE != 0)
+                                {
+                                    Console.WriteLine("[ERROR] Unexpected Error 4, please report this.");
+                                    return;
+                                }
                                 // Write zeroes to XISO (unless trimming end)
                                 WriteZeroes(xisoFS, -1, bytesToWipe);
                                 currentByte += bytesToWipe;
@@ -1071,7 +1083,7 @@ namespace XboxKit
                     // Validity check
                     if (currentByte != isoSize)
                     {
-                        Console.WriteLine("[ERROR] Unexpected error, please report this");
+                        Console.WriteLine("[ERROR] Unexpected Error 5, please report this");
                         return;
                     }
 
@@ -1166,9 +1178,8 @@ namespace XboxKit
                 }
                 else
                 {
-                    // Get XGD1 initial seed, if provided
-                    bool knownSeed = false;
-                    uint xgd1Seed = 0;
+                    // Get XGD1 initial seed, if path exists
+                    XboxPRNG prng = null!;
                     if (xisoType == 0 && File.Exists(seedPath))
                     {
                         FileInfo seedInfo = new(seedPath);
@@ -1177,13 +1188,13 @@ namespace XboxKit
                             using FileStream seedFS = new(seedPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            xgd1Seed = ReadUInt(seedFS);
-                            knownSeed = true;
-                            Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
+                            prng = new(ReadUInt(seedFS));
                             return;
                         }
                     }
-                    else if (xisoType == 0 && File.Exists(fillerPath))
+
+                    // Check fillerPath for initial seed
+                    if (prng == null && xisoType == 0 && File.Exists(fillerPath))
                     {
                         FileInfo seedInfo = new(fillerPath);
                         if (seedInfo.Length == 4)
@@ -1191,16 +1202,14 @@ namespace XboxKit
                             using FileStream seedFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            xgd1Seed = ReadUInt(seedFS);
-                            knownSeed = true;
-                            Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
+                            prng = new(ReadUInt(seedFS));
                             return;
                         }
                     }
 
-                    // Open filler data for reading if no seed
+                    // Open filler data for reading if no seed found
                     FileStream fillerFS = null!;
-                    if (!knownSeed && File.Exists(fillerPath))
+                    if (prng == null && File.Exists(fillerPath))
                     {
                         fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         if (!quiet)
@@ -1252,10 +1261,17 @@ namespace XboxKit
 
                         if (fillerBytes > 0)
                         {
+                            // Validity check
+                            if (fillerBytes % SECTOR_SIZE != 0)
+                            {
+                                Console.WriteLine("[ERROR] Unexpected Error 6, please report this.");
+                                return;
+                            }
                             // Write filler data
-                            if (knownSeed)
+                            if (prng != null)
                             {
                                 // Generate filler data
+                                prng.WriteSectors(redumpFS, fillerBytes / SECTOR_SIZE)
                             }
                             else if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
@@ -1285,7 +1301,7 @@ namespace XboxKit
                     // Validity check
                     if (currentByte != xisoLength)
                     {
-                        Console.WriteLine("[ERROR] Unexpected error, please report this");
+                        Console.WriteLine("[ERROR] Unexpected Error 7, please report this.");
                         return;
                     }
                 }
