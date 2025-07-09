@@ -610,6 +610,7 @@ namespace XboxKit
                                 bytesToRead = Math.Min(bytesToWipe, xisoLength - numBytes);
                             else
                                 bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                            Console.WriteLine($"Writing bytes: {bytesToRead}");
                             if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
