@@ -50,24 +50,6 @@ namespace XboxKit
             Console.WriteLine("-x, --xiso  \t Extracts XISO (game partition)");
         }
 
-        // Read uint16 from filestream
-        static ushort ReadUShort(FileStream fs)
-        {
-            byte[] buffer = new byte[2];
-            if (fs.Read(buffer, 0, 2) != 2)
-                throw new EndOfStreamException("[ERROR] Failed to read UShort");
-            return BitConverter.ToUInt16(buffer, 0);
-        }
-
-        // Read uint32 from filestream
-        static uint ReadUInt(FileStream fs)
-        {
-            byte[] buffer = new byte[4];
-            if (fs.Read(buffer, 0, 4) != 4)
-                throw new EndOfStreamException("[ERROR] Failed to read UInt32");
-            return BitConverter.ToUInt32(buffer, 0);
-        }
-
         // Traverse file tree to get all valid data sectors in XISO
         static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
         {
@@ -82,10 +64,10 @@ namespace XboxKit
 
             isoFS.Seek(cur, SeekOrigin.Begin);
 
-            ushort leftChildOffset = ReadUShort(isoFS);
-            ushort rightChildOffset = ReadUShort(isoFS);
-            long entryOffset = (long)ReadUInt(isoFS) * SECTOR_SIZE;
-            uint entrySize = ReadUInt(isoFS);
+            ushort leftChildOffset = Utils.ReadUShort(isoFS);
+            ushort rightChildOffset = Utils.ReadUShort(isoFS);
+            long entryOffset = (long)Utils.ReadUInt(isoFS) * SECTOR_SIZE;
+            uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
  
             if (leftChildOffset == 0xFFFF)
@@ -118,8 +100,8 @@ namespace XboxKit
             validSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
-            uint rootOffset = ReadUInt(isoFS);
-            uint rootSize = ReadUInt(isoFS);
+            uint rootOffset = Utils.ReadUInt(isoFS);
+            uint rootSize = Utils.ReadUInt(isoFS);
             GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
 
             var ranges = new List<(uint, uint)>();
@@ -141,58 +123,6 @@ namespace XboxKit
             ranges.Add((start, prev));
 
             return ranges;
-        }
-
-        // Ensure proper writing to byte array
-        static bool WriteBytes(FileStream fs, byte[] outBA, long offset)
-        {
-            long numBytes = 0;
-            if (offset >= 0)
-                fs.Seek(offset, SeekOrigin.Begin);
-            while (numBytes < outBA.Length)
-            {
-                int bytesRead = fs.Read(outBA, 0, (int)(outBA.Length - numBytes));
-                if (bytesRead == 0)
-                    break;
-
-                numBytes += bytesRead;
-            }
-            return numBytes == outBA.Length;
-        }
-
-        // Ensure proper writing to filestream
-        static bool WriteBytes(FileStream inFS, FileStream outFS, long offset, long length)
-        {
-            byte[] buf = new byte[64 * SECTOR_SIZE];
-            long numBytes = 0;
-            if (offset >= 0)
-                inFS.Seek(offset, SeekOrigin.Begin);
-            while (numBytes < length)
-            {
-                int bytesRead = inFS.Read(buf, 0, (int)Math.Min(buf.Length, length - numBytes));
-                if (bytesRead == 0)
-                    break;
-
-                outFS.Write(buf, 0, bytesRead);
-                numBytes += bytesRead;
-            }
-            return numBytes == length;
-        }
-
-        // Write zeroes to filestream
-        static void WriteZeroes(FileStream outFS, long offset, long length)
-        {
-            byte[] buf = new byte[64 * SECTOR_SIZE];
-            long numBytes = 0;
-            if (offset >= 0)
-                outFS.Seek(offset, SeekOrigin.Begin);
-            while (numBytes < length)
-            {
-                int bytesToWrite = (int)Math.Min(buf.Length, length - numBytes);
-                outFS.Write(buf, 0, bytesToWrite);
-                numBytes += bytesToWrite;
-            }
-            return;
         }
 
         #endregion
@@ -515,7 +445,7 @@ namespace XboxKit
 
                     // Write layer 0 portion of video partition
                     long l0Length = VIDEO_L0_LENGTH[videoType];
-                    if (!WriteBytes(isoFS, videoFS, 0, l0Length))
+                    if (!Utils.WriteBytes(isoFS, videoFS, 0, l0Length))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
@@ -523,7 +453,7 @@ namespace XboxKit
 
                     // Write layer 1 portion of video partition
                     long l1Length = VIDEO_L1_LENGTH[videoType];
-                    if (!WriteBytes(isoFS, videoFS, isoSize - l1Length, l1Length))
+                    if (!Utils.WriteBytes(isoFS, videoFS, isoSize - l1Length, l1Length))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
@@ -555,7 +485,7 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                     using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
                     long updateLength = videoLength - updateOffset - SECTOR_SIZE;
-                    if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                    if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                     {
                         Console.WriteLine("[ERROR] Failed writing system update file.");
                         return;
@@ -564,7 +494,7 @@ namespace XboxKit
                     // Zero update file within XISO
                     if (!quiet)
                         Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
-                    WriteZeroes(videoFS, updateOffset, updateLength);
+                    Utils.WriteZeroes(videoFS, updateOffset, updateLength);
                 }
 
                 // If XGD1, try brute force the filler data seed
@@ -575,7 +505,7 @@ namespace XboxKit
                     {
                         // Validate XGD1 magic bytes
                         byte[] magic = new byte[XDVDFS_MAGIC.Length];
-                        if (!WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
+                        if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
                         {
                             Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                             return;
@@ -588,7 +518,7 @@ namespace XboxKit
 
                         // Determine version offset
                         byte[] nextBuf = new byte[8];
-                        if (!WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
+                        if (!Utils.WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
                         {
                             Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
                             return;
@@ -599,7 +529,7 @@ namespace XboxKit
 
                         // Determine XGD1 version
                         byte[] versionBuf = new byte[2];
-                        if (!WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
+                        if (!Utils.WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
                         {
                             Console.WriteLine("[ERROR] Failed to read XGD1 version.");
                             return;
@@ -615,7 +545,7 @@ namespace XboxKit
 
                         // Determine XGD1 pseudo random number generator seed, if possible
                         byte[] firstXISOSector = new byte[SECTOR_SIZE * 2];
-                        if (!WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
+                        if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
                         {
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
                             return;
@@ -723,7 +653,7 @@ namespace XboxKit
                     {
                         if (bytesToWipe > 0)
                         {
-                            if (!WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
+                            if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
                             {
                                 Console.WriteLine("[ERROR] Failed writing filler data.");
                                 return;
@@ -752,7 +682,7 @@ namespace XboxKit
                                 return;
                             }
                             // Write zeroes to XISO (unless trimming end)
-                            WriteZeroes(xisoFS, -1, bytesToWipe);
+                            Utils.WriteZeroes(xisoFS, -1, bytesToWipe);
                             numBytes += bytesToWipe;
 
                             // Move ahead in ISO file if filler was not read
@@ -767,7 +697,7 @@ namespace XboxKit
                                 bytesToRead = Math.Min(bytesToWipe, xisoLength - currentByte);
                             else
                                 bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - currentByte);
-                            if (!WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+                            if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                                 return;
@@ -864,14 +794,14 @@ namespace XboxKit
                 Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
                 long updateLength = videoFS.Length - updateOffset - SECTOR_SIZE;
-                if (!WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                 {
                     Console.WriteLine("[ERROR] Failed writing system update file.");
                     return;
                 }
 
                 // Zero out the update file in the video ISO
-                WriteZeroes(videoFS, updateOffset, updateLength);
+                Utils.WriteZeroes(videoFS, updateOffset, updateLength);
 
                 #endregion
             }
@@ -999,7 +929,7 @@ namespace XboxKit
                         {
                             if (bytesToWipe > 0)
                             {
-                                if (!WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
+                                if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
                                 {
                                     Console.WriteLine("[ERROR] Failed writing filler data.");
                                     return;
@@ -1028,7 +958,7 @@ namespace XboxKit
                                     return;
                                 }
                                 // Write zeroes to XISO (unless trimming end)
-                                WriteZeroes(xisoFS, -1, bytesToWipe);
+                                Utils.WriteZeroes(xisoFS, -1, bytesToWipe);
                                 currentByte += bytesToWipe;
 
                                 // Move ahead in ISO file if filler was not read
@@ -1043,7 +973,7 @@ namespace XboxKit
                                     bytesToRead = Math.Min(bytesToWipe, isoSize - currentByte);
                                 else
                                     bytesToRead = Math.Min(bytesUntilEndOfExtent, isoSize - currentByte);
-                                if (!WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+                                if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                                 {
                                     Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                                     return;
@@ -1139,7 +1069,7 @@ namespace XboxKit
 
                 // Write Layer 0 portion of video partition
                 long l0Length = VIDEO_L0_LENGTH[videoType];
-                if (!WriteBytes(videoFS, redumpFS, 0, l0Length))
+                if (!Utils.WriteBytes(videoFS, redumpFS, 0, l0Length))
                 {
                     Console.WriteLine("[ERROR] Failed writing layer 0 portion of video partition.");
                     return;
@@ -1148,14 +1078,14 @@ namespace XboxKit
                 // Write layer 0 padding
                 long xisoOffset = XISO_OFFSET[xisoType];
                 long l0Padding = xisoOffset - l0Length;
-                WriteZeroes(redumpFS, -1, l0Padding);
+                Utils.WriteZeroes(redumpFS, -1, l0Padding);
 
                 // Write game partition
                 isoFS.Seek(0, SeekOrigin.Begin);
                 if (!File.Exists(fillerPath) && !File.Exists(seedPath))
                 {
                     // No filler data or seed available, write entire XISO
-                    if (!WriteBytes(isoFS, redumpFS, -1, isoSize))
+                    if (!Utils.WriteBytes(isoFS, redumpFS, -1, isoSize))
                     {
                         Console.WriteLine("[ERROR] Failed writing game partition.");
                         return;
@@ -1258,7 +1188,7 @@ namespace XboxKit
                                 // Generate filler data
                                 prng.WriteSectors(redumpFS, fillerBytes / SECTOR_SIZE);
                             }
-                            else if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
+                            else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
                                 Console.WriteLine("[ERROR] Failed writing random filler data.");
                                 return;
@@ -1270,7 +1200,7 @@ namespace XboxKit
                         {
                             // Write data to XISO
                             long bytesToWrite = Math.Min(xisoBytes, xisoLength - currentByte);
-                            if (!WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
+                            if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
                                 return;
@@ -1294,7 +1224,7 @@ namespace XboxKit
                 // Write layer 1 padding
                 long l1Length = VIDEO_L1_LENGTH[videoType];
                 long l1Padding = (redumpLength - l1Length) - (xisoOffset + xisoLength);
-                WriteZeroes(redumpFS, -1, l1Padding);
+                Utils.WriteZeroes(redumpFS, -1, l1Padding);
 
                 // If writing system update file, stop video partition early
                 long suSize = 0;
@@ -1307,7 +1237,7 @@ namespace XboxKit
                 }
 
                 // Write layer 1 portion of video partition
-                if (!WriteBytes(videoFS, redumpFS, l0Length, l1Length))
+                if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Length))
                 {
                     Console.WriteLine("[ERROR] Failed writing layer 1 portion of video partition.");
                     return;
@@ -1321,7 +1251,7 @@ namespace XboxKit
                     Console.WriteLine($"[INFO] Reading system update from {updatePath}");
 
                     // Write system update file to redump ISO
-                    if (!WriteBytes(updateFS, redumpFS, 0, suSize))
+                    if (!Utils.WriteBytes(updateFS, redumpFS, 0, suSize))
                     {
                         Console.WriteLine("[ERROR] Failed writing system update file.");
                         return;
@@ -1329,7 +1259,7 @@ namespace XboxKit
 
                     // Write final video partition sector
                     videoFS.Seek(-SECTOR_SIZE, SeekOrigin.End);
-                    if (!WriteBytes(videoFS, redumpFS, -1, SECTOR_SIZE))
+                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, SECTOR_SIZE))
                     {
                         Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
                         return;
