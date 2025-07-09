@@ -607,10 +607,9 @@ namespace XboxKit
                             // Write data to XISO
                             long bytesToRead;
                             if (bytesToWipe > 0)
-                                bytesToRead = Math.Min(bytesToWipe, xisoLength - currentByte);
+                                bytesToRead = Math.Min(bytesToWipe, xisoLength - numBytes);
                             else
-                                bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - currentByte);
-                            Console.WriteLine($"[INFO] Writing {bytesToRead} bytes");
+                                bytesToRead = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
                             if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
@@ -623,8 +622,6 @@ namespace XboxKit
                             isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                             numBytes += bytesToWipe;
                         }
-                        else
-                            Console.WriteLine("[ERROR] Unexpected Error, please report this");
                     }
                 }
 
@@ -1115,7 +1112,7 @@ namespace XboxKit
                         else
                         {
                             // Write data to XISO
-                            long bytesToWrite = Math.Min(xisoBytes, xisoLength - currentByte);
+                            long bytesToWrite = Math.Min(xisoBytes, xisoLength - numBytes);
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
