@@ -1029,7 +1029,6 @@ namespace XboxKit
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
                             prng = new(Utils.ReadUInt(seedFS));
-                            return;
                         }
                     }
 
@@ -1043,7 +1042,6 @@ namespace XboxKit
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
                             prng = new(Utils.ReadUInt(seedFS));
-                            return;
                         }
                     }
 
@@ -1056,7 +1054,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
                     }
 
-                    // Parse XISO filesystem for all file extents 
+                    // Parse XISO filesystem for all file extents
                     List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0);
                     if (!quiet)
                     {
