@@ -36,7 +36,7 @@ namespace XboxKit
         private byte[] GenerateSector()
         {
             byte[] sector = new byte[Utils.SECTOR_SIZE];
-            for (int j = 0; j < Utils.SECTOR_SIZE * 2; j += 2)
+            for (int j = 0; j < Utils.SECTOR_SIZE; j += 2)
             {
                 State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
                 ushort sample = (ushort)((State ^ Mask) >> 8);
