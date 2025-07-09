@@ -2,17 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace XboxKit
 {
     internal class Program
     {
-        #region Constants
-
-        static readonly long XISO_HEADER_OFFSET = 0x10000;
-        static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
-        static readonly byte[] XDVDFS_MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
         static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
         static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
@@ -26,8 +20,6 @@ namespace XboxKit
         static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500"];
 
         #endregion
-
-        #region Helper functions
 
         // Print help for invalid command
         static void PrintHelp()
@@ -48,83 +40,6 @@ namespace XboxKit
             Console.WriteLine("-w, --wipe  \t Wipes filler data in XISO");
             Console.WriteLine("-x, --xiso  \t Extracts XISO (game partition)");
         }
-
-        // Traverse file tree to get all valid data sectors in XISO
-        static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
-        {
-            if (childOffset >= rootSize)
-                return;
-
-            long cur = isoOffset + rootOffset + childOffset;
-            long curOffset = cur / Utils.SECTOR_SIZE;
-            long curSize = (rootSize - childOffset + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-            for (long i = curOffset; i < curOffset + curSize; i++)
-                validSectors.Add((uint)i);
-
-            isoFS.Seek(cur, SeekOrigin.Begin);
-
-            ushort leftChildOffset = Utils.ReadUShort(isoFS);
-            ushort rightChildOffset = Utils.ReadUShort(isoFS);
-            long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
-            uint entrySize = Utils.ReadUInt(isoFS);
-            bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
- 
-            if (leftChildOffset == 0xFFFF)
-                return;
-
-            if (leftChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
-
-            if (isDirectory)
-                GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0);
-            else
-            {
-                long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
-                long fileSize = (entrySize + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-                for (long i = fileOffset; i < fileOffset + fileSize; i++)
-                    validSectors.Add((uint)i);
-            }
-
-            if (rightChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
-        }
-
-        // Get list of valid XISO ranges
-        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
-        {
-            List<uint> validSectors = new List<uint>();
-            long headerOffset = offset + XISO_HEADER_OFFSET;
-            long headerOffsetSector = (headerOffset) / Utils.SECTOR_SIZE;
-            validSectors.Add((uint)headerOffsetSector);
-            validSectors.Add((uint)headerOffsetSector + 1);
-
-            isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
-            uint rootOffset = Utils.ReadUInt(isoFS);
-            uint rootSize = Utils.ReadUInt(isoFS);
-            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * Utils.SECTOR_SIZE, rootSize, 0);
-
-            var ranges = new List<(uint, uint)>();
-            var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
-            uint start = sortedSectors[0];
-            uint prev = sortedSectors[0];
-            for (int i = 1; i < sortedSectors.Count; i++)
-            {
-                uint current = sortedSectors[i];
-                if (current == prev + 1)
-                    prev = current;
-                else
-                {
-                    ranges.Add((start, prev));
-                    start = current;
-                    prev = current;
-                }
-            }
-            ranges.Add((start, prev));
-
-            return ranges;
-        }
-
-        #endregion
 
         static void Main(string[] args)
         {
@@ -473,7 +388,7 @@ namespace XboxKit
                     {
                         videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
                         videoFS.Read(videoBuf, 0, 16);
-                        if (FILLER.AsSpan().SequenceEqual(videoBuf))
+                        if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
                             break;
 
                         updateOffset -= Utils.SECTOR_SIZE;
@@ -503,13 +418,13 @@ namespace XboxKit
                     if (xgdType == 0)
                     {
                         // Validate XGD1 magic bytes
-                        byte[] magic = new byte[XDVDFS_MAGIC.Length];
+                        byte[] magic = new byte[XDVDFS.MAGIC.Length];
                         if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
                         {
                             Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                             return;
                         }
-                        if (!magic.SequenceEqual(XDVDFS_MAGIC))
+                        if (!magic.SequenceEqual(XDVDFS.MAGIC))
                         {
                             Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
                             return;
@@ -784,7 +699,7 @@ namespace XboxKit
                 {
                     videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
                     videoFS.Read(videoBuf, 0, 16);
-                    if (FILLER.AsSpan().SequenceEqual(videoBuf))
+                    if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
                         break;
 
                     updateOffset -= Utils.SECTOR_SIZE;
@@ -1102,7 +1017,7 @@ namespace XboxKit
                             using FileStream seedFS = new(seedPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            prng = new(ReadUInt(seedFS));
+                            prng = new(Utils.ReadUInt(seedFS));
                             return;
                         }
                     }
@@ -1116,7 +1031,7 @@ namespace XboxKit
                             using FileStream seedFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            prng = new(ReadUInt(seedFS));
+                            prng = new(Utils.ReadUInt(seedFS));
                             return;
                         }
                     }
