@@ -29,8 +29,8 @@ which will only output a trimmed, wiped, playable XISO.
 ```
 Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_update_file]
 
-Rebuild mode: Combine input files (no flags)
-Extract mode: Use flags (optional paths are used for output file names)
+Rebuild mode: Combine input files (no options)
+Extract mode: Use options (other paths are used for custom output file names)
 -a, --all        Perform all operations on the input ISO
 -q, --quiet      Don't print INFO messages to console
 -r, --random     Extracts random filler data to a separate file

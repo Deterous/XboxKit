@@ -41,8 +41,8 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_update_file]");
             Console.WriteLine("");
-            Console.WriteLine("Rebuild mode: Combine input files (no flags)");
-            Console.WriteLine("Extract mode: Use flags (optional paths are used for output file names)");
+            Console.WriteLine("Rebuild mode: Combine input files (no options)");
+            Console.WriteLine("Extract mode: Use options (other paths are used for custom output file names)");
             Console.WriteLine("-a, --all   \t Perform all operations on the input ISO");
             Console.WriteLine("-q, --quiet \t Don't print INFO messages to console");
             Console.WriteLine("-r, --random\t Extracts random filler data to a separate file");
@@ -88,7 +88,7 @@ namespace XboxKit
                     uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
                     uint mask = state_var;
                     bool match = true;
-                    for (int j = 0; j < SECTOR_SIZE; j += 2)
+                    for (int j = 0; j < SECTOR_SIZE * 2; j += 2)
                     {
                         state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
                         ushort sample = (ushort)((state_var ^ mask) >> 8);
@@ -131,7 +131,7 @@ namespace XboxKit
         }
 
         // Traverse file tree to get all valid data sectors in XISO
-        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, long isoOffset)
+        static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
         {
             if (childOffset >= rootSize)
                 return;
@@ -154,10 +154,10 @@ namespace XboxKit
                 return;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, isoOffset);
+                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
 
             if (isDirectory)
-                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0, isoOffset);
+                GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0);
             else
             {
                 long fileOffset = (isoOffset + entryOffset) / SECTOR_SIZE;
@@ -167,7 +167,7 @@ namespace XboxKit
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, isoOffset);
+                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
         }
 
         // Get list of valid XISO ranges
@@ -182,7 +182,7 @@ namespace XboxKit
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
-            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, offset);
+            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -1202,9 +1202,9 @@ namespace XboxKit
 
                 // Write game partition
                 isoFS.Seek(0, SeekOrigin.Begin);
-                if (!File.Exists(fillerPath))
+                if (!File.Exists(fillerPath) && !File.Exists(seedPath))
                 {
-                    // No filler data available, write entire XISO
+                    // No filler data or seed available, write entire XISO
                     if (!WriteBytes(isoFS, redumpFS, -1, isoSize))
                     {
                         Console.WriteLine("[ERROR] Failed writing game partition.");
@@ -1213,10 +1213,46 @@ namespace XboxKit
                 }
                 else
                 {
-                    // Open filler data for reading
-                    using FileStream fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    if (!quiet)
-                        Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
+                    // Get XGD1 initial seed, if provided
+                    bool hasSeed = false;
+                    uint xgd1Seed = 0;
+                    if (xisoType == 0 && File.Exists(seedPath))
+                    {
+                        FileInfo seedInfo = new(seedPath);
+                        if (seedInfo.Length == 4)
+                        {
+                            using FileStream seedFS = new(seedPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            if (!quiet)
+                                Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
+                            xgd1Seed = ReadUInt(seedFS);
+                            hasSeed = true;
+                            Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
+                            return;
+                        }
+                    }
+                    else if (xisoType == 0 && File.Exists(fillerPath))
+                    {
+                        FileInfo seedInfo = new(fillerPath);
+                        if (seedInfo.Length == 4)
+                        {
+                            using FileStream seedFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            if (!quiet)
+                                Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
+                            xgd1Seed = ReadUInt(seedFS);
+                            hasSeed = true;
+                            Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
+                            return;
+                        }
+                    }
+
+                    // Open filler data for reading if no seed
+                    FileStream fillerFS = null!;
+                    if (!hasSeed && File.Exists(fillerPath))
+                    {
+                        fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        if (!quiet)
+                            Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
+                    }
 
                     // Parse XISO filesystem for all file extents 
                     List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, 0);
@@ -1264,7 +1300,11 @@ namespace XboxKit
                         if (fillerBytes > 0)
                         {
                             // Write filler data
-                            if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
+                            if (knownSeed)
+                            {
+                                // Generate filler data
+                            }
+                            else if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
                                 Console.WriteLine("[ERROR] Failed writing random filler data.");
                                 return;
@@ -1284,6 +1324,12 @@ namespace XboxKit
                             currentByte += bytesToWrite;
                         }
                     }
+
+                    // Close files
+                    if (fillerFS != null)
+                        fillerFS.Dispose();
+
+                    // Validity check
                     if (currentByte != xisoLength)
                     {
                         Console.WriteLine("[ERROR] Unexpected error, please report this");
