@@ -1171,10 +1171,10 @@ namespace XboxKit
                 // Determine intended xisoType based on video ISO length
                 xisoType = videoType switch
                 {
-                    0 => 0; // XGD1
-                    1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => 1 // XGD2
-                    14 => 2 // XGD2 (Hybrid)
-                    15 or 16 => 3 // XGD3
+                    0 => 0, // XGD1
+                    1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => 1, // XGD2
+                    14 => 2, // XGD2 (Hybrid)
+                    15 or 16 => 3, // XGD3
                     _ => 0,
                 };
                 xisoLength = XISO_LENGTH[xisoType];
