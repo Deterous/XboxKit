@@ -8,7 +8,7 @@ namespace XboxKit
 {
     public class XboxPRNG
     {
-        private static const int SECTOR_SIZE = 2048;
+        private const int SECTOR_SIZE = 2048;
         private static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
 
         private uint state;
