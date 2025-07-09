@@ -173,7 +173,7 @@ namespace XboxKit
         static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
         {
             List<uint> validSectors = new List<uint>();
-            long headerOffset = + XISO_HEADER_OFFSET;
+            long headerOffset = offset + XISO_HEADER_OFFSET;
             long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
             validSectors.Add((uint)headerOffsetSector + 1);
