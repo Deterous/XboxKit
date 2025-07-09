@@ -8,7 +8,6 @@ namespace XboxKit
 {
     public class XboxPRNG
     {
-        private const int SECTOR_SIZE = 2048;
         private static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
 
         private uint State;
@@ -29,15 +28,15 @@ namespace XboxKit
             for (int i = 0; i < count; i++)
             {
                 byte[] sector = GenerateSector();
-                fs.Write(sector, 0, SECTOR_SIZE);
+                fs.Write(sector, 0, Utils.SECTOR_SIZE);
             }
         }
 
         // Generate a sector using the current state variables
         private byte[] GenerateSector()
         {
-            byte[] sector = new byte[SECTOR_SIZE];
-            for (int j = 0; j < SECTOR_SIZE * 2; j += 2)
+            byte[] sector = new byte[Utils.SECTOR_SIZE];
+            for (int j = 0; j < Utils.SECTOR_SIZE * 2; j += 2)
             {
                 State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
                 ushort sample = (ushort)((State ^ Mask) >> 8);
@@ -66,7 +65,7 @@ namespace XboxKit
                     uint stateGuess = (uint)(((seedGuess + 1UL) * multGuess) % 0xFFFFFFFB);
                     uint maskAttempt = stateGuess;
                     bool match = true;
-                    for (int j = 0; j < SECTOR_SIZE * 2; j += 2)
+                    for (int j = 0; j < Utils.SECTOR_SIZE * 2; j += 2)
                     {
                         stateGuess = (uint)(((stateGuess + 1UL) * multGuess) % 0xFFFFFFFB);
                         ushort sample = (ushort)((stateGuess ^ maskAttempt) >> 8);

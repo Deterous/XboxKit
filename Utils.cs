@@ -5,8 +5,10 @@ namespace XboxKit
 {
     internal class Utils
     {
+        public const int SECTOR_SIZE = 2048;
+
         // Read uint16 from filestream
-        static ushort ReadUShort(FileStream fs)
+        public static ushort ReadUShort(FileStream fs)
         {
             byte[] buffer = new byte[2];
             if (fs.Read(buffer, 0, 2) != 2)
@@ -15,7 +17,7 @@ namespace XboxKit
         }
 
         // Read uint32 from filestream
-        static uint ReadUInt(FileStream fs)
+        public static uint ReadUInt(FileStream fs)
         {
             byte[] buffer = new byte[4];
             if (fs.Read(buffer, 0, 4) != 4)
@@ -24,7 +26,7 @@ namespace XboxKit
         }
 
         // Ensure proper writing to byte array
-        static bool WriteBytes(FileStream fs, byte[] outBA, long offset)
+        public static bool WriteBytes(FileStream fs, byte[] outBA, long offset)
         {
             long numBytes = 0;
             if (offset >= 0)
@@ -41,7 +43,7 @@ namespace XboxKit
         }
 
         // Ensure proper writing to filestream
-        static bool WriteBytes(FileStream inFS, FileStream outFS, long offset, long length)
+        public static bool WriteBytes(FileStream inFS, FileStream outFS, long offset, long length)
         {
             byte[] buf = new byte[64 * SECTOR_SIZE];
             long numBytes = 0;
@@ -60,7 +62,7 @@ namespace XboxKit
         }
 
         // Write zeroes to filestream
-        static void WriteZeroes(FileStream outFS, long offset, long length)
+        public static void WriteZeroes(FileStream outFS, long offset, long length)
         {
             byte[] buf = new byte[64 * SECTOR_SIZE];
             long numBytes = 0;

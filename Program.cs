@@ -10,7 +10,6 @@ namespace XboxKit
     {
         #region Constants
 
-        static readonly int SECTOR_SIZE = 2048;
         static readonly long XISO_HEADER_OFFSET = 0x10000;
         static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
         static readonly byte[] XDVDFS_MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
@@ -57,8 +56,8 @@ namespace XboxKit
                 return;
 
             long cur = isoOffset + rootOffset + childOffset;
-            long curOffset = cur / SECTOR_SIZE;
-            long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
+            long curOffset = cur / Utils.SECTOR_SIZE;
+            long curSize = (rootSize - childOffset + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
@@ -66,7 +65,7 @@ namespace XboxKit
 
             ushort leftChildOffset = Utils.ReadUShort(isoFS);
             ushort rightChildOffset = Utils.ReadUShort(isoFS);
-            long entryOffset = (long)Utils.ReadUInt(isoFS) * SECTOR_SIZE;
+            long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
  
@@ -80,8 +79,8 @@ namespace XboxKit
                 GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0);
             else
             {
-                long fileOffset = (isoOffset + entryOffset) / SECTOR_SIZE;
-                long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
+                long fileSize = (entrySize + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
             }
@@ -95,14 +94,14 @@ namespace XboxKit
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = offset + XISO_HEADER_OFFSET;
-            long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
+            long headerOffsetSector = (headerOffset) / Utils.SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
             validSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
-            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0);
+            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * Utils.SECTOR_SIZE, rootSize, 0);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -472,19 +471,19 @@ namespace XboxKit
                     byte[] videoBuf = new byte[16];
                     while (updateOffset > 0)
                     {
-                        videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
+                        videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
                         videoFS.Read(videoBuf, 0, 16);
                         if (FILLER.AsSpan().SequenceEqual(videoBuf))
                             break;
 
-                        updateOffset -= SECTOR_SIZE;
+                        updateOffset -= Utils.SECTOR_SIZE;
                     }
                     
                     // Write update file contents to file
                     if (!quiet)
                         Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                     using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    long updateLength = videoLength - updateOffset - SECTOR_SIZE;
+                    long updateLength = videoLength - updateOffset - Utils.SECTOR_SIZE;
                     if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                     {
                         Console.WriteLine("[ERROR] Failed writing system update file.");
@@ -544,7 +543,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] XGD1 Version: {version}");
 
                         // Determine XGD1 pseudo random number generator seed, if possible
-                        byte[] firstXISOSector = new byte[SECTOR_SIZE * 2];
+                        byte[] firstXISOSector = new byte[Utils.SECTOR_SIZE * 2];
                         if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
                         {
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
@@ -601,7 +600,7 @@ namespace XboxKit
                 while (numBytes < xisoLength)
                 {
                     long currentByte = XISO_OFFSET[xgdType] + numBytes;
-                    long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                    long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                     long bytesUntilEndOfExtent = long.MaxValue;
                     long bytesToWipe = 0;
                     bool skipEnd = false;
@@ -636,13 +635,13 @@ namespace XboxKit
                             if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                             {
                                 // Number of bytes remaining in current file extent
-                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
                                 break;
                             }
                             else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                             {
                                 // Wipe until next file extent
-                                bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                                bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
                                 break;
                             }
                         }
@@ -676,7 +675,7 @@ namespace XboxKit
                         if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                         {
                             // Validity check
-                            if (bytesToWipe % SECTOR_SIZE != 0)
+                            if (bytesToWipe % Utils.SECTOR_SIZE != 0)
                             {
                                 Console.WriteLine("[ERROR] Unexpected Error 2, please report this.");
                                 return;
@@ -783,17 +782,17 @@ namespace XboxKit
                 byte[] videoBuf = new byte[16];
                 while (updateOffset > 0)
                 {
-                    videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
+                    videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
                     videoFS.Read(videoBuf, 0, 16);
                     if (FILLER.AsSpan().SequenceEqual(videoBuf))
                         break;
 
-                    updateOffset -= SECTOR_SIZE;
+                    updateOffset -= Utils.SECTOR_SIZE;
                 }
 
                 Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                long updateLength = videoFS.Length - updateOffset - SECTOR_SIZE;
+                long updateLength = videoFS.Length - updateOffset - Utils.SECTOR_SIZE;
                 if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                 {
                     Console.WriteLine("[ERROR] Failed writing system update file.");
@@ -877,7 +876,7 @@ namespace XboxKit
                     long currentByte = 0;
                     while (currentByte < isoSize)
                     {
-                        long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                        long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                         long bytesUntilEndOfExtent = long.MaxValue;
                         long bytesToWipe = 0;
                         bool skipEnd = false;
@@ -912,13 +911,13 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    bytesToWipe = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                                    bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
@@ -952,7 +951,7 @@ namespace XboxKit
                             if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                             {
                                 // Validity check
-                                if (bytesToWipe % SECTOR_SIZE != 0)
+                                if (bytesToWipe % Utils.SECTOR_SIZE != 0)
                                 {
                                     Console.WriteLine("[ERROR] Unexpected Error 4, please report this.");
                                     return;
@@ -1144,7 +1143,7 @@ namespace XboxKit
                     isoFS.Seek(0, SeekOrigin.Begin);
                     while (currentByte < xisoLength)
                     {
-                        long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                        long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                         long xisoBytes = long.MaxValue;
                         long fillerBytes = 0;
 
@@ -1162,13 +1161,13 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    xisoBytes = (validRanges[i].End + 1) * SECTOR_SIZE - currentByte;
+                                    xisoBytes = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    fillerBytes = validRanges[i].Start * SECTOR_SIZE - currentByte;
+                                    fillerBytes = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
@@ -1177,7 +1176,7 @@ namespace XboxKit
                         if (fillerBytes > 0)
                         {
                             // Validity check
-                            if (fillerBytes % SECTOR_SIZE != 0)
+                            if (fillerBytes % Utils.SECTOR_SIZE != 0)
                             {
                                 Console.WriteLine("[ERROR] Unexpected Error 6, please report this.");
                                 return;
@@ -1186,7 +1185,7 @@ namespace XboxKit
                             if (prng != null)
                             {
                                 // Generate filler data
-                                prng.WriteSectors(redumpFS, fillerBytes / SECTOR_SIZE);
+                                prng.WriteSectors(redumpFS, fillerBytes / Utils.SECTOR_SIZE);
                             }
                             else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
@@ -1233,7 +1232,7 @@ namespace XboxKit
                     Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
                     FileInfo suInfo = new(updatePath);
                     suSize = suInfo.Length;
-                    l1Length -= suSize + SECTOR_SIZE;
+                    l1Length -= suSize + Utils.SECTOR_SIZE;
                 }
 
                 // Write layer 1 portion of video partition
@@ -1258,8 +1257,8 @@ namespace XboxKit
                     }
 
                     // Write final video partition sector
-                    videoFS.Seek(-SECTOR_SIZE, SeekOrigin.End);
-                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, SECTOR_SIZE))
+                    videoFS.Seek(-Utils.SECTOR_SIZE, SeekOrigin.End);
+                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, Utils.SECTOR_SIZE))
                     {
                         Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
                         return;
