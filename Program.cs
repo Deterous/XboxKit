@@ -4,8 +4,6 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace XboxKit
 {
@@ -17,7 +15,6 @@ namespace XboxKit
         static readonly long XISO_HEADER_OFFSET = 0x10000;
         static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
         static readonly byte[] XDVDFS_MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
-        static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
         static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
         static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
@@ -67,49 +64,6 @@ namespace XboxKit
                     return false;
             }
             return true;
-        }
-
-        // Brute force seed for pseudo random number generator
-        static bool GuessSeed(byte[] sector, out uint outSeed)
-        {
-            uint foundSeed = 0;
-            bool seedFound = false;
-
-            const long MaxUInt32 = (long)uint.MaxValue + 1;
-            var range = Partitioner.Create(0L, MaxUInt32);
-            Parallel.ForEach(range, (chunk, state) =>
-            {
-                for (long i = chunk.Item1; i < chunk.Item2; i++)
-                {
-                    if (Volatile.Read(ref seedFound))
-                        break;
-                    uint seed = (uint)i;
-                    uint mult = FIXED_SEEDS[seed & 7];
-                    uint state_var = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
-                    uint mask = state_var;
-                    bool match = true;
-                    for (int j = 0; j < SECTOR_SIZE * 2; j += 2)
-                    {
-                        state_var = (uint)(((state_var + 1UL) * mult) % 0xFFFFFFFB);
-                        ushort sample = (ushort)((state_var ^ mask) >> 8);
-                        if (sector[j] != (byte)sample || sector[j + 1] != (byte)(sample >> 8))
-                        {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match)
-                    {
-                        Volatile.Write(ref foundSeed, seed);
-                        Volatile.Write(ref seedFound, true);
-                        state.Stop();
-                        break;
-                    }
-                }
-            });
-
-            outSeed = foundSeed;
-            return seedFound;
         }
 
         // Read uint16 from filestream
@@ -682,7 +636,7 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
                             return;
                         }
-                        if (GuessSeed(firstXISOSector, out uint seed))
+                        if (XboxPRNG.GuessSeed(firstXISOSector, out uint seed))
                         {
                             xgd1Seed = seed;
                             if (!quiet)
@@ -1214,7 +1168,7 @@ namespace XboxKit
                 else
                 {
                     // Get XGD1 initial seed, if provided
-                    bool hasSeed = false;
+                    bool knownSeed = false;
                     uint xgd1Seed = 0;
                     if (xisoType == 0 && File.Exists(seedPath))
                     {
@@ -1225,7 +1179,7 @@ namespace XboxKit
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
                             xgd1Seed = ReadUInt(seedFS);
-                            hasSeed = true;
+                            knownSeed = true;
                             Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
                             return;
                         }
@@ -1239,7 +1193,7 @@ namespace XboxKit
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
                             xgd1Seed = ReadUInt(seedFS);
-                            hasSeed = true;
+                            knownSeed = true;
                             Console.WriteLine("[ERROR] Currently do not support writing random filler data from seed. Soon™");
                             return;
                         }
@@ -1247,7 +1201,7 @@ namespace XboxKit
 
                     // Open filler data for reading if no seed
                     FileStream fillerFS = null!;
-                    if (!hasSeed && File.Exists(fillerPath))
+                    if (!knownSeed && File.Exists(fillerPath))
                     {
                         fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         if (!quiet)
