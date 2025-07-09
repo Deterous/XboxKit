@@ -1102,7 +1102,7 @@ namespace XboxKit
                     return;
                 }
 
-                if (xisoType < 0 && !File.Exists(fillerPath))
+                if (xisoType < 0 && !File.Exists(fillerPath) && !File.Exists(seedPath))
                 {
                     Console.WriteLine("[ERROR] Unexpected XISO size. Your file may be trimmed or corrupt.");
                     Console.WriteLine("        Cannot rebuild redump ISO from trimmed XISO without filler.");
