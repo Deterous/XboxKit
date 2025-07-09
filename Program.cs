@@ -629,7 +629,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] XGD1 Version: {version}");
 
                         // Determine XGD1 pseudo random number generator seed, if possible
-                        byte[] firstXISOSector = new byte[SECTOR_SIZE];
+                        byte[] firstXISOSector = new byte[SECTOR_SIZE * 2];
                         if (!WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
                         {
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
