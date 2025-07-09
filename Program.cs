@@ -642,7 +642,7 @@ namespace XboxKit
                                 Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                             using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                             byte[] seedBytes = BitConverter.GetBytes(seed);
-                            WriteBytes(seedFS, seedBytes, -1);
+                            seedFS.Write(seedBytes, 0, outBA.Length);
 
                             // Don't extract random filler if --all was used and a seed was found
                             if (extractFillerIfNoSeed)
