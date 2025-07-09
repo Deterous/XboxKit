@@ -11,16 +11,16 @@ namespace XboxKit
         private const int SECTOR_SIZE = 2048;
         private static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
 
-        private uint state;
-        private readonly uint mult;
-        private readonly uint mask;
+        private uint State;
+        private readonly uint Mult;
+        private readonly uint Mask;
 
         // Constructor, generates mult/state/mask from initial seed
         public XboxPRNG(uint seed)
         {
-            mult = FIXED_SEEDS[seed & 7];
-            state = (uint)(((seed + 1UL) * mult) % 0xFFFFFFFB);
-            mask = state;
+            Mult = FIXED_SEEDS[seed & 7];
+            State = (uint)(((seed + 1UL) * Mult) % 0xFFFFFFFB);
+            Mask = State;
         }
 
         // Write a number of PRNG sectors to a filestream
@@ -36,15 +36,15 @@ namespace XboxKit
         // Generate a sector using the current state variables
         private byte[] GenerateSector()
         {
-            byte[] data = new byte[SECTOR_SIZE];
+            byte[] sector = new byte[SECTOR_SIZE];
             for (int j = 0; j < SECTOR_SIZE * 2; j += 2)
             {
-                state = (uint)(((state + 1UL) * mult) % 0xFFFFFFFB);
-                ushort sample = (ushort)((state ^ mask) >> 8);
-                data[j] = (byte)sample;
-                data[j+1] = (byte)(sample >> 8);
+                State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
+                ushort sample = (ushort)((State ^ Mask) >> 8);
+                sector[j] = (byte)sample;
+                sector[j+1] = (byte)(sample >> 8);
             }
-            return data;
+            return sector;
         }
 
         // Brute force seed for pseudo random number generator

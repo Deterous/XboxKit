@@ -50,21 +50,6 @@ namespace XboxKit
             Console.WriteLine("-x, --xiso  \t Extracts XISO (game partition)");
         }
 
-        // Check two byte arrays are equal
-        static bool SequenceEqual(byte[] a, byte[] b)
-        {
-            if (a == null || b == null)
-                return false;
-            if (a.Length != b.Length)
-                return false;
-            for (int i = 0; i < a.Length; i++)
-            {
-                if (a[i] != b[i])
-                    return false;
-            }
-            return true;
-        }
-
         // Read uint16 from filestream
         static ushort ReadUShort(FileStream fs)
         {
@@ -595,7 +580,7 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                             return;
                         }
-                        if (!SequenceEqual(magic, XDVDFS_MAGIC))
+                        if (!magic.SequenceEqual(XDVDFS_MAGIC))
                         {
                             Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
                             return;
@@ -609,7 +594,7 @@ namespace XboxKit
                             return;
                         }
                         int versionOffset = 0x10824;
-                        if (SequenceEqual(nextBuf, new byte[8]))
+                        if (nextBuf.SequenceEqual(new byte[8]))
                             versionOffset += 0x10;
 
                         // Determine XGD1 version
