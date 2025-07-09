@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,6 +44,7 @@ namespace XboxKit
                 data[j] = (byte)sample;
                 data[j+1] = (byte)(sample >> 8);
             }
+            return data;
         }
 
         // Brute force seed for pseudo random number generator
@@ -60,7 +62,7 @@ namespace XboxKit
                     if (Volatile.Read(ref seedFound))
                         break;
                     uint seedGuess = (uint)i;
-                    uint multGuess = FIXED_SEEDS[seedGuess & 7];
+                    uint multGuess = XboxPRNG.FIXED_SEEDS[seedGuess & 7];
                     uint stateGuess = (uint)(((seedGuess + 1UL) * multGuess) % 0xFFFFFFFB);
                     uint maskAttempt = stateGuess;
                     bool match = true;
