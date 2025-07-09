@@ -130,12 +130,12 @@ namespace XboxKit
         }
 
         // Traverse file tree to get all valid data sectors in XISO
-        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, long xgdType)
+        static void GetValidSectors(FileStream isoFS, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, long isoOffset)
         {
             if (childOffset >= rootSize)
                 return;
 
-            long cur = XISO_OFFSET[xgdType] + rootOffset + childOffset;
+            long cur = isoOffset + rootOffset + childOffset;
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
@@ -153,27 +153,27 @@ namespace XboxKit
                 return;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, xgdType);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, isoOffset);
 
             if (isDirectory)
-                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0, xgdType);
+                GetValidSectors(isoFS, validSectors, entryOffset, entrySize, 0, isoOffset);
             else
             {
-                long fileOffset = (XISO_OFFSET[xgdType] + entryOffset) / SECTOR_SIZE;
+                long fileOffset = (isoOffset + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, xgdType);
+                GetValidSectors(isoFS, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, isoOffset);
         }
 
         // Get list of valid XISO ranges
-        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long xgdType)
+        static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
         {
             List<uint> validSectors = new List<uint>();
-            long headerOffset = XISO_OFFSET[xgdType] + XISO_HEADER_OFFSET;
+            long headerOffset = + XISO_HEADER_OFFSET;
             long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
             validSectors.Add((uint)headerOffsetSector + 1);
@@ -181,7 +181,7 @@ namespace XboxKit
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = ReadUInt(isoFS);
             uint rootSize = ReadUInt(isoFS);
-            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, xgdType);
+            GetValidSectors(isoFS, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, offset);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -687,7 +687,7 @@ namespace XboxKit
                 }
 
                 // Parse XISO filesystem for all file extents 
-                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, xgdType);
+                List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, XISO_OFFSET[xgdType]);
                 foreach (var (start, end) in validRanges)
                     Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
@@ -873,7 +873,7 @@ namespace XboxKit
                         fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     // Parse XISO filesystem for all file extents 
-                    List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, xisoType);
+                    List<(uint Start, uint End)> validRanges = GetXISORanges(isoFS, 0);
                     foreach (var (start, end) in validRanges)
                         Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
