@@ -1113,7 +1113,6 @@ namespace XboxKit
                         long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
                         long xisoBytes = long.MaxValue;
                         long fillerBytes = 0;
-                        bool skipEnd = false;
 
                         // Determine whether current sector is after last file extent
                         if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
