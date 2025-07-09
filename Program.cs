@@ -741,7 +741,7 @@ namespace XboxKit
                             break;
                         }
                     }
-                    else if (extractFiller || wipeXISO)
+                    else if (extractFiller || wipeXISO || trimXISO)
                     {
                         // Determine whether current sector is within a file extent or filler data
                         for (int i = 0; i < validRanges.Count; i++)
@@ -913,7 +913,7 @@ namespace XboxKit
                                 break;
                             }
                         }
-                        else if (extractFiller || wipeXISO)
+                        else if (extractFiller || writeXISO)
                         {
                             // Determine whether current sector is within a file extent or filler data
                             for (int i = 0; i < validRanges.Count; i++)
