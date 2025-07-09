@@ -1271,7 +1271,7 @@ namespace XboxKit
                             if (prng != null)
                             {
                                 // Generate filler data
-                                prng.WriteSectors(redumpFS, fillerBytes / SECTOR_SIZE)
+                                prng.WriteSectors(redumpFS, fillerBytes / SECTOR_SIZE);
                             }
                             else if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
