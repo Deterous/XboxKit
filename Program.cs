@@ -1228,6 +1228,7 @@ namespace XboxKit
 
                     // Write filler data interleaved with XISO
                     long currentByte = 0;
+                    isoFS.Seek(0, SeekOrigin.Begin);
                     while (currentByte < xisoLength)
                     {
                         long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
@@ -1263,7 +1264,6 @@ namespace XboxKit
                         if (fillerBytes > 0)
                         {
                             // Write filler data
-                            Console.WriteLine($"Bytes to fill: {fillerBytes}, at {currentSector}");
                             if (!WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
                                 Console.WriteLine("[ERROR] Failed writing random filler data.");
@@ -1276,7 +1276,6 @@ namespace XboxKit
                         {
                             // Write data to XISO
                             long bytesToWrite = Math.Min(xisoBytes, xisoLength - currentByte);
-                            Console.WriteLine($"Bytes to write: {bytesToWrite}, at {currentSector}");
                             if (!WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
