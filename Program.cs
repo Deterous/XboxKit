@@ -515,7 +515,7 @@ namespace XboxKit
                 {
                     long currentByte = XISO_OFFSET[xgdType] + numBytes;
                     long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-                    long bytesUntilEndOfExtent = long.MaxValue;
+                    long bytesUntilEndOfExtent = 0;
                     long bytesToWipe = 0;
                     bool skipEnd = false;
 
@@ -577,7 +577,11 @@ namespace XboxKit
                         else if (!extractXISO)
                         {
                             // Skip file extent
-                            long bytesToEnd = Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                            long bytesToEnd;
+                            if (bytesUntilEndOfExtent > 0)
+                                bytesToEnd = bytesUntilEndOfExtent;
+                            else
+                                bytesToEnd = xisoLength - numBytes;
                             isoFS.Seek(bytesToEnd, SeekOrigin.Current);
                             numBytes += bytesToEnd;
                         }
@@ -605,7 +609,14 @@ namespace XboxKit
                         else if (!skipEnd)
                         {
                             // Write data to XISO
-                            long bytesToRead = bytesToWipe > 0 ? bytesToWipe : Math.Min(bytesUntilEndOfExtent, xisoLength - numBytes);
+                            long bytesToRead;
+                            if (bytesToWipe > 0)
+                                bytesToRead = bytesToWipe;
+                            else if (bytesUntilEndOfExtent > 0)
+                                bytesToRead = bytesUntilEndOfExtent;
+                            else
+                                bytesToRead = xisoLength - numBytes;
+                            Console.WriteLine($"Writing bytes: {bytesToRead}");
                             if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
                                 Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
@@ -787,7 +798,7 @@ namespace XboxKit
                     while (currentByte < isoSize)
                     {
                         long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-                        long bytesUntilEndOfExtent = long.MaxValue;
+                        long bytesUntilEndOfExtent = 0;
                         long bytesToWipe = 0;
                         bool skipEnd = false;
 
@@ -849,7 +860,11 @@ namespace XboxKit
                             else if (!writeXISO)
                             {
                                 // Skip file extent
-                                long bytesToEnd = Math.Min(bytesUntilEndOfExtent, isoSize - currentByte);
+                                long bytesToEnd;
+                                if (bytesUntilEndOfExtent > 0)
+                                    bytesToEnd = bytesUntilEndOfExtent;
+                                else
+                                    bytesToEnd = isoSize - currentByte;
                                 isoFS.Seek(bytesToEnd, SeekOrigin.Current);
                                 currentByte += bytesToEnd;
                             }
@@ -880,8 +895,10 @@ namespace XboxKit
                                 long bytesToRead;
                                 if (bytesToWipe > 0)
                                     bytesToRead = Math.Min(bytesToWipe, isoSize - currentByte);
+                                else if (bytesUntilEndOfExtent > 0)
+                                    bytesToRead = bytesUntilEndOfExtent;
                                 else
-                                    bytesToRead = Math.Min(bytesUntilEndOfExtent, isoSize - currentByte);
+                                    bytesToRead = isoSize - currentByte;
                                 if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                                 {
                                     Console.WriteLine("[ERROR] Failed writing game partition (XISO).");
