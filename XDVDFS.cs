@@ -31,13 +31,13 @@ namespace XboxKit
             long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
-            byte filenameLength;
+            int filenameLength;
             byte[] filename = null;
             if (!quiet)
             {
                 filenameLength = isoFS.ReadByte();
                 filename = new byte[filenameLength];
-                filename = Utils.WriteBytes(isoFS, filename, -1);
+                Utils.WriteBytes(isoFS, filename, -1)
                 Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: ");
             }
  
