@@ -37,7 +37,7 @@ namespace XboxKit
             {
                 filenameLength = isoFS.ReadByte();
                 filename = new byte[filenameLength];
-                Utils.WriteBytes(isoFS, filename, -1)
+                Utils.WriteBytes(isoFS, filename, -1);
                 Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: ");
             }
  
