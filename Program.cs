@@ -466,6 +466,8 @@ namespace XboxKit
                             using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                             byte[] seedBytes = BitConverter.GetBytes(seed);
                             seedFS.Write(seedBytes, 0, seedBytes.Length);
+                            if (!quiet)
+                                Console.WriteLine($"[INFO] Writing filler data to {seedPath}");
                         }
                     }
                 }
@@ -1187,7 +1189,7 @@ namespace XboxKit
                             }
                             else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
-                                Console.WriteLine($"[ERROR] Failed writing random filler data: {fillerBytes}");
+                                Console.WriteLine($"[ERROR] Failed writing random filler data: {currentByte} + {fillerBytes / Utils.SECTOR_SIZE}");
                                 return;
                             }
                             currentByte += fillerBytes;

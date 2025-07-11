@@ -13,7 +13,7 @@ namespace XboxKit
         public static readonly byte[] MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
 
         // Traverse file tree to get all valid data sectors in XISO
-        public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset)
+        public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, bool quiet)
         {
             if (childOffset >= rootSize)
                 return;
@@ -31,6 +31,14 @@ namespace XboxKit
             long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
+            byte filenameLength;
+            byte[] filename;
+            if (!quiet)
+            {
+                filenameLength = br.ReadByte();
+                filename = br.ReadBytes(name_length);
+                Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: ");
+            }
  
             if (leftChildOffset == 0xFFFF)
                 return;
@@ -43,6 +51,8 @@ namespace XboxKit
             else
             {
                 long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
+                if (!quiet)
+                    Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: {fileOffset}");
                 long fileSize = (entrySize + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
