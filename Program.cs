@@ -206,8 +206,8 @@ namespace XboxKit
                 fillerPath = Path.Combine(dir, $"{filename}.filler");
             if (string.IsNullOrEmpty(seedPath))
                 seedPath = Path.Combine(dir, $"{filename}.seed");
-            if (string.IsNullOrEmpty(seedPath))
-                sectorsTXTPath = Path.Combine(dir, $"sectors.txt");
+            if (string.IsNullOrEmpty(sectorsTXTPath))
+                sectorsTXTPath = Path.Combine(dir, "sectors.txt");
             if (string.IsNullOrEmpty(updatePath))
                 updatePath = Path.Combine(dir, "su20076000_00000000");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
