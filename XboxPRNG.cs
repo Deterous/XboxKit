@@ -46,6 +46,14 @@ namespace XboxKit
             return sector;
         }
 
+        // Advance state variable as if sectors were being written
+        private void SimulateSectors(long count)
+        {
+            for (int i = 0; i < count; i++)
+                for (int j = 0; j < Utils.SECTOR_SIZE; j += 2)
+                    State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
+        }
+
         // Brute force seed for pseudo random number generator
         public static bool GuessSeed(byte[] sector, out uint outSeed)
         {

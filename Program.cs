@@ -1104,6 +1104,7 @@ namespace XboxKit
                                         Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
                                     long securitySectorBytes = 4096 * Utils.SECTOR_SIZE;
                                     Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
+                                    prng.SimulateSectors(securitySectorBytes / Utils.SECTOR_SIZE);
                                     currentByte += securitySectorBytes;
                                     isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
                                     wipedSectors = true;
