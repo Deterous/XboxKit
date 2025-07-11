@@ -367,7 +367,7 @@ namespace XboxKit
                     long l0Length = VIDEO_L0_LENGTH[videoType];
                     if (!Utils.WriteBytes(isoFS, videoFS, 0, l0Length))
                     {
-                        Console.WriteLine("[ERROR] Failed reading video partition.");
+                        Console.WriteLine($"[ERROR] Failed writing video partition: {l0Length}");
                         return;
                     }
 
@@ -1092,12 +1092,12 @@ namespace XboxKit
                     }
 
                     // Write filler data interleaved with XISO
+                    long xisoOffsetSector = XISO_OFFSET[xisoType] / Utils.SECTOR_SIZE;
                     long currentByte = 0;
                     isoFS.Seek(0, SeekOrigin.Begin);
                     while (currentByte < xisoLength)
                     {
                         long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
-                        long xisoOffsetSectors = XISO_OFFSET[xisoType] / Utils.SECTOR_SIZE;
                         long xisoBytes = 0;
                         long fillerBytes = 0;
 
@@ -1107,7 +1107,7 @@ namespace XboxKit
                             bool wipedSectors = false;
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector + xisoOffsetSectors == securitySectors[i])
+                                if (currentSector + xisoOffsetSector == securitySectors[i])
                                 {
                                     if (!quiet)
                                         Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
@@ -1155,16 +1155,16 @@ namespace XboxKit
                         {
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector + xisoOffsetSectors < securitySectors[i] + 4095)
+                                if (currentSector + xisoOffsetSector < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + xisoOffsetSectors + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + xisoOffsetSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
+                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * Utils.SECTOR_SIZE;
                                         break;
                                     }
-                                    else if (currentSector + xisoOffsetSectors + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + xisoOffsetSector + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
+                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * Utils.SECTOR_SIZE;
                                         break;
                                     }
                                 }
@@ -1200,7 +1200,11 @@ namespace XboxKit
                             if (xisoBytes > 0)
                                 bytesToWrite = xisoBytes;
                             else
+                            {
+                                if(writeFiller && !quiet)
+                                Console.WriteLine($"[INFO] Writing remainder of XISO from {currentByte}")
                                 bytesToWrite = xisoLength - currentByte;
+                            }
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
                                 Console.WriteLine($"[ERROR] Failed writing game partition (XISO): {bytesToWrite}");
@@ -1231,7 +1235,8 @@ namespace XboxKit
                 long suSize = 0;
                 if (File.Exists(updatePath))
                 {
-                    Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
+                    if (!quiet)
+                        Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
                     FileInfo suInfo = new(updatePath);
                     suSize = suInfo.Length;
                     l1Length -= suSize + Utils.SECTOR_SIZE;

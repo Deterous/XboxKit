@@ -87,6 +87,7 @@ namespace XboxKit
             return ranges;
         }
 
+        // Heuristic to determine XGD3 system update file offset in video partition 
         public static long SUOffset(FileStream videoFS)
         {
             long updateOffset = videoFS.Length;
