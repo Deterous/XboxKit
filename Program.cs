@@ -1070,7 +1070,7 @@ namespace XboxKit
                     bool writeFiller = fillerFS != null || prng != null;
                     if (!writeFiller && !quiet)
                     {
-                        if (xgdType == 0)
+                        if (xisoType == 0)
                             Console.WriteLine("[INFO] No filler data or seed provided, using XISO only");
                         else
                             Console.WriteLine("[INFO] No filler data provided, using XISO only");
