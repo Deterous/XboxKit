@@ -29,7 +29,7 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Combine input files (no options)");
             Console.WriteLine("Extract mode: Use options (other paths are used for custom output file names)");
-            Console.WriteLine("-a, --all   \t Perform all operations on the input ISO");
+            Console.WriteLine("-a, --all   \t Perform all operations (-rstuvwx) on the input ISO");
             Console.WriteLine("-q, --quiet \t Don't print INFO messages to console");
             Console.WriteLine("-r, --random\t Extracts random filler data to a separate file");
             Console.WriteLine("-s, --seed  \t Extracts RNG seed used for XGD1 filler");
@@ -53,7 +53,6 @@ namespace XboxKit
             bool extractXISO = false;
             bool extractVideo = false;
             bool extractFiller = false;
-            bool extractFillerIfNoSeed = false;
             bool extractSeed = false;
             bool trimXISO = false;
             bool wipeXISO = false;
@@ -85,7 +84,6 @@ namespace XboxKit
                             quiet = true;
                             break;
                         case "--all":
-                            extractFillerIfNoSeed = true;
                             extractFiller = true;
                             extractSeed = true;
                             trimXISO = true;
@@ -133,7 +131,6 @@ namespace XboxKit
                                 quiet = true;
                                 break;
                             case 'a':
-                                extractFillerIfNoSeed = true;
                                 extractFiller = true;
                                 extractSeed = true;
                                 trimXISO = true;
@@ -462,10 +459,6 @@ namespace XboxKit
                             using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                             byte[] seedBytes = BitConverter.GetBytes(seed);
                             seedFS.Write(seedBytes, 0, seedBytes.Length);
-
-                            // Don't extract random filler if --all was used and a seed was found
-                            if (extractFillerIfNoSeed)
-                                extractFiller = false;
                         }
                     }
                 }
@@ -999,9 +992,18 @@ namespace XboxKit
                 }
                 else
                 {
+                    // Open filler data for reading if no seed found
+                    FileStream fillerFS = null!;
+                    if (File.Exists(fillerPath))
+                    {
+                        fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        if (!quiet)
+                            Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
+                    }
+
                     // Get XGD1 initial seed, if path exists
                     XboxPRNG prng = null!;
-                    if (xisoType == 0 && File.Exists(seedPath))
+                    if (fillerFS == null && xisoType == 0 && File.Exists(seedPath))
                     {
                         FileInfo seedInfo = new(seedPath);
                         if (seedInfo.Length == 4)
@@ -1014,7 +1016,7 @@ namespace XboxKit
                     }
 
                     // Check fillerPath for initial seed
-                    if (xisoType == 0 && prng == null && File.Exists(fillerPath))
+                    if (fillerFS == null && xisoType == 0 && prng == null && File.Exists(fillerPath))
                     {
                         FileInfo seedInfo = new(fillerPath);
                         if (seedInfo.Length == 4)
@@ -1028,7 +1030,7 @@ namespace XboxKit
 
                     // Open sectors.txt if an initial seed is being used
                     int[] securitySectors = new int[16];
-                    if (xisoType == 0 && prng != null)
+                    if (fillerFS == null && xisoType == 0 && prng != null)
                     {
                         if (!File.Exists(sectorsTXTPath))
                         {
@@ -1065,13 +1067,13 @@ namespace XboxKit
                         }
                     }
 
-                    // Open filler data for reading if no seed found
-                    FileStream fillerFS = null!;
-                    if (prng == null && File.Exists(fillerPath))
+                    bool writeFiller = fillerFS != null || prng != null;
+                    if (!writeFiller && !quiet)
                     {
-                        fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        if (!quiet)
-                            Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
+                        if (xgdType == 0)
+                            Console.WriteLine("[INFO] No filler data or seed provided, using XISO only");
+                        else
+                            Console.WriteLine("[INFO] No filler data provided, using XISO only");
                     }
 
                     // Parse XISO filesystem for all file extents
@@ -1116,12 +1118,12 @@ namespace XboxKit
                         }
 
                         // Determine whether current sector is after last file extent
-                        if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
+                        if (writeFiller && validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                         {
                             // Remainder of XISO is filler
                             fillerBytes = xisoLength - currentByte;
                         }
-                        else
+                        else if (writeFiller)
                         {
                             // Determine whether current sector is within a file extent or filler data
                             for (int i = 0; i < validRanges.Count; i++)
