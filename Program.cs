@@ -1035,6 +1035,8 @@ namespace XboxKit
                             Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
                             return;
                         }
+                        if (!quiet)
+                            Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}")
                         using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         using StreamReader sectorsSR = new StreamReader(sectorsFS);
                         string line;
