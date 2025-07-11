@@ -1148,12 +1148,16 @@ namespace XboxKit
                                 {
                                     if (currentSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
+                                        Console.Write($"[DEBUG] Filler {fillerBytes} ");
                                         fillerBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
+                                        Console.WriteLine($"-> {fillerBytes} ");
                                         break;
                                     }
                                     else if (currentSector + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
+                                        Console.Write($"[DEBUG] XISO {xisoBytes} ");
                                         xisoBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
+                                        Console.WriteLine($"-> {xisoBytes} ");
                                         break;
                                     }
                                 }
