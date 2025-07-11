@@ -1098,7 +1098,7 @@ namespace XboxKit
                                 if (currentSector == securitySectors[i])
                                 {
                                     long securitySectorBytes = 4096 * Utils.SECTOR_SIZE;
-                                    Utils.WriteZeroes(redumpFS, -1, 4096 * securitySectorBytes);
+                                    Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
                                     currentByte += securitySectorBytes;
                                     isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
                                     wipedSectors = true;
