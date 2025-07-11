@@ -1036,7 +1036,7 @@ namespace XboxKit
                             return;
                         }
                         if (!quiet)
-                            Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}")
+                            Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}");
                         using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         using StreamReader sectorsSR = new StreamReader(sectorsFS);
                         string line;
