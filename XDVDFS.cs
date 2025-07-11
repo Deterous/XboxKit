@@ -86,5 +86,21 @@ namespace XboxKit
 
             return ranges;
         }
+
+        public static long SUOffset(FileStream videoFS)
+        {
+            long updateOffset = videoFS.Length;
+            byte[] videoBuf = new byte[16];
+            while (updateOffset > 0)
+            {
+                videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
+                videoFS.Read(videoBuf, 0, 16);
+                if (FILLER.AsSpan().SequenceEqual(videoBuf))
+                    break;
+
+                updateOffset -= Utils.SECTOR_SIZE;
+            }
+            return updateOffset;
+        }
     }
 }

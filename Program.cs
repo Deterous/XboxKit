@@ -62,6 +62,7 @@ namespace XboxKit
             string videoPath = string.Empty;
             string fillerPath = string.Empty;
             string seedPath = string.Empty;
+            string sectorsTXTPath = string.Empty;
             string updatePath = string.Empty;
             List<string> filePaths = new();
 
@@ -205,6 +206,8 @@ namespace XboxKit
                 fillerPath = Path.Combine(dir, $"{filename}.filler");
             if (string.IsNullOrEmpty(seedPath))
                 seedPath = Path.Combine(dir, $"{filename}.seed");
+            if (string.IsNullOrEmpty(seedPath))
+                seedPath = Path.Combine(dir, $"sectors.txt");
             if (string.IsNullOrEmpty(updatePath))
                 updatePath = Path.Combine(dir, "su20076000_00000000");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
@@ -378,20 +381,7 @@ namespace XboxKit
                 {
                     // Open video ISO for reading and writing
                     using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    long videoLength = videoFS.Length;
-
-                    // Determine update file offset within video ISO
-                    long updateOffset = videoLength;
-                    byte[] videoBuf = new byte[16];
-                    while (updateOffset > 0)
-                    {
-                        videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
-                        videoFS.Read(videoBuf, 0, 16);
-                        if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
-                            break;
-
-                        updateOffset -= Utils.SECTOR_SIZE;
-                    }
+                    long videoLength = SUOffset(videoFS);
                     
                     // Write update file contents to file
                     if (!quiet)
@@ -698,17 +688,7 @@ namespace XboxKit
 
                 // Open ISO for reading and writing
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                long updateOffset = videoFS.Length;
-                byte[] videoBuf = new byte[16];
-                while (updateOffset > 0)
-                {
-                    videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
-                    videoFS.Read(videoBuf, 0, 16);
-                    if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
-                        break;
-
-                    updateOffset -= Utils.SECTOR_SIZE;
-                }
+                long updateOffset = SUOffset(videoFS);
 
                 Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -1033,7 +1013,7 @@ namespace XboxKit
                     }
 
                     // Check fillerPath for initial seed
-                    if (prng == null && xisoType == 0 && File.Exists(fillerPath))
+                    if (xisoType == 0 && prng == null && File.Exists(fillerPath))
                     {
                         FileInfo seedInfo = new(fillerPath);
                         if (seedInfo.Length == 4)
@@ -1042,6 +1022,43 @@ namespace XboxKit
                             if (!quiet)
                                 Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
                             prng = new(Utils.ReadUInt(seedFS));
+                        }
+                    }
+
+                    // Open sectors.txt if an initial seed is being used
+                    int[] securitySectors = new int[16];
+                    if (xisoType == 0 && prng != null)
+                    {
+                        if (!File.Exists(sectorsTXTPath))
+                        {
+                            Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                            return;
+                        }
+                        using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        using StreamReader sectorsSR = new StreamReader(sectorsFS);
+                        string? line;
+                        int i = 0;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            if (string.IsNullOrWhiteSpace(line))
+                                continue;
+
+                            string[] range = line.Split('-');
+                            if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
+                            {
+                                if (startSector < 0 || startSector > (redumpLength / SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                                {
+                                    Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
+                                    return;
+                                }
+                                securitySectors[i] = startSector;
+                                i += 1;
+                            }
+                            else
+                            {
+                                Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                                return;
+                            }
                         }
                     }
 
@@ -1071,6 +1088,22 @@ namespace XboxKit
                         long xisoBytes = 0;
                         long fillerBytes = 0;
 
+                        // Write zeroes into security sector range (only needed for rebuilding from initial seed)
+                        if (prng != null)
+                        {
+                            for (int i = 0; i < securitySectors.Length; i++)
+                            {
+                                if (currentSector == securitySectors[i])
+                                {
+                                    long securitySectorBytes = 4096 * SECTOR_SIZE;
+                                    Utils.WriteZeroes(redumpFS, -1, 4096 * securitySectorBytes);
+                                    currentByte += securitySectorBytes;
+                                    isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
+                                    continue;
+                                }
+                            }
+                        }
+
                         // Determine whether current sector is after last file extent
                         if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
                         {
@@ -1093,6 +1126,27 @@ namespace XboxKit
                                     // Wipe until next file extent
                                     fillerBytes = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
                                     break;
+                                }
+                            }
+                        }
+
+                        // If rebuilding from initial seed, trim bytes to read/write until next security sector
+                        if (prng != null)
+                        {
+                            for (int i = 0; i < securitySectors.Length; i++)
+                            {
+                                if (currentSector < securitySectors[i] + 4095)
+                                {
+                                    if (currentSector + fillerBytes * SECTOR_SIZE >= securitySectors[i])
+                                    {
+                                        fillerBytes = (securitySectors[i] - currentSector) * SECTOR_SIZE;
+                                        break;
+                                    }
+                                    else if (currentSector + xisoBytes * SECTOR_SIZE >= securitySectors[i])
+                                    {
+                                        xisoBytes = (securitySectors[i] - currentSector) * SECTOR_SIZE;
+                                        break;
+                                    }
                                 }
                             }
                         }
