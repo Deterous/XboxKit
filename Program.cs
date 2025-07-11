@@ -1092,6 +1092,7 @@ namespace XboxKit
                         // Write zeroes into security sector range (only needed for rebuilding from initial seed)
                         if (prng != null)
                         {
+                            bool wipedSectors = false;
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
                                 if (currentSector == securitySectors[i])
@@ -1100,9 +1101,12 @@ namespace XboxKit
                                     Utils.WriteZeroes(redumpFS, -1, 4096 * securitySectorBytes);
                                     currentByte += securitySectorBytes;
                                     isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
-                                    continue;
+                                    wipedSectors = true;
+                                    break;
                                 }
                             }
+                            if (wipedSectors)
+                                continue;
                         }
 
                         // Determine whether current sector is after last file extent
