@@ -381,6 +381,7 @@ namespace XboxKit
                 {
                     // Open video ISO for reading and writing
                     using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    long videoLength = videoFS.Length;
                     long updateOffset = XDVDFS.SUOffset(videoFS);
                     
                     // Write update file contents to file
@@ -1046,7 +1047,7 @@ namespace XboxKit
                             string[] range = line.Split('-');
                             if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
                             {
-                                if (startSector < 0 || startSector > (redumpLength / SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                                if (startSector < 0 || startSector > (redumpLength / Utils.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
                                 {
                                     Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
                                     return;
