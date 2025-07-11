@@ -32,11 +32,11 @@ namespace XboxKit
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
             byte filenameLength;
-            byte[] filename;
+            byte[] filename = new byte[];
             if (!quiet)
             {
-                filenameLength = br.ReadByte();
-                filename = br.ReadBytes(name_length);
+                filenameLength = isoFS.ReadByte();
+                filename = isoFS.ReadBytes(filenameLength);
                 Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: ");
             }
  
@@ -44,10 +44,10 @@ namespace XboxKit
                 return;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4);
+                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
 
             if (isDirectory)
-                GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0);
+                GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0, quiet);
             else
             {
                 long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
@@ -59,11 +59,11 @@ namespace XboxKit
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4);
+                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, quiet);
         }
 
         // Get list of valid XISO ranges
-        public static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset)
+        public static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset, bool quiet)
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
@@ -74,7 +74,7 @@ namespace XboxKit
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
-            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * Utils.SECTOR_SIZE, rootSize, 0);
+            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * Utils.SECTOR_SIZE, rootSize, 0, quiet);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
