@@ -207,7 +207,7 @@ namespace XboxKit
             if (string.IsNullOrEmpty(seedPath))
                 seedPath = Path.Combine(dir, $"{filename}.seed");
             if (string.IsNullOrEmpty(seedPath))
-                seedPath = Path.Combine(dir, $"sectors.txt");
+                sectorsTXTPath = Path.Combine(dir, $"sectors.txt");
             if (string.IsNullOrEmpty(updatePath))
                 updatePath = Path.Combine(dir, "su20076000_00000000");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
@@ -1057,7 +1057,7 @@ namespace XboxKit
                             }
                             else
                             {
-                                Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                                Console.WriteLine("[ERROR] Invalid format of sectors.txt");
                                 return;
                             }
                         }
