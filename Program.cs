@@ -223,6 +223,13 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
+                if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO)
+                {
+                    Console.WriteLine("[INFO] Redump ISO provided with no options, nothing to do");
+                    PrintHelp();
+                    return;
+                }
+
                 if (wipeXISO && !extractXISO && !quiet)
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
                 if (trimXISO && !extractXISO && !quiet)
