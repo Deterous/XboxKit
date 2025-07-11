@@ -1097,7 +1097,7 @@ namespace XboxKit
                             bool wipedSectors = false;
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector == securitySectors[i])
+                                if (currentSector + XISO_OFFSET[xisoType] == securitySectors[i])
                                 {
                                     if (!quiet)
                                         Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
@@ -1144,19 +1144,19 @@ namespace XboxKit
                         {
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector < securitySectors[i])
+                                if (currentSector + XISO_OFFSET[xisoType] < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + XISO_OFFSET[xisoType] + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         Console.Write($"[DEBUG] Filler {fillerBytes} ");
-                                        fillerBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
+                                        fillerBytes = (securitySectors[i] - currentSector - XISO_OFFSET[xisoType]) * Utils.SECTOR_SIZE;
                                         Console.WriteLine($"-> {fillerBytes} ");
                                         break;
                                     }
-                                    else if (currentSector + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + XISO_OFFSET[xisoType] + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         Console.Write($"[DEBUG] XISO {xisoBytes} ");
-                                        xisoBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
+                                        xisoBytes = (securitySectors[i] - currentSector - XISO_OFFSET[xisoType]) * Utils.SECTOR_SIZE;
                                         Console.WriteLine($"-> {xisoBytes} ");
                                         break;
                                     }
