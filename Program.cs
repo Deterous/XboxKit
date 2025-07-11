@@ -381,7 +381,7 @@ namespace XboxKit
                 {
                     // Open video ISO for reading and writing
                     using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    long videoLength = SUOffset(videoFS);
+                    long updateOffset = XDVDFS.SUOffset(videoFS);
                     
                     // Write update file contents to file
                     if (!quiet)
@@ -688,7 +688,7 @@ namespace XboxKit
 
                 // Open ISO for reading and writing
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                long updateOffset = SUOffset(videoFS);
+                long updateOffset = XDVDFS.SUOffset(videoFS);
 
                 Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -1036,9 +1036,9 @@ namespace XboxKit
                         }
                         using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         using StreamReader sectorsSR = new StreamReader(sectorsFS);
-                        string? line;
+                        string line;
                         int i = 0;
-                        while ((line = reader.ReadLine()) != null)
+                        while ((line = sectorsSR.ReadLine()) != null)
                         {
                             if (string.IsNullOrWhiteSpace(line))
                                 continue;
@@ -1095,7 +1095,7 @@ namespace XboxKit
                             {
                                 if (currentSector == securitySectors[i])
                                 {
-                                    long securitySectorBytes = 4096 * SECTOR_SIZE;
+                                    long securitySectorBytes = 4096 * Utils.SECTOR_SIZE;
                                     Utils.WriteZeroes(redumpFS, -1, 4096 * securitySectorBytes);
                                     currentByte += securitySectorBytes;
                                     isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
@@ -1137,14 +1137,14 @@ namespace XboxKit
                             {
                                 if (currentSector < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + fillerBytes * SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + fillerBytes * Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        fillerBytes = (securitySectors[i] - currentSector) * SECTOR_SIZE;
+                                        fillerBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
                                         break;
                                     }
-                                    else if (currentSector + xisoBytes * SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + xisoBytes * Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        xisoBytes = (securitySectors[i] - currentSector) * SECTOR_SIZE;
+                                        xisoBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
                                         break;
                                     }
                                 }
