@@ -1099,6 +1099,8 @@ namespace XboxKit
                             {
                                 if (currentSector == securitySectors[i])
                                 {
+                                    if (!quiet)
+                                        Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
                                     long securitySectorBytes = 4096 * Utils.SECTOR_SIZE;
                                     Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
                                     currentByte += securitySectorBytes;
@@ -1142,7 +1144,7 @@ namespace XboxKit
                         {
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector < securitySectors[i] + 4095)
+                                if (currentSector < securitySectors[i])
                                 {
                                     if (currentSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
