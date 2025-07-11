@@ -1098,7 +1098,7 @@ namespace XboxKit
                             bool wipedSectors = false;
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector + XISO_OFFSET[xisoType] == securitySectors[i])
+                                if (currentSector + xisoOffsetSectors == securitySectors[i])
                                 {
                                     if (!quiet)
                                         Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
@@ -1149,16 +1149,12 @@ namespace XboxKit
                                 {
                                     if (currentSector + xisoOffsetSectors + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        Console.Write($"[DEBUG] Filler {fillerBytes} ");
                                         fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
-                                        Console.WriteLine($"-> {fillerBytes} ");
                                         break;
                                     }
                                     else if (currentSector + xisoOffsetSectors + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        Console.Write($"[DEBUG] XISO {xisoBytes} ");
                                         xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
-                                        Console.WriteLine($"-> {xisoBytes} ");
                                         break;
                                     }
                                 }
