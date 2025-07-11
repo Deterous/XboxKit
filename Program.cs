@@ -1144,12 +1144,12 @@ namespace XboxKit
                             {
                                 if (currentSector < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + fillerBytes * Utils.SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         fillerBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
                                         break;
                                     }
-                                    else if (currentSector + xisoBytes * Utils.SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         xisoBytes = (securitySectors[i] - currentSector) * Utils.SECTOR_SIZE;
                                         break;
