@@ -1202,7 +1202,7 @@ namespace XboxKit
                             else
                             {
                                 if(writeFiller && !quiet)
-                                Console.WriteLine($"[INFO] Writing remainder of XISO from {currentByte}")
+                                Console.WriteLine($"[INFO] Writing remainder of XISO from {currentByte}");
                                 bytesToWrite = xisoLength - currentByte;
                             }
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
