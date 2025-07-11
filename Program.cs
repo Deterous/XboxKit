@@ -1088,6 +1088,7 @@ namespace XboxKit
                     while (currentByte < xisoLength)
                     {
                         long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+                        long xisoOffsetSectors = XISO_OFFSET[xisoType] / Utils.SECTOR_SIZE;
                         long xisoBytes = 0;
                         long fillerBytes = 0;
 
@@ -1144,19 +1145,19 @@ namespace XboxKit
                         {
                             for (int i = 0; i < securitySectors.Length; i++)
                             {
-                                if (currentSector + XISO_OFFSET[xisoType] < securitySectors[i] + 4095)
+                                if (currentSector + xisoOffsetSectors < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + XISO_OFFSET[xisoType] + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + xisoOffsetSectors + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         Console.Write($"[DEBUG] Filler {fillerBytes} ");
-                                        fillerBytes = (securitySectors[i] - currentSector - XISO_OFFSET[xisoType]) * Utils.SECTOR_SIZE;
+                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
                                         Console.WriteLine($"-> {fillerBytes} ");
                                         break;
                                     }
-                                    else if (currentSector + XISO_OFFSET[xisoType] + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + xisoOffsetSectors + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
                                     {
                                         Console.Write($"[DEBUG] XISO {xisoBytes} ");
-                                        xisoBytes = (securitySectors[i] - currentSector - XISO_OFFSET[xisoType]) * Utils.SECTOR_SIZE;
+                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSectors) * Utils.SECTOR_SIZE;
                                         Console.WriteLine($"-> {xisoBytes} ");
                                         break;
                                     }
