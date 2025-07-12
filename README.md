@@ -1,8 +1,8 @@
 # XboxKit
 
-**XboxKit** is a multi-purpose utility for working with Xbox/Xbox360 DVD image formats. It supports extracting/combining Redump ISOs, XISO game images, video ISO partitions, random filler padding data, and the XGD3 system update file.
+**XboxKit** is a multi-purpose utility for working with Xbox & Xbox360 DVD image formats. It supports extracting/combining Redump ISOs, XISO game images, video ISO partitions, random filler padding data, XGD1 initial seeds, and XGD3 system update files.
 
-An example use case is creating a smaller, more compressible XISO that is usable by emulators such as Xemu and Xenia, with the ability to losslessly recreate the redump ISO:
+An example use case is creating a smaller, more compressible XISO that is usable by emulators such as Xemu and Xenia, with the ability to losslessly rebuild the redump ISO:
 
 `./xboxkit.exe -a game.iso`
 
@@ -31,7 +31,7 @@ Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_updat
 
 Rebuild mode: Combine input files (no options)
 Extract mode: Use options (other paths are used for custom output file names)
--a, --all        Perform all operations on the input ISO
+-a, --all        Perform all operations (-rstuvwx) on the input ISO
 -q, --quiet      Don't print INFO messages to console
 -r, --random     Extracts random filler data to a separate file
 -s, --seed       Extracts RNG seed used for XGD1 filler
