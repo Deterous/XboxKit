@@ -517,6 +517,7 @@ namespace XboxKit
                     {
                         // Remainder of XISO is filler
                         long bytesUntilEnd = xisoLength - numBytes;
+                        Console.WriteLine($"[DEBUG] Bytes until end: {bytesUntilEnd}");
                         if (extractFiller || wipeXISO)
                             bytesToWipe = bytesUntilEnd;
                         
@@ -543,12 +544,14 @@ namespace XboxKit
                             {
                                 // Number of bytes remaining in current file extent
                                 bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
+                                Console.WriteLine($"[DEBUG] Bytes until end of file: {bytesUntilEndOfExtent}");
                                 break;
                             }
                             else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                             {
                                 // Wipe until next file extent
                                 bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
+                                Console.WriteLine($"[DEBUG] Bytes until end of filler: {bytesToWipe}");
                                 break;
                             }
                         }

@@ -27,22 +27,12 @@ namespace XboxKit
             isoFS.Seek(cur, SeekOrigin.Begin);
 
             ushort leftChildOffset = Utils.ReadUShort(isoFS);
+            if (leftChildOffset == 0xFFFF)
+                return;
             ushort rightChildOffset = Utils.ReadUShort(isoFS);
             long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
-            int filenameLength;
-            byte[] filename = null;
-            if (!quiet)
-            {
-                filenameLength = isoFS.ReadByte();
-                filename = new byte[filenameLength];
-                Utils.WriteBytes(isoFS, filename, -1);
-                Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: ");
-            }
- 
-            if (leftChildOffset == 0xFFFF)
-                return;
 
             if (leftChildOffset != 0)
                 GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
@@ -52,8 +42,6 @@ namespace XboxKit
             else
             {
                 long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
-                if (!quiet)
-                    Console.WriteLine($"{Encoding.ASCII.GetString(filename)}: {fileOffset}");
                 long fileSize = (entrySize + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
