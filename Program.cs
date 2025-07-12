@@ -544,7 +544,7 @@ namespace XboxKit
                             {
                                 // Number of bytes remaining in current file extent
                                 bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
-                                Console.WriteLine($"[DEBUG] Bytes until end of file: {bytesUntilEndOfExtent}");
+                                Console.WriteLine($"[DEBUG] Bytes until end of file: {bytesUntilEndOfExtent} ({validRanges[i].End} > {currentSector})");
                                 break;
                             }
                             else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
