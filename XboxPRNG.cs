@@ -36,7 +36,7 @@ namespace XboxKit
             for (int i = 0; i < count; i++)
             {
                 byte[] sector = GenerateSector();
-                fs.Write(sector, 0, Utils.SECTOR_SIZE);
+                fs.Write(sector, 0, (int)Utils.SECTOR_SIZE);
             }
         }
 
