@@ -367,7 +367,7 @@ namespace XboxKit
                     long l0Length = VIDEO_L0_LENGTH[videoType];
                     if (!Utils.WriteBytes(isoFS, videoFS, 0, l0Length))
                     {
-                        Console.WriteLine($"[ERROR] Failed writing video partition: {l0Length}");
+                        Console.WriteLine($"[ERROR] Failed writing video partition.");
                         return;
                     }
 
@@ -395,7 +395,7 @@ namespace XboxKit
                     long updateLength = videoLength - updateOffset - Utils.SECTOR_SIZE;
                     if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                     {
-                        Console.WriteLine($"[ERROR] Failed writing system update file: {updateLength}");
+                        Console.WriteLine($"[ERROR] Failed writing system update file.");
                         return;
                     }
 
@@ -489,7 +489,8 @@ namespace XboxKit
                 if (extractXISO)
                 {
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                    if (!quiet)
+                        Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                 }
 
                 // Create file for filler data
@@ -497,7 +498,8 @@ namespace XboxKit
                 if (extractFiller)
                 {
                     fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    Console.WriteLine($"[INFO] Writing random filler data to {fillerPath}");
+                    if (!quiet)
+                        Console.WriteLine($"[INFO] Writing random filler data to {fillerPath}");
                 }
 
                 // Process XISO
@@ -517,7 +519,6 @@ namespace XboxKit
                     {
                         // Remainder of XISO is filler
                         long bytesUntilEnd = xisoLength - numBytes;
-                        Console.WriteLine($"[DEBUG] Bytes until end: {bytesUntilEnd}");
                         if (extractFiller || wipeXISO)
                             bytesToWipe = bytesUntilEnd;
                         
@@ -544,14 +545,12 @@ namespace XboxKit
                             {
                                 // Number of bytes remaining in current file extent
                                 bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
-                                Console.WriteLine($"[DEBUG] Bytes until end of file: {bytesUntilEndOfExtent} ({validRanges[i].End} > {currentSector})");
                                 break;
                             }
                             else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                             {
                                 // Wipe until next file extent
                                 bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
-                                Console.WriteLine($"[DEBUG] Bytes until end of filler: {bytesToWipe}");
                                 break;
                             }
                         }
@@ -564,7 +563,7 @@ namespace XboxKit
                         {
                             if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
                             {
-                                Console.WriteLine($"[ERROR] Failed writing filler data: {bytesToWipe}");
+                                Console.WriteLine($"[ERROR] Failed writing filler data.");
                                 return;
                             }
                             if (!extractXISO)
@@ -614,7 +613,7 @@ namespace XboxKit
                                 bytesToRead = xisoLength - numBytes;
                             if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                             {
-                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO): {bytesToRead}");
+                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
                                 return;
                             }
                             numBytes += bytesToRead;
@@ -696,12 +695,13 @@ namespace XboxKit
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                 long updateOffset = XDVDFS.SUOffset(videoFS);
 
-                Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
+                (!quiet)
+                    Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
                 long updateLength = videoFS.Length - updateOffset - Utils.SECTOR_SIZE;
                 if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                 {
-                    Console.WriteLine($"[ERROR] Failed writing system update file: {updateLength}");
+                    Console.WriteLine($"[ERROR] Failed writing system update file.");
                     return;
                 }
 
@@ -836,7 +836,7 @@ namespace XboxKit
                             {
                                 if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
                                 {
-                                    Console.WriteLine($"[ERROR] Failed writing filler data: {bytesToWipe}");
+                                    Console.WriteLine($"[ERROR] Failed writing filler data.");
                                     return;
                                 }
                                 if (!writeXISO)
@@ -886,7 +886,7 @@ namespace XboxKit
                                     bytesToRead = isoSize - currentByte;
                                 if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
                                 {
-                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO): {bytesToRead}");
+                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
                                     return;
                                 }
                                 currentByte += bytesToRead;
@@ -972,17 +972,19 @@ namespace XboxKit
 
                 // Create redump ISO
                 using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                Console.WriteLine($"[INFO] Writing redump ISO to {redumpPath}");
+                if (!quiet)
+                    Console.WriteLine($"[INFO] Writing redump ISO to {redumpPath}");
 
                 // Open video ISO for reading
                 using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
+                if (!quiet)
+                    Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
 
                 // Write Layer 0 portion of video partition
                 long l0Length = VIDEO_L0_LENGTH[videoType];
                 if (!Utils.WriteBytes(videoFS, redumpFS, 0, l0Length))
                 {
-                    Console.WriteLine($"[ERROR] Failed writing layer 0 portion of video partition: {l0Length}");
+                    Console.WriteLine($"[ERROR] Failed writing layer 0 portion of video partition.");
                     return;
                 }
 
@@ -1192,7 +1194,7 @@ namespace XboxKit
                             }
                             else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
-                                Console.WriteLine($"[ERROR] Failed writing random filler data: {currentByte} + {fillerBytes / Utils.SECTOR_SIZE}");
+                                Console.WriteLine($"[ERROR] Failed writing random filler data.");
                                 return;
                             }
                             currentByte += fillerBytes;
@@ -1205,14 +1207,10 @@ namespace XboxKit
                             if (xisoBytes > 0)
                                 bytesToWrite = xisoBytes;
                             else
-                            {
-                                if(writeFiller && !quiet)
-                                Console.WriteLine($"[INFO] Writing remainder of XISO from {currentByte}");
                                 bytesToWrite = xisoLength - currentByte;
-                            }
                             if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
                             {
-                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO): {bytesToWrite}");
+                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
                                 return;
                             }
                             currentByte += bytesToWrite;
@@ -1250,7 +1248,7 @@ namespace XboxKit
                 // Write layer 1 portion of video partition
                 if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Length))
                 {
-                    Console.WriteLine($"[ERROR] Failed writing layer 1 portion of video partition: {l1Length}");
+                    Console.WriteLine($"[ERROR] Failed writing layer 1 portion of video partition.");
                     return;
                 }
 
@@ -1258,13 +1256,14 @@ namespace XboxKit
                 if (File.Exists(updatePath))
                 {
                     // Open system update file for reading
-                    using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    Console.WriteLine($"[INFO] Reading system update from {updatePath}");
+                    using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);\
+                    if (!quiet)
+                        Console.WriteLine($"[INFO] Reading system update from {updatePath}");
 
                     // Write system update file to redump ISO
                     if (!Utils.WriteBytes(updateFS, redumpFS, 0, suSize))
                     {
-                        Console.WriteLine($"[ERROR] Failed writing system update file: {suSize}");
+                        Console.WriteLine($"[ERROR] Failed writing system update file.");
                         return;
                     }
 
