@@ -695,7 +695,7 @@ namespace XboxKit
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                 long updateOffset = XDVDFS.SUOffset(videoFS);
 
-                (!quiet)
+                if (!quiet)
                     Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
                 long updateLength = videoFS.Length - updateOffset - Utils.SECTOR_SIZE;
@@ -1256,7 +1256,7 @@ namespace XboxKit
                 if (File.Exists(updatePath))
                 {
                     // Open system update file for reading
-                    using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);\
+                    using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     if (!quiet)
                         Console.WriteLine($"[INFO] Reading system update from {updatePath}");
 
