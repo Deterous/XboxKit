@@ -1,66 +1,43 @@
 # XboxKit
 
-**XboxKit** is a simple utility for working with Xbox/Xbox360 DVD image formats. It supports conversion between Redump ISOs and XISO game images, and optionally creates the auxiliary video ISOs and system update files.
+**XboxKit** is a multi-purpose utility for working with Xbox & Xbox360 DVD image formats. It supports extracting/combining Redump ISOs, XISO game images, video ISO partitions, random filler padding data, XGD1 initial seeds, and XGD3 system update files.
 
+An example use case is creating a smaller, more compressible XISO that is usable by emulators such as Xemu and Xenia, with the ability to losslessly rebuild the redump ISO:
 
-## Mode 1: Redump → XISO (+ Video ISO + System Update)
-
-Converts a Redump-format ISO into its component parts: game (XISO), video partition, and optionally separate system update (XGD3 only).
-
-#### Standard Use
-
-`xboxkit.exe input.iso`
+`./xboxkit.exe -a game.iso`
 
 Outputs:
-- input.xiso.iso
-- input.video.iso
+- game.xiso (Useable by emulators, smaller, and compresses well)
+- game.video.iso (Video partition, shared by similar discs)
+- game.filler (Random padding filler data, needed for lossless conversion)
+- game.seed (Initial seed used to generate early XGD1 disc random filler data)
+- su20076000_00000000 (System update file for XGD3 only, shared by similar discs)
 
-#### Skip Video ISO
+Losslessly converting back to the original redump ISO:
+`./xboxkit.exe game.xiso`
 
-`xboxkit.exe input.iso --skip` will create input.xiso.iso only
+If you have renamed the output files, you can explicitly give the paths for rebuilding the redump ISO:
+`./xboxkit.exe game.xiso example.video.iso example.filler su20076000_00000000`
+(replace example.filler with example.seed if applicable)
 
-#### Only Video ISO
+If you only want to retain the playable XISO from a redump ISO, then you can instead run:
+`./xboxkit.exe -twx game.iso`
+which will only output a trimmed, wiped, playable XISO.
 
-`xboxkit.exe input.iso --video-only` will create input.video.iso only
+### Help text
 
-#### System Update extraction (XGD3 only)
+```
+Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_update_file]
 
-`xboxkit.exe input.iso --unpack`
-
-Outputs:
-- input.xiso.iso
-- input.video.iso
-- su20076000_00000000 (system update file)
-
-Also zeroes the system update file inside the video partition
-
-#### User-Defined output names
-
-`xboxkit.exe --unpack input.iso video.iso system_update`
-
-Outputs:
-- input.xiso.iso
-- video.iso
-- system_update
-
-## Mode 2: XISO + Video ISO (+ System Update) → Redump
-
-Combines game (XISO) and video partitions to build a redump ISO.
-
-Optionally uses a system update file (typically named su20076000_00000000) for XGD3 ISOs.
-
-### Standard Use
-
-`xboxkit.exe input.iso video.iso` will create input.redump.iso
-
-### System Update writing (XGD3 only)
-
-`xboxkit.exe input.iso video.iso su20076000_00000000` will create input.redump.iso
-
-## Mode 3: Video ISO → System Update
-
-Extracts system update file from a video partition.
-
-`xboxkit.exe video.iso` will create su20076000_00000000
-
-**WARNING**: Also zeroes the system update file inside the input video partition
+Rebuild mode: Combine input files (no options)
+Extract mode: Use options (other paths are used for custom output file names)
+-a, --all        Perform all operations (-rstuvwx) on the input ISO
+-q, --quiet      Don't print INFO messages to console
+-r, --random     Extracts random filler data to a separate file
+-s, --seed       Extracts RNG seed used for XGD1 filler
+-t, --trim       Trims end of XISO (game partition)
+-u, --update     Extracts update file from video ISO (XGD3 only)
+-v, --video      Extracts video ISO (video partition)
+-w, --wipe       Wipes filler data in XISO
+-x, --xiso       Extracts XISO (game partition)
+```
