@@ -13,12 +13,12 @@ namespace XboxKit
         static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
         // Redump ISO Types:                               XGD1,      XGD2w0,      XGD2w1,      XGD2w2,     XGD2w3+, XGD2-Hybrid,      XGD3v0,     XGD3
         static readonly long[] REDUMP_ISO_LENGTH = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
-        // Video Partition Types:                   XGD1,  XGD2w0,   XGD2w1,  XGD2w2,   XGD2w3,    XGD2w4-7,   XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15, XGD2w16,  XGD2w17-18, XGD2w19,  XGD2w20,  XGD2-Hybrid, XGD3v0,    XGD3
-        static readonly long[] VIDEO_L0_LENGTH = [0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1880000, 0x1880000];
-        static readonly long[] VIDEO_L1_LENGTH = [0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x1875800, 0x1873800];
+        // Video Partition Types:                   XGD1,  XGD2w0,   XGD2w1,  XGD2w2,   XGD2w3,    XGD2w4-7,   XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15, XGD2w16,  XGD2w17-18, XGD2w19,  XGD2w20,  XGD2-Hybrid,  XGD3-beta   XGD3v0,    XGD3
+        static readonly long[] VIDEO_L0_LENGTH = [0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
+        static readonly long[] VIDEO_L1_LENGTH = [0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
         static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
-        // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1
-        static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500"];
+        // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1              XGD3-beta
+        static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500", "2010121616000000"];
 
         // Print help for invalid command
         static void PrintHelp()
@@ -297,7 +297,7 @@ namespace XboxKit
                 {
                     // Compare PVD creation datetime against known datetimes to determine wave
                     int? wave = null;
-                    if (redumpIsoType == 4)
+                    if (redumpIsoType == 4 || redumpIsoType == 6)
                     {
                         try
                         {
@@ -348,8 +348,12 @@ namespace XboxKit
                             _ => -1,
                         },
                         5 => 14, // XGD2 (Hybrid)
-                        6 => 15, // XGD3 (v0)
-                        7 => 16, // XGD3
+                        6 => wave switch // XGD3-beta or XGD3v0
+                        {
+                            23 => 15, // XGD3-beta
+                            _ => 16 // XGD3v0
+                        }
+                        7 => 17, // XGD3
                         _ => -1,
                     };
                     if (videoType == -1)
@@ -685,7 +689,7 @@ namespace XboxKit
                 }
 
                 // Check that video partition is from XGD3 disc
-                if (videoIsoType != 15 && videoIsoType != 16)
+                if (videoIsoType != 15 && videoIsoType != 16 && videoIsoType != 17)
                 {
                     Console.WriteLine("[ERROR] Can only extract su20076000_00000000 from XGD3 video partitions.");
                     return;
@@ -954,8 +958,8 @@ namespace XboxKit
                     3 => REDUMP_ISO_LENGTH[3], // XGD2w2
                     4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => REDUMP_ISO_LENGTH[4], // XGD2w3+
                     14 => REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
-                    15 => REDUMP_ISO_LENGTH[6], // XGD3v0
-                    16 => REDUMP_ISO_LENGTH[7], // XGD3
+                    15 or 16 => REDUMP_ISO_LENGTH[6], // XGD3-beta, XGD3v0
+                    17 => REDUMP_ISO_LENGTH[7], // XGD3
                     _ => 0,
                 };
 
@@ -965,7 +969,7 @@ namespace XboxKit
                     0 => 0, // XGD1
                     1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => 1, // XGD2
                     14 => 2, // XGD2 (Hybrid)
-                    15 or 16 => 3, // XGD3
+                    15 or 16 or 17 => 3, // XGD3
                     _ => 0,
                 };
                 xisoLength = XISO_LENGTH[xisoType];
