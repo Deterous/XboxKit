@@ -91,10 +91,17 @@ namespace XboxKit
         {
             long updateOffset = videoFS.Length;
             byte[] videoBuf = new byte[16];
-            while (updateOffset > 0)
+            while (updateOffset >= Utils.SECTOR_SIZE)
             {
                 videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
-                videoFS.Read(videoBuf, 0, 16);
+                int bytesRead = 0;
+                while (bytesRead < videoBuf.Length)
+                {
+                    int n = videoFS.Read(videoBuf, bytesRead, videoBuf.Length - bytesRead);
+                    if (n == 0)
+                        break;
+                    bytesRead += n;
+                }
                 if (FILLER.AsSpan().SequenceEqual(videoBuf))
                     break;
 
