@@ -352,7 +352,7 @@ namespace XboxKit
                         {
                             23 => 15, // XGD3-beta
                             _ => 16, // XGD3v0
-                        }
+                        },
                         7 => 17, // XGD3
                         _ => -1,
                     };
