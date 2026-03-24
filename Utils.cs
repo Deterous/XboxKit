@@ -5,8 +5,6 @@ namespace XboxKit
 {
     internal class Utils
     {
-        public const long SECTOR_SIZE = 2048;
-
         // Read uint16 from filestream
         public static ushort ReadUShort(FileStream fs)
         {

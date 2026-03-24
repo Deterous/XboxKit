@@ -8,6 +8,7 @@ namespace XboxKit
 {
     internal class XDVDFS
     {
+        public const long SECTOR_SIZE = 2048;
         public const long XISO_HEADER_OFFSET = 0x10000;
         public static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
         public static readonly byte[] MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");

@@ -20,24 +20,26 @@ namespace XboxKit
         // Wave Types:                            XGD2w0,             XGD2w1,             XGD2w2,             XGD2w3,             XGD2w4,             XGD2w5,             XGD2w6,             XGD2w7,             XGD2w8,             XGD2w9,            XGD2w10,            XGD2w11,            XGD2w12,            XGD2w13,            XGD2w14,            XGD2w15,            XGD2w16,            XGD2w17,            XGD2w18,            XGD2w19,            XGD2w20,           XGD2-Hybrid,           XGD1              XGD3-beta
         static readonly string[] WAVE_PVD = ["2004083110334900", "2005100712184600", "2006030621090700", "2009011416000000", "2009082417000000", "2009100517000000", "2009102917000000", "2010022116000000", "2010090417000000", "2010091517000000", "2010102817000000", "2011011816000000", "2011061217000000", "2011071217000000", "2011120716000000", "2012022116000000", "2012062117000000", "2012110716000000", "2012111816000000", "2013082617000000", "2015042617000000", "2006041012132800", "2001091310425500", "2010121616000000"];
 
-        // Print help for invalid command
+        // Print help text to console
         static void PrintHelp()
         {
-            Console.WriteLine("XboxKit (c) Deterous 2024-2025");
+            Console.WriteLine("XboxKit (c) Deterous 2024-2026");
             Console.WriteLine("");
-            Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [video.iso] [filler_data] [system_update_file]");
+            Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [files]");
             Console.WriteLine("");
-            Console.WriteLine("Rebuild mode: Combine input files (no options)");
-            Console.WriteLine("Extract mode: Use options (other paths are used for custom output file names)");
-            Console.WriteLine("-a, --all   \t Perform all operations (-rstuvwx) on the input ISO");
+            Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
+            Console.WriteLine("Extract mode: Use one or more options (splits input file)");
+            Console.WriteLine("-a, --all   \t Perform all operations (-rstuvwxy) on the input ISO, except --zar");
             Console.WriteLine("-q, --quiet \t Don't print INFO messages to console");
             Console.WriteLine("-r, --random\t Extracts random filler data to a separate file");
             Console.WriteLine("-s, --seed  \t Extracts RNG seed used for XGD1 filler");
             Console.WriteLine("-t, --trim  \t Trims end of XISO (game partition)");
             Console.WriteLine("-u, --update\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video \t Extracts video ISO (video partition)");
-            Console.WriteLine("-w, --wipe  \t Wipes filler data in XISO");
+            Console.WriteLine("-w, --wipe  \t Wipes random filler data in XISO");
             Console.WriteLine("-x, --xiso  \t Extracts XISO (game partition)");
+            Console.WriteLine("-y, --skelly\t Extracts XISO skeleton (game partition with zeroed files)");
+            Console.WriteLine("-z, --zar   \t Converts XISO to zar (zstd compressed archive of game files)");
         }
 
         static void Main(string[] args)
@@ -57,12 +59,16 @@ namespace XboxKit
             bool trimXISO = false;
             bool wipeXISO = false;
             bool extractUpdate = false;
+            bool extractSkeleton = false;
+            bool extractZAR = false;
             string isoPath = string.Empty;
             string videoPath = string.Empty;
             string fillerPath = string.Empty;
             string seedPath = string.Empty;
             string sectorsTXTPath = string.Empty;
             string updatePath = string.Empty;
+            string skeletonPath = string.Empty;
+            string zarPath = string.Empty;
             List<string> filePaths = new();
 
             // Check arguments
@@ -113,6 +119,12 @@ namespace XboxKit
                         case "--xiso":
                             extractXISO = true;
                             break;
+                        case "--skelly":
+                            extractSkeleton = true;
+                            break;
+                        case "--zar":
+                            extractZar = true;
+                            break;
                         default:
                             filePaths.Add(arg);
                             break;
@@ -160,6 +172,12 @@ namespace XboxKit
                             case 'x':
                                 extractXISO = true;
                                 break;
+                            case 'y':
+                                extractSkeleton = true;
+                                break;
+                            case 'z':
+                                extractZAR = true;
+                                break;
                             default:
                                 Console.WriteLine($"[ERROR] Unknown flag: -{flag}");
                                 PrintHelp();
@@ -177,6 +195,8 @@ namespace XboxKit
                 PrintHelp();
                 return;
             }
+
+            // Parse additional input files
             if (filePaths.Count > 0)
                 isoPath = filePaths[0];
             if (filePaths.Count > 1)
@@ -207,6 +227,10 @@ namespace XboxKit
                 sectorsTXTPath = Path.Combine(dir, "sectors.txt");
             if (string.IsNullOrEmpty(updatePath))
                 updatePath = Path.Combine(dir, "su20076000_00000000");
+            if (string.IsNullOrEmpty(skeletonPath))
+                skeletonPath = Path.Combine(dir, $"{filename}.xiso.skeleton");
+            if (string.IsNullOrEmpty(zarPath))
+                zarPath = Path.Combine(dir, $"{filename}.zar");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
 
@@ -225,7 +249,9 @@ namespace XboxKit
 
                 if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO)
                 {
-                    Console.WriteLine("[INFO] Redump ISO provided with no options, nothing to do");
+                    Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
+                    Console.WriteLine("        Run with --all flag for lossless conversion to XISO");
+                    Console.WriteLine("");
                     PrintHelp();
                     return;
                 }
@@ -396,7 +422,7 @@ namespace XboxKit
                     if (!quiet)
                         Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                     using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    long updateLength = videoLength - updateOffset - Utils.SECTOR_SIZE;
+                    long updateLength = videoLength - updateOffset - XDVDFS.SECTOR_SIZE;
                     if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                     {
                         Console.WriteLine($"[ERROR] Failed writing system update file.");
@@ -456,7 +482,7 @@ namespace XboxKit
                             Console.WriteLine($"[INFO] XGD1 Version: {version}");
 
                         // Determine XGD1 pseudo random number generator seed, if possible
-                        byte[] firstXISOSector = new byte[Utils.SECTOR_SIZE * 2];
+                        byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
                         if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
                         {
                             Console.WriteLine("[ERROR] Failed reading first XISO sector");
@@ -513,7 +539,7 @@ namespace XboxKit
                 while (numBytes < xisoLength)
                 {
                     long currentByte = XISO_OFFSET[xgdType] + numBytes;
-                    long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+                    long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
                     long bytesUntilEndOfExtent = 0;
                     long bytesToWipe = 0;
                     bool skipEnd = false;
@@ -548,13 +574,13 @@ namespace XboxKit
                             if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                             {
                                 // Number of bytes remaining in current file extent
-                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
+                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
                             else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                             {
                                 // Wipe until next file extent
-                                bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
+                                bytesToWipe = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
                         }
@@ -592,7 +618,7 @@ namespace XboxKit
                         if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                         {
                             // Validity check
-                            if (bytesToWipe % Utils.SECTOR_SIZE != 0)
+                            if (bytesToWipe % XDVDFS.SECTOR_SIZE != 0)
                             {
                                 Console.WriteLine("[ERROR] Unexpected Error 2, please report this.");
                                 return;
@@ -702,7 +728,7 @@ namespace XboxKit
                 if (!quiet)
                     Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
                 using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                long updateLength = videoFS.Length - updateOffset - Utils.SECTOR_SIZE;
+                long updateLength = videoFS.Length - updateOffset - XDVDFS.SECTOR_SIZE;
                 if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
                 {
                     Console.WriteLine($"[ERROR] Failed writing system update file.");
@@ -786,7 +812,7 @@ namespace XboxKit
                     long currentByte = 0;
                     while (currentByte < isoSize)
                     {
-                        long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+                        long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
                         long bytesUntilEndOfExtent = 0;
                         long bytesToWipe = 0;
                         bool skipEnd = false;
@@ -821,13 +847,13 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
+                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    bytesToWipe = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
+                                    bytesToWipe = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
@@ -865,7 +891,7 @@ namespace XboxKit
                             if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                             {
                                 // Validity check
-                                if (bytesToWipe % Utils.SECTOR_SIZE != 0)
+                                if (bytesToWipe % XDVDFS.SECTOR_SIZE != 0)
                                 {
                                     Console.WriteLine("[ERROR] Unexpected Error 4, please report this.");
                                     return;
@@ -928,7 +954,7 @@ namespace XboxKit
                 if (!File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] Invalid file path: {videoPath}");
-                    Console.WriteLine("Provide a file path to the video partition to rebuild the redump ISO.");
+                    Console.WriteLine("         Provide a file path to the video partition to rebuild the redump ISO.");
                     return;
                 }
 
@@ -1069,7 +1095,7 @@ namespace XboxKit
                             string[] range = line.Split('-');
                             if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
                             {
-                                if (startSector < 0 || startSector > (redumpLength / Utils.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                                if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
                                 {
                                     Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
                                     return;
@@ -1103,12 +1129,12 @@ namespace XboxKit
                     }
 
                     // Write filler data interleaved with XISO
-                    long xisoOffsetSector = XISO_OFFSET[xisoType] / Utils.SECTOR_SIZE;
+                    long xisoOffsetSector = XISO_OFFSET[xisoType] / XDVDFS.SECTOR_SIZE;
                     long currentByte = 0;
                     isoFS.Seek(0, SeekOrigin.Begin);
                     while (currentByte < xisoLength)
                     {
-                        long currentSector = (currentByte + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+                        long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
                         long xisoBytes = 0;
                         long fillerBytes = 0;
 
@@ -1122,9 +1148,9 @@ namespace XboxKit
                                 {
                                     if (!quiet)
                                         Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
-                                    long securitySectorBytes = 4096 * Utils.SECTOR_SIZE;
+                                    long securitySectorBytes = 4096 * XDVDFS.SECTOR_SIZE;
                                     Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
-                                    prng.SimulateSectors(securitySectorBytes / Utils.SECTOR_SIZE);
+                                    prng.SimulateSectors(securitySectorBytes / XDVDFS.SECTOR_SIZE);
                                     currentByte += securitySectorBytes;
                                     isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
                                     wipedSectors = true;
@@ -1149,13 +1175,13 @@ namespace XboxKit
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    xisoBytes = (validRanges[i].End + 1) * Utils.SECTOR_SIZE - currentByte;
+                                    xisoBytes = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                                 else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    fillerBytes = validRanges[i].Start * Utils.SECTOR_SIZE - currentByte;
+                                    fillerBytes = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
@@ -1168,14 +1194,14 @@ namespace XboxKit
                             {
                                 if (currentSector + xisoOffsetSector < securitySectors[i] + 4095)
                                 {
-                                    if (currentSector + xisoOffsetSector + fillerBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    if (currentSector + xisoOffsetSector + fillerBytes / XDVDFS.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * Utils.SECTOR_SIZE;
+                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * XDVDFS.SECTOR_SIZE;
                                         break;
                                     }
-                                    else if (currentSector + xisoOffsetSector + xisoBytes / Utils.SECTOR_SIZE >= securitySectors[i])
+                                    else if (currentSector + xisoOffsetSector + xisoBytes / XDVDFS.SECTOR_SIZE >= securitySectors[i])
                                     {
-                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * Utils.SECTOR_SIZE;
+                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * XDVDFS.SECTOR_SIZE;
                                         break;
                                     }
                                 }
@@ -1185,7 +1211,7 @@ namespace XboxKit
                         if (fillerBytes > 0)
                         {
                             // Validity check
-                            if (fillerBytes % Utils.SECTOR_SIZE != 0)
+                            if (fillerBytes % XDVDFS.SECTOR_SIZE != 0)
                             {
                                 Console.WriteLine("[ERROR] Unexpected Error 6, please report this.");
                                 return;
@@ -1194,7 +1220,7 @@ namespace XboxKit
                             if (prng != null)
                             {
                                 // Generate filler data
-                                prng.WriteSectors(redumpFS, fillerBytes / Utils.SECTOR_SIZE);
+                                prng.WriteSectors(redumpFS, fillerBytes / XDVDFS.SECTOR_SIZE);
                             }
                             else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
@@ -1246,7 +1272,7 @@ namespace XboxKit
                         Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
                     FileInfo suInfo = new(updatePath);
                     suSize = suInfo.Length;
-                    l1Length -= suSize + Utils.SECTOR_SIZE;
+                    l1Length -= suSize + XDVDFS.SECTOR_SIZE;
                 }
 
                 // Write layer 1 portion of video partition
@@ -1272,8 +1298,8 @@ namespace XboxKit
                     }
 
                     // Write final video partition sector
-                    videoFS.Seek(-Utils.SECTOR_SIZE, SeekOrigin.End);
-                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, Utils.SECTOR_SIZE))
+                    videoFS.Seek(-XDVDFS.SECTOR_SIZE, SeekOrigin.End);
+                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, XDVDFS.SECTOR_SIZE))
                     {
                         Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
                         return;
