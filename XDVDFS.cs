@@ -20,8 +20,8 @@ namespace XboxKit
                 return;
 
             long cur = isoOffset + rootOffset + childOffset;
-            long curOffset = cur / Utils.SECTOR_SIZE;
-            long curSize = (rootSize - childOffset + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+            long curOffset = cur / SECTOR_SIZE;
+            long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
                 validSectors.Add((uint)i);
 
@@ -31,7 +31,7 @@ namespace XboxKit
             if (leftChildOffset == 0xFFFF)
                 return;
             ushort rightChildOffset = Utils.ReadUShort(isoFS);
-            long entryOffset = (long)Utils.ReadUInt(isoFS) * Utils.SECTOR_SIZE;
+            long entryOffset = (long)Utils.ReadUInt(isoFS) * SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
 
@@ -42,8 +42,8 @@ namespace XboxKit
                 GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0, quiet);
             else
             {
-                long fileOffset = (isoOffset + entryOffset) / Utils.SECTOR_SIZE;
-                long fileSize = (entrySize + Utils.SECTOR_SIZE - 1) / Utils.SECTOR_SIZE;
+                long fileOffset = (isoOffset + entryOffset) / SECTOR_SIZE;
+                long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
                     validSectors.Add((uint)i);
             }
@@ -57,14 +57,14 @@ namespace XboxKit
         {
             List<uint> validSectors = new List<uint>();
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
-            long headerOffsetSector = (headerOffset) / Utils.SECTOR_SIZE;
+            long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
             validSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
-            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * Utils.SECTOR_SIZE, rootSize, 0, quiet);
+            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, quiet);
 
             var ranges = new List<(uint, uint)>();
             var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
@@ -92,9 +92,9 @@ namespace XboxKit
         {
             long updateOffset = videoFS.Length;
             byte[] videoBuf = new byte[16];
-            while (updateOffset >= Utils.SECTOR_SIZE)
+            while (updateOffset >= SECTOR_SIZE)
             {
-                videoFS.Seek(updateOffset - Utils.SECTOR_SIZE, SeekOrigin.Begin);
+                videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
                 int bytesRead = 0;
                 while (bytesRead < videoBuf.Length)
                 {
@@ -106,7 +106,7 @@ namespace XboxKit
                 if (FILLER.AsSpan().SequenceEqual(videoBuf))
                     break;
 
-                updateOffset -= Utils.SECTOR_SIZE;
+                updateOffset -= SECTOR_SIZE;
             }
             return updateOffset;
         }

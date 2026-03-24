@@ -43,7 +43,7 @@ namespace XboxKit
         // Ensure proper writing to filestream
         public static bool WriteBytes(FileStream inFS, FileStream outFS, long offset, long length)
         {
-            byte[] buf = new byte[64 * SECTOR_SIZE];
+            byte[] buf = new byte[64 * XDVDFS.SECTOR_SIZE];
             long numBytes = 0;
             if (offset >= 0)
                 inFS.Seek(offset, SeekOrigin.Begin);
@@ -62,7 +62,7 @@ namespace XboxKit
         // Write zeroes to filestream
         public static void WriteZeroes(FileStream outFS, long offset, long length)
         {
-            byte[] buf = new byte[64 * SECTOR_SIZE];
+            byte[] buf = new byte[64 * XDVDFS.SECTOR_SIZE];
             long numBytes = 0;
             if (offset >= 0)
                 outFS.Seek(offset, SeekOrigin.Begin);

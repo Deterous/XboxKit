@@ -97,6 +97,7 @@ namespace XboxKit
                             extractVideo = true;
                             wipeXISO = true;
                             extractXISO = true;
+                            extractSkeleton = true;
                             break;
                         case "--random":
                             extractFiller = true;
@@ -123,7 +124,7 @@ namespace XboxKit
                             extractSkeleton = true;
                             break;
                         case "--zar":
-                            extractZar = true;
+                            extractZAR = true;
                             break;
                         default:
                             filePaths.Add(arg);
@@ -150,6 +151,7 @@ namespace XboxKit
                                 extractVideo = true;
                                 wipeXISO = true;
                                 extractXISO = true;
+                                extractSkeleton = true;
                                 break;
                             case 'r':
                                 extractFiller = true;
@@ -247,7 +249,7 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
-                if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO)
+                if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO && !extractSkeleton && !extractZAR)
                 {
                     Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                     Console.WriteLine("        Run with --all flag for lossless conversion to XISO");
@@ -256,11 +258,17 @@ namespace XboxKit
                     return;
                 }
 
-                if (wipeXISO && !extractXISO && !quiet)
+                // Check option combination is valid
+                if (wipeXISO && !extractXISO)
+                {
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
-                if (trimXISO && !extractXISO && !quiet)
+                    return;
+                }
+                if (trimXISO && !extractXISO)
+                {
                     Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)");
-
+                    return;
+                }
                 if (extractXISO && extractFiller && !wipeXISO)
                 {
                     Console.WriteLine("[ERROR] Cannot write filler data without wiping XISO");
@@ -268,35 +276,27 @@ namespace XboxKit
                     return;
                 }
 
-                // Check that XISO doesn't already exist
+                // Check that files don't already exist
                 if (extractXISO && File.Exists(xisoPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {xisoPath}");
                     return;
                 }
-
-                // Check that video ISO doesn't already exist
                 if (extractVideo && File.Exists(videoPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {videoPath}");
                     return;
                 }
-
-                // Check that filler data file doesn't already exist
                 if (extractFiller && File.Exists(fillerPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
                     return;
                 }
-
-                // Check that update file doesn't already exist
                 if (extractUpdate && File.Exists(updatePath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {updatePath}");
                     return;
                 }
-
-                // Check that seed file doesn't already exist
                 if (extractSeed && File.Exists(seedPath))
                 {
                     Console.WriteLine($"[ERROR] File already exists: {seedPath}");
