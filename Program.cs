@@ -29,27 +29,29 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
-            Console.WriteLine("-a, --all   \t Perform all operations (-rstuvwxy) on the input ISO, except --zar");
-            Console.WriteLine("-q, --quiet \t Don't print INFO messages to console");
-            Console.WriteLine("-r, --random\t Extracts random filler data to a separate file");
-            Console.WriteLine("-s, --seed  \t Extracts RNG seed used for XGD1 filler");
-            Console.WriteLine("-t, --trim  \t Trims end of XISO (game partition)");
-            Console.WriteLine("-u, --update\t Extracts update file from video ISO (XGD3 only)");
-            Console.WriteLine("-v, --video \t Extracts video ISO (video partition)");
-            Console.WriteLine("-w, --wipe  \t Wipes random filler data in XISO");
-            Console.WriteLine("-x, --xiso  \t Extracts XDVDFS ISO (game partition)");
-            Console.WriteLine("-y, --skelly\t Extracts XDVDFS skeleton (game partition with zeroed files)");
-            Console.WriteLine("-z, --zar   \t Converts XISO to zar (zstd compressed archive of game files)");
+            Console.WriteLine("-a, --all    \tPerform all operations (-prstuvwxy) on the input ISO, except --zar");
+            Console.WriteLine("-p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
+            Console.WriteLine("-q, --quiet  \tDon't print INFO messages to console");
+            Console.WriteLine("-r, --random \tExtracts random filler data to a separate file");
+            Console.WriteLine("-s, --seed   \tExtracts RNG seed used for XGD1 filler");
+            Console.WriteLine("-t, --trim   \tTrims end of XISO (game partition)");
+            Console.WriteLine("-u, --update \tExtracts update file from video ISO (XGD3 only)");
+            Console.WriteLine("-v, --video  \tExtracts video ISO (video partition)");
+            Console.WriteLine("-w, --wipe   \tWipes random filler data in XISO");
+            Console.WriteLine("-x, --xiso   \tExtracts XDVDFS ISO (game partition)");
+            Console.WriteLine("-y, --yes    \tAssume yes for all interactive prompts (skips warnings)");
+            Console.WriteLine("-z, --zar    \tConverts XISO to zar (zstd compressed archive of game files)");
         }
 
         static void Main(string[] args)
         {
             #region Initial Setup
 
-            // Initialize VIDEO_LENGTH array
+            // Initialize VIDEO_LENGTH array at run-time
             for (int i = 0; i < VIDEO_LENGTH.Length; i++)
                 VIDEO_LENGTH[i] = VIDEO_L0_LENGTH[i] + VIDEO_L1_LENGTH[i];
 
+            // Initialize program options
             bool help = false;
             bool quiet = false;
             bool extractXISO = false;
@@ -210,7 +212,7 @@ namespace XboxKit
                 updatePath = filePaths[3];
 
             // Determine input filenames
-            // TODO: Account for 1st input file being .video.iso or .redump.iso
+            // TODO: Account for 1st input file being .video.iso or .redump.iso or .xiso.skeleton.zstd
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
             string extension = Path.GetExtension(isoPath);
@@ -236,7 +238,7 @@ namespace XboxKit
             if (string.IsNullOrEmpty(zarPath))
                 zarPath = Path.Combine(dir, $"{filename}.zar");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
-            // TODO: Prefer just .iso if it doesn't already exist
+            // TODO: Prefer just .iso if it doesn't already exist?
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
 
             // Compare input ISO file size to determine file type
@@ -679,36 +681,39 @@ namespace XboxKit
                 #region Mode 2: Video ISO as input
 
                 // Check for valid options
+                bool invalidOptions = false;
                 if (extractVideo)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is already video.");
-                    return;
+                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is already video ISO.");
+                    invalidOptions = true;
                 }
                 if (extractXISO)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is video.");
-                    return;
+                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is video ISO.");
+                    invalidOptions = true;
                 }
                 if (extractFiller)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract filler (-s), input file is video.");
-                    return;
+                    Console.WriteLine("[ERROR] Cannot extract filler (-s), input file is video ISO.");
+                    invalidOptions = true;
                 }
                 if (wipeXISO)
                 {
-                    Console.WriteLine("[ERROR] Cannot wipe XISO (-w), input file is video.");
-                    return;
+                    Console.WriteLine("[ERROR] Cannot wipe XISO (-w), input file is video ISO.");
+                    invalidOptions = true;
                 }
                 if (trimXISO)
                 {
-                    Console.WriteLine("[ERROR] Cannot trim XISO (-t), input file is video.");
-                    return;
+                    Console.WriteLine("[ERROR] Cannot trim XISO (-t), input file is video ISO.");
+                    invalidOptions = true;
                 }
                 if (!extractUpdate)
                 {
                     Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
-                    return;
+                    invalidOptions = true;
                 }
+                if (invalidOptions)
+                    return;
 
                 // Check that update file doesn't already exist
                 if (File.Exists(updatePath))
@@ -724,7 +729,7 @@ namespace XboxKit
                     return;
                 }
 
-                // Open ISO for reading and writing
+                // Open video ISO for reading and writing
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                 long updateOffset = XDVDFS.SUOffset(videoFS);
 
@@ -755,22 +760,23 @@ namespace XboxKit
                 bool invalidOptions = false;
                 if (extractXISO)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is already XISO");
+                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is already XISO.");
                     invalidOptions = true;
                 }
                 if (extractVideo)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is XISO");
+                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is XISO.");
                     invalidOptions = true;
                 }
                 if (extractUpdate)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract update (-u), input file is XISO");
+                    Console.WriteLine("[ERROR] Cannot extract update (-u), input file is XISO.");
                     invalidOptions = true;
                 }
                 if (invalidOptions)
                     return;
 
+                // Open XISO for reading
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (!quiet)
                     Console.WriteLine($"[INFO] Reading XISO from {isoPath}");
@@ -1031,6 +1037,7 @@ namespace XboxKit
                 if (!File.Exists(fillerPath) && !File.Exists(seedPath))
                 {
                     // No filler data or seed available, write entire XISO
+                    // TODO: Warn or error if filler is zeroed in XISO
                     if (!Utils.WriteBytes(isoFS, redumpFS, -1, isoSize))
                     {
                         Console.WriteLine($"[ERROR] Failed writing game partition: {isoSize}");

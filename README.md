@@ -9,7 +9,9 @@ Usage: xboxkit.exe [options] <input.iso> [files]
 
 Rebuild mode: Don't use any options (combines input files)
 Extract mode: Use one or more options (splits input file)
--a, --all        Perform all operations (-rstuvwx) on the input ISO
+-a, --all        Perform all operations (-prstuvwxy) on the input ISO
+-p, --petrify    Extracts XDVDFS skeleton (game partition with zeroed files)
+-q, --quiet      Don't print INFO messages to console
 -q, --quiet      Don't print INFO messages to console
 -r, --random     Extracts random filler data to a separate file
 -s, --seed       Extracts RNG seed used for XGD1 filler
@@ -18,7 +20,7 @@ Extract mode: Use one or more options (splits input file)
 -v, --video      Extracts video ISO (video partition)
 -w, --wipe       Wipes filler data in XISO
 -x, --xiso       Extracts XDVDFS ISO (game partition)
--y, --skelly     Extracts XDVDFS skeleton (game partition with zeroed files)
+-y, --yes        Assume yes for all interactive prompts (skips warnings)
 -z, --zar        Converts XISO to zar (zstd compressed archive of game files)
 ```
 
