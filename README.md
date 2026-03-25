@@ -2,7 +2,7 @@
 
 **XboxKit** losslessly converts between Xbox & Xbox 360 DVD image file formats. It supports Redump ISOs, XISO ([XDVDFS](https://multimedia.cx/xdvdfs.html) ISO) images of the game partition, video ISO (DVD-Video format) images of the video partition, extracted random filler padding data, XGD1 filler seeds, system update files (from XGD3 video ISOs), XDVDFS skeletons, and ZAR ([ZArchive](https://github.com/Exzap/ZArchive)) files.
 
-## Command-line help text
+### Command-line help text
 
 ```
 Usage: xboxkit.exe [options] <input.iso> [files]
@@ -24,7 +24,7 @@ Extract mode: Use one or more options
 
 **Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.
 
-## Examples
+### Example usage
 
 For lossless conversion from a redump ISO to an XISO, run:
 `./xboxkit.exe -a game.iso`
@@ -71,7 +71,7 @@ XboxKit was developed as a tool for two-way lossless conversion between large co
 
 Xbox & Xbox 360 DVDs (commonly referred to as XGDs) are not physically different from other dual-layer DVDs (DVD-9). A few tweaks to the disc's data format hides the game partition from standard DVD drives. Custom disc drive firmware is required to read the entirety of the disc, such as [OmniDrive](https://github.com/RibShark/OmniDrive) or [Kreon](http://wiki.redump.org/index.php?title=Optical_Disc_Drive_Compatibility:_Xbox_(original)_%26_Xbox_360) firmware. [Redumper](https://github.com/superg/redumper) supports these custom firmware drives and can write to a Redump-style ISO (both video and game partitions combined).
 
-The DVD's PFI[^1] sector indicates to the drive that the DVD's layerbreak[^2] is after the first portion of the video partition[^3]. The Security Sector (SS)[^4] is what is read by Xbox disc drives and instead points to the game partition of the disc, with the true layerbreak value. Redump-style ISOs aim to preserve the entire disc by combining both the video and game partitions into a single ISO file (merging the PFI and SS descriptors[^5]). XISO files instead represent only the game partition pointed to by the SS (removing both the video partition and the middle zones between the partition on both layers). The XISO file uses the Xbox filesystem (commonly referred to as XDVDFS) that is not readable by Windows. Other programs such as [extract-xiso](https://github.com/xboxdev/extract-xiso) recreate the XISO in a lossy manner in order to optimize for file size, while the XISO produced by XboxKit keeps the original XDVDFS filesystem intact.
+The DVD's PFI[^1] sector indicates to the drive that the DVD's layerbreak[^2] is after the first portion of the video partition[^3]. The [Security Sector](https://github.com/Deterous/ParseXboxMetadata) (SS)[^4] is what is read by Xbox disc drives and instead points to the game partition of the disc, with the true layerbreak value. Redump-style ISOs aim to preserve the entire disc by combining both the video and game partitions into a single ISO file (merging the PFI and SS descriptors[^5]). XISO files instead represent only the game partition pointed to by the SS (removing both the video partition and the middle zones between the partition on both layers). The XISO file uses the Xbox filesystem (commonly referred to as XDVDFS) that is not readable by Windows. Other programs such as [extract-xiso](https://github.com/xboxdev/extract-xiso) recreate the XISO in a lossy manner in order to optimize for file size, while the XISO produced by XboxKit keeps the original XDVDFS filesystem intact.
 
 [^1]: Physical Format Information, a sector in the disc's lead-in describing the disc's data layout.
 [^2]: Sector number at which the data switches from being stored on the 1st layer to the 2nd layer.
