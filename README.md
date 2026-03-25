@@ -27,6 +27,8 @@ graph LR
     X -->|--wipe| W
     W -->|--petrify| P
     W -->|--zar| Z
+    U ~~~ B[ ]:::hidden
+    B ~~~ C[ ]:::hidden
 ```
 
 ## Command-line help text
