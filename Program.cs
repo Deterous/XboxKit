@@ -199,6 +199,7 @@ namespace XboxKit
             }
 
             // Parse additional input files
+            // TODO: Don't rely on the order of the input files
             if (filePaths.Count > 0)
                 isoPath = filePaths[0];
             if (filePaths.Count > 1)
@@ -209,6 +210,7 @@ namespace XboxKit
                 updatePath = filePaths[3];
 
             // Determine input filenames
+            // TODO: Account for 1st input file being .video.iso or .redump.iso
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
             string extension = Path.GetExtension(isoPath);
