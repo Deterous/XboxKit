@@ -2,7 +2,34 @@
 
 **XboxKit** losslessly converts between Xbox & Xbox 360 DVD image file formats. It supports Redump ISOs, XISO ([XDVDFS](https://multimedia.cx/xdvdfs.html) ISO) images of the game partition, video ISO (DVD-Video format) images of the video partition, extracted random filler padding data, XGD1 filler seeds, system update files (from XGD3 video ISOs), XDVDFS skeletons, and ZAR ([ZArchive](https://github.com/Exzap/ZArchive)) files.
 
-### Command-line help text
+```mermaid
+graph LR
+    A[Redump ISO]
+    P[XDVDFS\nSkeleton]
+    T[Trimmed XISO]
+    U[System\nUpdate]
+    V[Video ISO]
+    W[Wiped XISO]
+    Z[ZArchive]
+    subgraph X [XDVDFS ISO]
+        XISO(Raw XISO)
+        XISO -->|--trim| T
+    end
+    subgraph F [Filler Data]
+        R(Random Filler)
+        S(XGD1 Seed)
+    end
+    A -->|--video| V
+    V -->|--update| U
+    A -->|--xiso| X
+    X -->|--random| R
+    X -->|--seed| S
+    X -->|--wipe| W
+    W -->|--petrify| P
+    W -->|--zar| Z
+```
+
+## Command-line help text
 
 ```
 Usage: xboxkit.exe [options] <input.iso> [files]
@@ -26,7 +53,7 @@ Extract mode: Use one or more options (splits input file)
 
 **Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.
 
-### Example usage
+## Example usage
 
 For lossless conversion from a redump ISO to an XISO, run:
 `./xboxkit.exe -a game.iso`
