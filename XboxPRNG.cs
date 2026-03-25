@@ -26,7 +26,7 @@ namespace XboxKit
         public void SimulateSectors(long count)
         {
             for (int i = 0; i < count; i++)
-                for (int j = 0; j < Utils.SECTOR_SIZE; j += 2)
+                for (int j = 0; j < XDVDFS.SECTOR_SIZE; j += 2)
                     State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
         }
 
@@ -36,15 +36,15 @@ namespace XboxKit
             for (int i = 0; i < count; i++)
             {
                 byte[] sector = GenerateSector();
-                fs.Write(sector, 0, (int)Utils.SECTOR_SIZE);
+                fs.Write(sector, 0, (int)XDVDFS.SECTOR_SIZE);
             }
         }
 
         // Generate a sector using the current state variables
         private byte[] GenerateSector()
         {
-            byte[] sector = new byte[Utils.SECTOR_SIZE];
-            for (int j = 0; j < Utils.SECTOR_SIZE; j += 2)
+            byte[] sector = new byte[XDVDFS.SECTOR_SIZE];
+            for (int j = 0; j < XDVDFS.SECTOR_SIZE; j += 2)
             {
                 State = (uint)(((State + 1UL) * Mult) % 0xFFFFFFFB);
                 ushort sample = (ushort)((State ^ Mask) >> 8);
@@ -73,7 +73,7 @@ namespace XboxKit
                     uint stateGuess = (uint)(((seedGuess + 1UL) * multGuess) % 0xFFFFFFFB);
                     uint maskAttempt = stateGuess;
                     bool match = true;
-                    for (int j = 0; j < Utils.SECTOR_SIZE * 2; j += 2)
+                    for (int j = 0; j < XDVDFS.SECTOR_SIZE * 2; j += 2)
                     {
                         stateGuess = (uint)(((stateGuess + 1UL) * multGuess) % 0xFFFFFFFB);
                         ushort sample = (ushort)((stateGuess ^ maskAttempt) >> 8);

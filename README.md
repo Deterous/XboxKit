@@ -1,8 +1,8 @@
 # XboxKit
 
-**XboxKit** losslessly converts between Xbox & Xbox 360 DVD image file formats. It supports Redump ISOs, XISO game images, video ISO partitions, random filler padding data, XGD1 filler data seeds, XGD3 system update files, XISO skeletons, and ZAR files.
+**XboxKit** losslessly converts between Xbox & Xbox 360 DVD image file formats. It supports complete ISOs (Redump-style), XISO ([XDVDFS](https://multimedia.cx/xdvdfs.html) ISO) images of the game partition, video ISOs (DVD-Video format) of the video partition, extracted random filler padding data, XGD1 filler seeds (to generate filler data), system update files (from XGD3 video ISOs), XDVDFS skeletons, and [ZArchive](https://github.com/Exzap/ZArchive) (ZAR) files.
 
-## Help text
+## Command-line help text
 
 ```
 Usage: xboxkit.exe [options] <input.iso> [files]
@@ -17,12 +17,12 @@ Extract mode: Use one or more options
 -u, --update     Extracts update file from video ISO (XGD3 only)
 -v, --video      Extracts video ISO (video partition)
 -w, --wipe       Wipes filler data in XISO
--x, --xiso       Extracts XISO (game partition)
--y, --skelly     Extracts XISO skeleton (game partition with zeroed files)
+-x, --xiso       Extracts XDVDFS ISO (game partition)
+-y, --skelly     Extracts XDVDFS skeleton (game partition with zeroed files)
 -z, --zar        Converts XISO to zar (zstd compressed archive of game files)
 ```
 
-**Note**: Extracting the system update (su20076000_00000000) is only useful for XGD3 discs as deduplication of the video ISO is possible for XGD1/XGD2. When extracting the update, XboxKit zeroes it file within the video ISO so that it becomes highly compressible (deduplication of su20076000_00000000 is then possible across multiple XGD3 disc images). XboxKit will ignore the --update option when used with XGD1/XGD2.
+**Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.
 
 ## Examples
 
@@ -71,10 +71,12 @@ For more info on using the program, run `./xboxkit.exe --help`
 
 XboxKit was developed as a tool for two-way lossless conversion between large collections of redump-style Xbox & Xbox 360 ISOs and compressed playable formats such as XISO and ZAR. This achieves the balance of archival quality and compressed playable formats, by storing the auxiliary data in sidecar files that can be managed and stored separately (with deduplication and compression). These sidecar files (such as the random filler data, skeleton, and game file hashes) do not contain any copyright data, and can be safely shared publicly to allow people with their own backups to confirm the files are not corrupted and repair them to match redump hashes. XboxKit therefore makes it possible for someone with only a backup of the loose game files to rebuild to an redump ISO for archival purposes.
 
-Xbox & Xbox 360 DVDs (commonly referred to as XGDs) are not physically different from other dual-layer DVDs. A few tweaks to the disc's data format hides the game partition from standard DVD drives, but [Redumper](https://github.com/superg/redumper) supports reading the full disc like any standard DVD (requires a disc drive with [OmniDrive](https://github.com/RibShark/OmniDrive) or [Kreon](http://wiki.redump.org/index.php?title=Optical_Disc_Drive_Compatibility:_Xbox_(original)_%26_Xbox_360) custom firmware).
+Xbox & Xbox 360 DVDs (commonly referred to as XGDs) are not physically different from other dual-layer DVDs (DVD-9). A few tweaks to the disc's data format hides the game partition from standard DVD drives, but [Redumper](https://github.com/superg/redumper) supports reading the full disc like any standard DVD (requires a disc drive with [OmniDrive](https://github.com/RibShark/OmniDrive) or [Kreon](http://wiki.redump.org/index.php?title=Optical_Disc_Drive_Compatibility:_Xbox_(original)_%26_Xbox_360) custom firmware).
 
-The DVD's PFI[^1] sector indicates to the drive that the DVD's layerbreak[^2] is after a small "video partition". The Security Sector (SS)[^3] is what is read by Xbox disc drives and instead points to the game partition of the disc, with the true layerbreak value. Redump-style ISOs aim to preserve the entire disc by combining both the video and game partitions into a single ISO file (merging the PFI and SS descriptors). XISO files instead represent only the game partition pointed to by the SS (removing both the video partition and the middle zones between the partition on both layers). The XISO file uses the Xbox filesystem (commonly referred to as XDVDFS) that is not readable by Windows. Other programs such as [extract-xiso](https://github.com/xboxdev/extract-xiso) rewrite the xbox filesystem in a lossy manner in order to optimize for file size, while the XISO produced by XboxKit keeps the original filesystem intact.
+The DVD's PFI[^1] sector indicates to the drive that the DVD's layerbreak[^2] is after a small "video partition"[^3]. The Security Sector (SS)[^4] is what is read by Xbox disc drives and instead points to the game partition of the disc, with the true layerbreak value. Redump-style ISOs aim to preserve the entire disc by combining both the video and game partitions into a single ISO file (merging the PFI and SS descriptors[^5]). XISO files instead represent only the game partition pointed to by the SS (removing both the video partition and the middle zones between the partition on both layers). The XISO file uses the Xbox filesystem (commonly referred to as XDVDFS) that is not readable by Windows. Other programs such as [extract-xiso](https://github.com/xboxdev/extract-xiso) recreate the XISO in a lossy manner in order to optimize for file size, while the XISO produced by XboxKit keeps the original XDVDFS filesystem intact.
 
-[^1]: Physical Format Information, a sector in the lead-in describing the disc's data layout.
-[^2]: Sector number at which the data switches to the 2nd layer.
-[^3]: An XGD-specific sector in the lead-out of the DVD that follows the PFI spec, with other data in the reserved bytes.
+[^1]: Physical Format Information, a sector in the disc's lead-in describing the disc's data layout.
+[^2]: Sector number at which the data switches from being stored on the 1st layer to the 2nd layer.
+[^3]: The video partition is physically stored on both layers (split at the PFI's layerbreak). In a redump ISO (and physically on the disc), there exists a gap of zeroed sectors between the end of the first layer's video partition and the start of the first layer's game partition. This is repeated on the second layer, with a gap of zeroed sectors between the end of the game parititon and the start of the video partition on the second layer. XboxKit creates the video partition by joining the data at the start and end of the redump ISO, replicating what a standard DVD drive would read if presented with an Xbox disc.
+[^4]: An XGD-specific sector in the lead-out of the DVD that follows the PFI spec, with other data in the reserved bytes. The SS also contains the security sector ranges that are unreadable by disc drives due to intentional mastering errors, and are skipped and left zeroed in the redump ISO. XGD1 (Xbox) has 16 ranges of unreadable sectors within the user data area, while XGD2/XGD3 (Xbox 360) has just two ranges, each range being 4096 sectors long.
+[^5]: The PFI descriptor format specifies three values: the start sector number, the layerbreak, and the end sector number. Redump ISO uses the start/end sector number from the PFI (video partition), but the layerbreak value from the SS (game partition). This way, all valid user data sectors are read from the disc including both partitions.

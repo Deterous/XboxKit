@@ -37,8 +37,8 @@ namespace XboxKit
             Console.WriteLine("-u, --update\t Extracts update file from video ISO (XGD3 only)");
             Console.WriteLine("-v, --video \t Extracts video ISO (video partition)");
             Console.WriteLine("-w, --wipe  \t Wipes random filler data in XISO");
-            Console.WriteLine("-x, --xiso  \t Extracts XISO (game partition)");
-            Console.WriteLine("-y, --skelly\t Extracts XISO skeleton (game partition with zeroed files)");
+            Console.WriteLine("-x, --xiso  \t Extracts XDVDFS ISO (game partition)");
+            Console.WriteLine("-y, --skelly\t Extracts XDVDFS skeleton (game partition with zeroed files)");
             Console.WriteLine("-z, --zar   \t Converts XISO to zar (zstd compressed archive of game files)");
         }
 
@@ -234,6 +234,7 @@ namespace XboxKit
             if (string.IsNullOrEmpty(zarPath))
                 zarPath = Path.Combine(dir, $"{filename}.zar");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
+            // TODO: Prefer just .iso if it doesn't already exist
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
 
             // Compare input ISO file size to determine file type
