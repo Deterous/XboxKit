@@ -7,8 +7,8 @@
 ```
 Usage: xboxkit.exe [options] <input.iso> [files]
 
-Rebuild mode: Combine input files (no options)
-Extract mode: Use one or more options
+Rebuild mode: Don't use any options (combines input files)
+Extract mode: Use one or more options (splits input file)
 -a, --all        Perform all operations (-rstuvwx) on the input ISO
 -q, --quiet      Don't print INFO messages to console
 -r, --random     Extracts random filler data to a separate file
