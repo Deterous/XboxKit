@@ -36,7 +36,7 @@ Usage: xboxkit.exe [options] <input.iso> [files]
 
 Rebuild mode: Don't use any options (combines input files)
 Extract mode: Use one or more options (splits input file)
--a, --all        Perform all operations (-prstuvwxy) on the input ISO
+-a, --all        All options for lossless XISO extraction (-rstuvwxy)
 -p, --petrify    Extracts XDVDFS skeleton (game partition with zeroed files)
 -q, --quiet      Don't print INFO messages to console
 -q, --quiet      Don't print INFO messages to console
@@ -48,7 +48,7 @@ Extract mode: Use one or more options (splits input file)
 -w, --wipe       Wipes filler data in XISO
 -x, --xiso       Extracts XDVDFS ISO (game partition)
 -y, --yes        Assume yes for all interactive prompts (skips warnings)
--z, --zar        Converts XISO to zar (zstd compressed archive of game files)
+-z, --zar        Creates ZArchive of game files
 ```
 
 **Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.
@@ -70,7 +70,7 @@ Losslessly converting back to the original redump ISO:
 (requires all the original output files).
 
 Losslessly converting from a redump ISO to a ZAR file:
-`./xboxkit.exe -ayz game.iso`
+`./xboxkit.exe -apz game.iso`
 
 Additionally outputs:
 - game.xiso.skeleton (XISO with all game files zeroed)

@@ -29,7 +29,7 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
-            Console.WriteLine("-a, --all    \tPerform all operations (-prstuvwxy) on the input ISO, except --zar");
+            Console.WriteLine("-a, --all    \tAll options for lossless XISO extraction (-rstuvwxy)");
             Console.WriteLine("-p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
             Console.WriteLine("-q, --quiet  \tDon't print INFO messages to console");
             Console.WriteLine("-r, --random \tExtracts random filler data to a separate file");
@@ -40,7 +40,7 @@ namespace XboxKit
             Console.WriteLine("-w, --wipe   \tWipes random filler data in XISO");
             Console.WriteLine("-x, --xiso   \tExtracts XDVDFS ISO (game partition)");
             Console.WriteLine("-y, --yes    \tAssume yes for all interactive prompts (skips warnings)");
-            Console.WriteLine("-z, --zar    \tConverts XISO to zar (zstd compressed archive of game files)");
+            Console.WriteLine("-z, --zar    \tCreates ZArchive of game files");
         }
 
         static void Main(string[] args)
@@ -53,15 +53,16 @@ namespace XboxKit
 
             // Initialize program options
             bool help = false;
+            bool extractSkeleton = false;
             bool quiet = false;
-            bool extractXISO = false;
-            bool extractVideo = false;
             bool extractFiller = false;
             bool extractSeed = false;
             bool trimXISO = false;
-            bool wipeXISO = false;
             bool extractUpdate = false;
-            bool extractSkeleton = false;
+            bool extractVideo = false;
+            bool wipeXISO = false;
+            bool extractXISO = false;
+            bool assumeYes = false;
             bool extractZAR = false;
             string isoPath = string.Empty;
             string videoPath = string.Empty;
@@ -100,6 +101,10 @@ namespace XboxKit
                             wipeXISO = true;
                             extractXISO = true;
                             extractSkeleton = true;
+                            assumeYes = true;
+                            break;
+                        case "--petrify":
+                            extractSkeleton = true;
                             break;
                         case "--random":
                             extractFiller = true;
@@ -122,8 +127,8 @@ namespace XboxKit
                         case "--xiso":
                             extractXISO = true;
                             break;
-                        case "--skelly":
-                            extractSkeleton = true;
+                        case "--yes":
+                            assumeYes = true;
                             break;
                         case "--zar":
                             extractZAR = true;
@@ -141,6 +146,9 @@ namespace XboxKit
                         {
                             case 'h':
                                 help = true;
+                                break;
+                            case 'p':
+                                extractSkeleton = true;
                                 break;
                             case 'q':
                                 quiet = true;
@@ -177,7 +185,7 @@ namespace XboxKit
                                 extractXISO = true;
                                 break;
                             case 'y':
-                                extractSkeleton = true;
+                                assumeYes = true;
                                 break;
                             case 'z':
                                 extractZAR = true;
@@ -199,6 +207,10 @@ namespace XboxKit
                 PrintHelp();
                 return;
             }
+
+            // Temporary warning
+            if (!assumeYes)
+                Console.WriteLine("[TEMP] Assuming yes");
 
             // Parse additional input files
             // TODO: Don't rely on the order of the input files
