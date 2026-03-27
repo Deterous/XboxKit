@@ -11,7 +11,8 @@ namespace XboxKit
         public const long SECTOR_SIZE = 2048;
         public const long XISO_HEADER_OFFSET = 0x10000;
         public static readonly byte[] FILLER = Encoding.ASCII.GetBytes("ABCDABCDABCDABCD");
-        public static readonly byte[] MAGIC = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
+        public static readonly byte[] MAGIC1 = Encoding.ASCII.GetBytes("MICROSOFT*XBOX*MEDIA");
+        public static readonly byte[] MAGIC2 = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
 
         // Traverse file tree to get all valid data sectors in XISO
         public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, bool quiet)
