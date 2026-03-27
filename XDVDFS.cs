@@ -60,6 +60,7 @@ namespace XboxKit
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
             long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             validSectors.Add((uint)headerOffsetSector);
+            // TODO: Don't add 2nd header sector if MAGIC is not present
             validSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
