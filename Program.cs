@@ -459,13 +459,13 @@ namespace XboxKit
                     if (xgdType == 0)
                     {
                         // Validate XGD1 magic bytes
-                        byte[] magic = new byte[XDVDFS.MAGIC.Length];
+                        byte[] magic = new byte[XDVDFS.MAGIC2.Length];
                         if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
                         {
                             Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                             return;
                         }
-                        if (!magic.SequenceEqual(XDVDFS.MAGIC))
+                        if (!magic.SequenceEqual(XDVDFS.MAGIC2))
                         {
                             Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
                             return;
