@@ -5,6 +5,7 @@
 ```mermaid
 graph LR
     A[Redump ISO]
+    O[Game Files]
     P[XDVDFS\nSkeleton]
     T[Trimmed XISO]
     U[System\nUpdate]
@@ -25,6 +26,7 @@ graph LR
     X -->|--random| R
     X -->|--seed| S
     X -->|--wipe| W
+    W -->|--output| O
     W -->|--petrify| P
     W -->|--zar| Z
 ```
@@ -37,6 +39,7 @@ Usage: xboxkit.exe [options] <input.iso> [files]
 Rebuild mode: Don't use any options (combines input files)
 Extract mode: Use one or more options (splits input file)
 -a, --all        All options for lossless XISO extraction (-rstuvwxy)
+-o, --output     Extracts and outputs the game files from the XISO
 -p, --petrify    Extracts XDVDFS skeleton (game partition with zeroed files)
 -q, --quiet      Don't print INFO messages to console
 -q, --quiet      Don't print INFO messages to console
@@ -69,7 +72,10 @@ Losslessly converting back to the original redump ISO:
 `./xboxkit.exe game.xiso`
 (requires all the original output files).
 
-Losslessly converting from a redump ISO to a ZAR file:
+Losslessly converting from a redump ISO to the loose game files:
+`./xboxkit.exe -aop game.iso`
+
+Losslessly converting from a redump ISO to a ZArchive of the game files:
 `./xboxkit.exe -apz game.iso`
 
 Additionally outputs:

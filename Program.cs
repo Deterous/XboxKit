@@ -30,6 +30,7 @@ namespace XboxKit
             Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
             Console.WriteLine("-a, --all    \tAll options for lossless XISO extraction (-rstuvwxy)");
+            Console.WriteLine("-o, --output \tExtracts and outputs the game files from the XISO");
             Console.WriteLine("-p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
             Console.WriteLine("-q, --quiet  \tDon't print INFO messages to console");
             Console.WriteLine("-r, --random \tExtracts random filler data to a separate file");
@@ -53,6 +54,7 @@ namespace XboxKit
 
             // Initialize program options
             bool help = false;
+            bool outputFiles = false;
             bool extractSkeleton = false;
             bool quiet = false;
             bool extractFiller = false;
@@ -103,6 +105,8 @@ namespace XboxKit
                             extractSkeleton = true;
                             assumeYes = true;
                             break;
+                        case "--output":
+                            outputFiles = true;
                         case "--petrify":
                             extractSkeleton = true;
                             break;
@@ -147,9 +151,6 @@ namespace XboxKit
                             case 'h':
                                 help = true;
                                 break;
-                            case 'p':
-                                extractSkeleton = true;
-                                break;
                             case 'q':
                                 quiet = true;
                                 break;
@@ -161,6 +162,12 @@ namespace XboxKit
                                 extractVideo = true;
                                 wipeXISO = true;
                                 extractXISO = true;
+                                extractSkeleton = true;
+                                break;
+                            case 'o':
+                                outputFiles = true;
+                                break;
+                            case 'p':
                                 extractSkeleton = true;
                                 break;
                             case 'r':
@@ -266,7 +273,7 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
-                if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO && !extractSkeleton && !extractZAR)
+                if (!extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO && !extractSkeleton && !outputFiles && !extractZAR)
                 {
                     Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                     Console.WriteLine("        Run with --all flag for lossless conversion to XISO");
