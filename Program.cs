@@ -107,6 +107,7 @@ namespace XboxKit
                             break;
                         case "--output":
                             outputFiles = true;
+                            break;
                         case "--petrify":
                             extractSkeleton = true;
                             break;
