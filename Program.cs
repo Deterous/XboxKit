@@ -29,19 +29,25 @@ namespace XboxKit
             Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
-            Console.WriteLine("-a, --all    \tAll options for lossless XISO extraction (-rstuvwxy)");
-            Console.WriteLine("-o, --output \tExtracts and outputs the game files from the XISO");
-            Console.WriteLine("-p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
-            Console.WriteLine("-q, --quiet  \tDon't print INFO messages to console");
-            Console.WriteLine("-r, --random \tExtracts random filler data to a separate file");
-            Console.WriteLine("-s, --seed   \tExtracts RNG seed used for XGD1 filler");
-            Console.WriteLine("-t, --trim   \tTrims end of XISO (game partition)");
-            Console.WriteLine("-u, --update \tExtracts update file from video ISO (XGD3 only)");
-            Console.WriteLine("-v, --video  \tExtracts video ISO (video partition)");
-            Console.WriteLine("-w, --wipe   \tWipes random filler data in XISO");
-            Console.WriteLine("-x, --xiso   \tExtracts XDVDFS ISO (game partition)");
-            Console.WriteLine("-y, --yes    \tAssume yes for all interactive prompts (skips warnings)");
-            Console.WriteLine("-z, --zar    \tCreates ZArchive of game files");
+            Console.WriteLine("");
+            Console.WriteLine("Batch options (for redump ISO):");
+            Console.WriteLine("  -a, --all     \tAll options for lossless XISO extraction (-rstuvwx)");
+            Console.WriteLine("  -b, --best    \tCreate trimmed/wiped XISO only (-twx)");
+            Console.WriteLine("  -c, --compress\tOptions for lossless ZArchive compression (-prsuvz)");
+            Console.WriteLine("");
+            Console.WriteLine("Manual options:");
+            Console.WriteLine("  -o, --output \tExtracts and outputs the game files from the XISO");
+            Console.WriteLine("  -p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
+            Console.WriteLine("  -q, --quiet  \tDon't print INFO messages to console");
+            Console.WriteLine("  -r, --random \tExtracts random filler data to a separate file");
+            Console.WriteLine("  -s, --seed   \tExtracts RNG seed used for XGD1 filler");
+            Console.WriteLine("  -t, --trim   \tTrims end of XISO (game partition)");
+            Console.WriteLine("  -u, --update \tExtracts update file from video ISO (XGD3 only)");
+            Console.WriteLine("  -v, --video  \tExtracts video ISO (video partition)");
+            Console.WriteLine("  -w, --wipe   \tWipes random filler data in XISO");
+            Console.WriteLine("  -x, --xiso   \tExtracts XDVDFS ISO (game partition)");
+            Console.WriteLine("  -y, --yes    \tAssume yes for all interactive prompts (skips warnings)");
+            Console.WriteLine("  -z, --zar    \tCreates ZArchive of game files");
         }
 
         static void Main(string[] args)
@@ -67,12 +73,12 @@ namespace XboxKit
             bool assumeYes = false;
             bool extractZAR = false;
             string isoPath = string.Empty;
-            string videoPath = string.Empty;
+            string skeletonPath = string.Empty;
             string fillerPath = string.Empty;
             string seedPath = string.Empty;
             string sectorsTXTPath = string.Empty;
             string updatePath = string.Empty;
-            string skeletonPath = string.Empty;
+            string videoPath = string.Empty;
             string zarPath = string.Empty;
             List<string> filePaths = new();
 
@@ -102,8 +108,19 @@ namespace XboxKit
                             extractVideo = true;
                             wipeXISO = true;
                             extractXISO = true;
+                            break;
+                        case "--best":
+                            trimXISO = true;
+                            wipeXISO = true;
+                            extractXISO = true;
+                            break;
+                        case "--compress":
                             extractSkeleton = true;
-                            assumeYes = true;
+                            extractFiller = true;
+                            extractSeed = true;
+                            extractUpdate = true;
+                            extractVideo = true;
+                            extractZAR = true;
                             break;
                         case "--output":
                             outputFiles = true;
@@ -163,8 +180,19 @@ namespace XboxKit
                                 extractVideo = true;
                                 wipeXISO = true;
                                 extractXISO = true;
-                                extractSkeleton = true;
                                 break;
+                            case 'b':
+                                trimXISO = true;
+                                wipeXISO = true;
+                                extractXISO = true;
+                                break;
+                            case 'c':
+                                extractSkeleton = true;
+                                extractFiller = true;
+                                extractSeed = true;
+                                extractUpdate = true;
+                                extractVideo = true;
+                                extractZAR = true;
                             case 'o':
                                 outputFiles = true;
                                 break;
@@ -243,8 +271,8 @@ namespace XboxKit
             }
 
             // Determine output filenames
-            if (string.IsNullOrEmpty(videoPath))
-                videoPath = Path.Combine(dir, $"{filename}.video.iso");
+            if (string.IsNullOrEmpty(skeletonPath))
+                skeletonPath = Path.Combine(dir, $"{filename}.xiso.skeleton");
             if (string.IsNullOrEmpty(fillerPath))
                 fillerPath = Path.Combine(dir, $"{filename}.filler");
             if (string.IsNullOrEmpty(seedPath))
@@ -253,8 +281,8 @@ namespace XboxKit
                 sectorsTXTPath = Path.Combine(dir, "sectors.txt");
             if (string.IsNullOrEmpty(updatePath))
                 updatePath = Path.Combine(dir, "su20076000_00000000");
-            if (string.IsNullOrEmpty(skeletonPath))
-                skeletonPath = Path.Combine(dir, $"{filename}.xiso.skeleton");
+            if (string.IsNullOrEmpty(videoPath))
+                videoPath = Path.Combine(dir, $"{filename}.video.iso");
             if (string.IsNullOrEmpty(zarPath))
                 zarPath = Path.Combine(dir, $"{filename}.zar");
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
@@ -278,6 +306,7 @@ namespace XboxKit
                 {
                     Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                     Console.WriteLine("        Run with --all flag for lossless conversion to XISO");
+                    Console.WriteLine("        Optionally add --o");
                     Console.WriteLine("");
                     PrintHelp();
                     return;
