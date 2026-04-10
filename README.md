@@ -40,24 +40,24 @@ Rebuild mode: Don't use any options (combines input files)
 Extract mode: Use one or more options (splits input file)
 
 Batch options (for redump ISO):
-  -a, --all             All options for lossless XISO extraction (-rstuvwx)
-  -b, --best            Create trimmed/wiped XISO only (-twx)
-  -c, --compress        Options for lossless ZArchive compression (-puvz)
+  -a, --all       All options for lossless XISO extraction (-rstuvwx)
+  -b, --best      Create trimmed/wiped XISO only (-twx)
+  -c, --compress  Options for lossless ZArchive compression (-puvz)
 
 Manual options:
-  -n, --no              Assume no for all interactive prompts (never overwrites)
-  -o, --output          Extracts and outputs the game files from the XISO
-  -p, --petrify         Extracts XDVDFS skeleton (game partition with zeroed files)
-  -q, --quiet           Don't print INFO messages to console
-  -r, --random          Extracts random filler data to a separate file
-  -s, --seed            Extracts RNG seed used for XGD1 filler
-  -t, --trim            Trims end of XISO (game partition)
-  -u, --update          Extracts update file from video ISO (XGD3 only)
-  -v, --video           Extracts video ISO (video partition)
-  -w, --wipe            Wipes random filler data in XISO
-  -x, --xiso            Extracts XDVDFS ISO (game partition)
-  -y, --yes             Assume yes for all interactive prompts (always overwrites)
-  -z, --zar             Creates ZArchive of game files
+  -n, --no        Assume no (stops at warnings, never overwrites)
+  -o, --output    Outputs the game files from the XISO
+  -p, --petrify   Extracts XDVDFS skeleton (XISO with zeroed files)
+  -q, --quiet     Don't print INFO messages to console
+  -r, --random    Extracts random filler data to a separate file
+  -s, --seed      Extracts RNG seed used for XGD1 filler
+  -t, --trim      Trims end of XISO (game partition)
+  -u, --update    Extracts update file from video ISO (XGD3 only)
+  -v, --video     Extracts video ISO (video partition)
+  -w, --wipe      Wipes random filler data in XISO
+  -x, --xiso      Extracts XDVDFS ISO (game partition)
+  -y, --yes       Assume yes (ignores warnings, always overwrites)
+  -z, --zar       Creates ZArchive of game files
 ```
 
 **Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.

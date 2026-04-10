@@ -31,24 +31,24 @@ namespace XboxKit
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
             Console.WriteLine("");
             Console.WriteLine("Batch options (for redump ISO):");
-            Console.WriteLine("  -a, --all     \tAll options for lossless XISO extraction (-rstuvwx)");
-            Console.WriteLine("  -b, --best    \tCreate trimmed/wiped XISO only (-twx)");
-            Console.WriteLine("  -c, --compress\tOptions for lossless ZArchive compression (-puvz)");
+            Console.WriteLine("  -a, --all       All options for lossless XISO extraction (-rstuvwx)");
+            Console.WriteLine("  -b, --best      Create trimmed/wiped XISO only (-twx)");
+            Console.WriteLine("  -c, --compress  Options for lossless ZArchive compression (-puvz)");
             Console.WriteLine("");
             Console.WriteLine("Manual options:");
-            Console.WriteLine("  -n, --no      \tAssume no for all interactive prompts (never overwrites)");
-            Console.WriteLine("  -o, --output  \tExtracts and outputs the game files from the XISO");
-            Console.WriteLine("  -p, --petrify \tExtracts XDVDFS skeleton (game partition with zeroed files)");
-            Console.WriteLine("  -q, --quiet   \tDon't print INFO messages to console");
-            Console.WriteLine("  -r, --random  \tExtracts random filler data to a separate file");
-            Console.WriteLine("  -s, --seed    \tExtracts RNG seed used for XGD1 filler");
-            Console.WriteLine("  -t, --trim    \tTrims end of XISO (game partition)");
-            Console.WriteLine("  -u, --update  \tExtracts update file from video ISO (XGD3 only)");
-            Console.WriteLine("  -v, --video   \tExtracts video ISO (video partition)");
-            Console.WriteLine("  -w, --wipe    \tWipes random filler data in XISO");
-            Console.WriteLine("  -x, --xiso    \tExtracts XDVDFS ISO (game partition)");
-            Console.WriteLine("  -y, --yes     \tAssume yes for all interactive prompts (always overwrites)");
-            Console.WriteLine("  -z, --zar     \tCreates ZArchive of game files");
+            Console.WriteLine("  -n, --no        Assume no (stops at warnings, never overwrites)");
+            Console.WriteLine("  -o, --output    Extracts and outputs the game files from the XISO");
+            Console.WriteLine("  -p, --petrify   Extracts XDVDFS skeleton (XISO with zeroed files)");
+            Console.WriteLine("  -q, --quiet     Don't print INFO messages to console");
+            Console.WriteLine("  -r, --random    Extracts random filler data to a separate file");
+            Console.WriteLine("  -s, --seed      Extracts RNG seed used for XGD1 filler");
+            Console.WriteLine("  -t, --trim      Trims end of XISO (game partition)");
+            Console.WriteLine("  -u, --update    Extracts update file from video ISO (XGD3 only)");
+            Console.WriteLine("  -v, --video     Extracts video ISO (video partition)");
+            Console.WriteLine("  -w, --wipe      Wipes random filler data in XISO");
+            Console.WriteLine("  -x, --xiso      Extracts XDVDFS ISO (game partition)");
+            Console.WriteLine("  -y, --yes       Assume yes (ignores warnings, always overwrites)");
+            Console.WriteLine("  -z, --zar       Creates ZArchive of game files");
         }
 
         static void Main(string[] args)
@@ -314,21 +314,24 @@ namespace XboxKit
                 }
 
                 // Check option combination is valid
-                if (wipeXISO && !extractXISO)
+                if (!assumeYes && wipeXISO && !extractXISO)
                 {
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
-                    return;
+                    if (assumeNO)
+                        return;
                 }
-                if (trimXISO && !extractXISO)
+                if (!assumeYes && trimXISO && !extractXISO)
                 {
                     Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)");
-                    return;
+                    if (assumeNo)
+                        return;
                 }
-                if (extractXISO && extractFiller && !wipeXISO)
+                if (!assumeYes && extractXISO && extractFiller && !wipeXISO)
                 {
                     Console.WriteLine("[ERROR] Cannot write filler data without wiping XISO");
                     Console.WriteLine("        For now, use -w with -s");
-                    return;
+                    if (assumeNo)
+                        return;
                 }
 
                 // Check that files don't already exist
