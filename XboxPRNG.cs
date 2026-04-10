@@ -55,7 +55,7 @@ namespace XboxKit
         }
 
         // Brute force seed for pseudo random number generator
-        public static bool GuessSeed(byte[] sector, out uint outSeed)
+        public static bool TryGetSeed(byte[] sector, out uint outSeed)
         {
             uint foundSeed = 0;
             bool seedFound = false;
