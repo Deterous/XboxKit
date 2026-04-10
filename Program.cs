@@ -287,6 +287,8 @@ namespace XboxKit
             {
                 #region Mode 1: Redump ISO as input
 
+                #region Validation
+
                 if (!outputFiles && !extractSkeleton && !extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO && !extractZAR)
                 {
                     Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
@@ -397,6 +399,8 @@ namespace XboxKit
                             return;
                     }
                 }
+
+                #endregion
 
                 // Determine disc layout type
                 long xgdType = redumpIsoType switch
@@ -527,7 +531,6 @@ namespace XboxKit
                 }
 
                 // If XGD1, try brute force the filler data seed
-                uint xgd1Seed;
                 if (extractSeed)
                 {
                     if (xgdType == 0)
@@ -580,7 +583,6 @@ namespace XboxKit
                         }
                         if (XboxPRNG.TryGetSeed(firstXISOSector, out uint seed))
                         {
-                            xgd1Seed = seed;
                             if (!quiet) Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
                             using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                             byte[] seedBytes = BitConverter.GetBytes(seed);
@@ -591,7 +593,7 @@ namespace XboxKit
                 }
 
                 // Quit early if we're not extracting data from XISO
-                if (!extractXISO && !extractFiller)
+                if (!extractXISO && !extractFiller && !outputFiles && !extractZAR && !extractSkeleton)
                     return;
 
                 // Parse XISO filesystem for all file extents 
@@ -616,6 +618,22 @@ namespace XboxKit
                 {
                     fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing random filler data to {fillerPath}");
+                }
+
+                // Create file for skeleton
+                FileStream skeletonFS = null!;
+                if (extractSkeleton)
+                {
+                    skeletonFS = new FileStream(skeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    if (!quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {skeletonPath}");
+                }
+
+                // Create file for ZAR
+                FileStream zarFS = null!;
+                if (extractZAR)
+                {
+                    zarFS = new FileStream(zarPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    if (!quiet) Console.WriteLine($"[INFO] Writing ZArchive to {zarPath}");
                 }
 
                 // Process XISO
@@ -746,6 +764,10 @@ namespace XboxKit
                     xisoFS.Dispose();
                 if (fillerFS != null)
                     fillerFS.Dispose();
+                if (skeletonFS != null)
+                    skeletonFS.Dispose();
+                if (zarFS != null)
+                    zarFS.Dispose();
 
                 // Validity check
                 if (numBytes != xisoLength)
@@ -759,6 +781,8 @@ namespace XboxKit
             else if (videoIsoType >= 0)
             {
                 #region Mode 2: Video ISO as input
+
+                #region Validation
 
                 if (!extractUpdate)
                 {
@@ -824,6 +848,8 @@ namespace XboxKit
                     return;
                 }
 
+                #endregion
+
                 // Open video ISO for reading and writing
                 using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
                 long updateOffset = XDVDFS.SUOffset(videoFS);
@@ -846,29 +872,36 @@ namespace XboxKit
             {
                 // Mode 3: XISO as input
 
-                long xisoLength = isoSize; // Later updated to intended length if trimmed
+                // TODO: Validate file is an XISO (other than filesize)
 
                 #region Wipe XISO
 
+                #region Validation
+
                 // Check for invalid options
-                bool invalidOptions = false;
-                if (extractXISO)
+                if (!assumeYes && (assumeNo || !quiet))
                 {
-                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is already XISO.");
-                    invalidOptions = true;
+                    bool invalidOptions = false;
+                    if (extractXISO)
+                    {
+                        Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is already XISO.");
+                        invalidOptions = true;
+                    }
+                    if (extractVideo)
+                    {
+                        Console.WriteLine("[INFO] Cannot extract video (-v), input file is XISO.");
+                        invalidOptions = true;
+                    }
+                    if (extractUpdate)
+                    {
+                        Console.WriteLine("[INFO] Cannot extract update (-u), input file is XISO.");
+                        invalidOptions = true;
+                    }
+                    if (invalidOptions && assumeNo)
+                        return;
                 }
-                if (extractVideo)
-                {
-                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is XISO.");
-                    invalidOptions = true;
-                }
-                if (extractUpdate)
-                {
-                    Console.WriteLine("[ERROR] Cannot extract update (-u), input file is XISO.");
-                    invalidOptions = true;
-                }
-                if (invalidOptions)
-                    return;
+
+                #endregion
 
                 // Open XISO for reading
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -1059,6 +1092,7 @@ namespace XboxKit
                     return;
                 }
 
+                // TODO: Allow for rebuilding with trimmed XISO file without filler data
                 if (xisoType < 0 && !File.Exists(fillerPath) && !File.Exists(seedPath))
                 {
                     Console.WriteLine("[ERROR] Unexpected XISO size. Your XISO may be trimmed or corrupt.");
@@ -1099,7 +1133,7 @@ namespace XboxKit
                     15 or 16 or 17 => 3, // XGD3
                     _ => 0,
                 };
-                xisoLength = XISO_LENGTH[xisoType];
+                long xisoLength = XISO_LENGTH[xisoType];
 
                 // Create redump ISO
                 using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
