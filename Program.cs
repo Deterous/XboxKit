@@ -33,9 +33,10 @@ namespace XboxKit
             Console.WriteLine("Batch options (for redump ISO):");
             Console.WriteLine("  -a, --all     \tAll options for lossless XISO extraction (-rstuvwx)");
             Console.WriteLine("  -b, --best    \tCreate trimmed/wiped XISO only (-twx)");
-            Console.WriteLine("  -c, --compress\tOptions for lossless ZArchive compression (-prsuvz)");
+            Console.WriteLine("  -c, --compress\tOptions for lossless ZArchive compression (-puvz)");
             Console.WriteLine("");
             Console.WriteLine("Manual options:");
+            Console.WriteLine("  -n, --no      \tAssume no for all interactive prompts (never overwrites)");
             Console.WriteLine("  -o, --output  \tExtracts and outputs the game files from the XISO");
             Console.WriteLine("  -p, --petrify \tExtracts XDVDFS skeleton (game partition with zeroed files)");
             Console.WriteLine("  -q, --quiet   \tDon't print INFO messages to console");
@@ -46,7 +47,7 @@ namespace XboxKit
             Console.WriteLine("  -v, --video   \tExtracts video ISO (video partition)");
             Console.WriteLine("  -w, --wipe    \tWipes random filler data in XISO");
             Console.WriteLine("  -x, --xiso    \tExtracts XDVDFS ISO (game partition)");
-            Console.WriteLine("  -y, --yes     \tAssume yes for all interactive prompts (skips warnings)");
+            Console.WriteLine("  -y, --yes     \tAssume yes for all interactive prompts (always overwrites)");
             Console.WriteLine("  -z, --zar     \tCreates ZArchive of game files");
         }
 
@@ -60,6 +61,7 @@ namespace XboxKit
 
             // Initialize program options
             bool help = false;
+            bool assumeNo = false;
             bool outputFiles = false;
             bool extractSkeleton = false;
             bool quiet = false;
@@ -116,11 +118,12 @@ namespace XboxKit
                             break;
                         case "--compress":
                             extractSkeleton = true;
-                            extractFiller = true;
-                            extractSeed = true;
                             extractUpdate = true;
                             extractVideo = true;
                             extractZAR = true;
+                            break;
+                        case "--no":
+                            assumeNo = true;
                             break;
                         case "--output":
                             outputFiles = true;
@@ -188,11 +191,12 @@ namespace XboxKit
                                 break;
                             case 'c':
                                 extractSkeleton = true;
-                                extractFiller = true;
-                                extractSeed = true;
                                 extractUpdate = true;
                                 extractVideo = true;
                                 extractZAR = true;
+                                break;
+                            case 'n':
+                                assumeNo = true;
                                 break;
                             case 'o':
                                 outputFiles = true;
@@ -245,10 +249,6 @@ namespace XboxKit
                 return;
             }
 
-            // Temporary warning
-            if (!assumeYes)
-                Console.WriteLine("[TEMP] Assuming yes");
-
             // Parse additional input files
             // TODO: Don't rely on the order of the input files
             if (filePaths.Count > 0)
@@ -261,7 +261,7 @@ namespace XboxKit
                 updatePath = filePaths[3];
 
             // Determine input filenames
-            // TODO: Account for 1st input file being .video.iso or .redump.iso or .xiso.skeleton.zstd
+            // TODO: Account for 1st input file being .video.iso or .redump.iso or .skeleton.xiso
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
             string extension = Path.GetExtension(isoPath);
@@ -273,7 +273,7 @@ namespace XboxKit
 
             // Determine output filenames
             if (string.IsNullOrEmpty(skeletonPath))
-                skeletonPath = Path.Combine(dir, $"{filename}.xiso.skeleton");
+                skeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
             if (string.IsNullOrEmpty(fillerPath))
                 fillerPath = Path.Combine(dir, $"{filename}.filler");
             if (string.IsNullOrEmpty(seedPath))
@@ -332,30 +332,85 @@ namespace XboxKit
                 }
 
                 // Check that files don't already exist
-                if (extractXISO && File.Exists(xisoPath))
+                if (!assumeYes && extractXISO && File.Exists(xisoPath))
                 {
-                    Console.WriteLine($"[ERROR] File already exists: {xisoPath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {xisoPath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {xisoPath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
-                if (extractVideo && File.Exists(videoPath))
+                if (!assumeYes && extractVideo && File.Exists(videoPath))
                 {
-                    Console.WriteLine($"[ERROR] File already exists: {videoPath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {videoPath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {videoPath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
-                if (extractFiller && File.Exists(fillerPath))
+                if (!assumeYes && extractFiller && File.Exists(fillerPath))
                 {
-                    Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {fillerPath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
-                if (extractUpdate && File.Exists(updatePath))
+                if (!assumeYes && extractUpdate && File.Exists(updatePath))
                 {
-                    Console.WriteLine($"[ERROR] File already exists: {updatePath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {updatePath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {updatePath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
-                if (extractSeed && File.Exists(seedPath))
+                if (!assumeYes && extractSeed && File.Exists(seedPath))
                 {
-                    Console.WriteLine($"[ERROR] File already exists: {seedPath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {seedPath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {seedPath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
 
                 // Determine disc layout type
@@ -731,45 +786,58 @@ namespace XboxKit
                 #region Mode 2: Video ISO as input
 
                 // Check for valid options
-                bool invalidOptions = false;
-                if (extractVideo)
                 {
-                    Console.WriteLine("[ERROR] Cannot extract video (-v), input file is already video ISO.");
-                    invalidOptions = true;
+                    bool invalidOptions = false;
+                    if (extractVideo)
+                    {
+                        Console.WriteLine("[ERROR] Cannot extract video (-v), input file is already video ISO.");
+                        invalidOptions = true;
+                    }
+                    if (extractXISO)
+                    {
+                        Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is video ISO.");
+                        invalidOptions = true;
+                    }
+                    if (extractFiller)
+                    {
+                        Console.WriteLine("[ERROR] Cannot extract filler (-s), input file is video ISO.");
+                        invalidOptions = true;
+                    }
+                    if (wipeXISO)
+                    {
+                        Console.WriteLine("[ERROR] Cannot wipe XISO (-w), input file is video ISO.");
+                        invalidOptions = true;
+                    }
+                    if (trimXISO)
+                    {
+                        Console.WriteLine("[ERROR] Cannot trim XISO (-t), input file is video ISO.");
+                        invalidOptions = true;
+                    }
+                    if (!extractUpdate)
+                    {
+                        Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
+                        invalidOptions = true;
+                    }
+                    if (invalidOptions)
+                        return;
                 }
-                if (extractXISO)
-                {
-                    Console.WriteLine("[ERROR] Cannot extract XISO (-x), input file is video ISO.");
-                    invalidOptions = true;
-                }
-                if (extractFiller)
-                {
-                    Console.WriteLine("[ERROR] Cannot extract filler (-s), input file is video ISO.");
-                    invalidOptions = true;
-                }
-                if (wipeXISO)
-                {
-                    Console.WriteLine("[ERROR] Cannot wipe XISO (-w), input file is video ISO.");
-                    invalidOptions = true;
-                }
-                if (trimXISO)
-                {
-                    Console.WriteLine("[ERROR] Cannot trim XISO (-t), input file is video ISO.");
-                    invalidOptions = true;
-                }
-                if (!extractUpdate)
-                {
-                    Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
-                    invalidOptions = true;
-                }
-                if (invalidOptions)
-                    return;
 
                 // Check that update file doesn't already exist
-                if (File.Exists(updatePath))
+                if (!assumeYes && extractUpdate && File.Exists(updatePath))
                 {
-                    Console.WriteLine($"[ERROR] System update file already exists: {updatePath}");
-                    return;
+                    if (assumeNo)
+                    {
+                        Console.WriteLine($"[ERROR] File already exists: {updatePath}");
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[WARNING] File already exists: {updatePath}");
+                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
+                        string response = Console.ReadLine()?.ToUpper();
+                        if (response != "Y" && response != "YES")
+                            return
+                    }
                 }
 
                 // Check that video partition is from XGD3 disc
