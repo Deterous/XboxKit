@@ -38,20 +38,25 @@ Usage: xboxkit.exe [options] <input.iso> [files]
 
 Rebuild mode: Don't use any options (combines input files)
 Extract mode: Use one or more options (splits input file)
--a, --all        All options for lossless XISO extraction (-rstuvwxy)
--o, --output     Extracts and outputs the game files from the XISO
--p, --petrify    Extracts XDVDFS skeleton (game partition with zeroed files)
--q, --quiet      Don't print INFO messages to console
--q, --quiet      Don't print INFO messages to console
--r, --random     Extracts random filler data to a separate file
--s, --seed       Extracts RNG seed used for XGD1 filler
--t, --trim       Trims end of XISO (game partition)
--u, --update     Extracts update file from video ISO (XGD3 only)
--v, --video      Extracts video ISO (video partition)
--w, --wipe       Wipes filler data in XISO
--x, --xiso       Extracts XDVDFS ISO (game partition)
--y, --yes        Assume yes for all interactive prompts (skips warnings)
--z, --zar        Creates ZArchive of game files
+
+Batch options (for redump ISO):
+  -a, --all             All options for lossless XISO extraction (-rstuvwx)
+  -b, --best            Create trimmed/wiped XISO only (-twx)
+  -c, --compress        Options for lossless ZArchive compression (-prsuvz)
+
+Manual options:
+  -o, --output          Extracts and outputs the game files from the XISO
+  -p, --petrify         Extracts XDVDFS skeleton (game partition with zeroed files)
+  -q, --quiet           Don't print INFO messages to console
+  -r, --random          Extracts random filler data to a separate file
+  -s, --seed            Extracts RNG seed used for XGD1 filler
+  -t, --trim            Trims end of XISO (game partition)
+  -u, --update          Extracts update file from video ISO (XGD3 only)
+  -v, --video           Extracts video ISO (video partition)
+  -w, --wipe            Wipes random filler data in XISO
+  -x, --xiso            Extracts XDVDFS ISO (game partition)
+  -y, --yes             Assume yes for all interactive prompts (skips warnings)
+  -z, --zar             Creates ZArchive of game files
 ```
 
 **Note**: Extracting the system update (su20076000_00000000) is useful for XGD3 discs as deduplication of the XGD3 video ISOs is not possible unlike XGD1/XGD2 (the video partition is unique for each XGD3 disc). When extracting the update, XboxKit zeroes the update file within the video ISO so that it becomes highly compressible (deduplication of the system update file is then possible across multiple XGD3 disc images). XboxKit will ignore the `-u` option when used with XGD1/XGD2 inputs, as they do not have system update files in the video partition.
@@ -72,15 +77,22 @@ Losslessly converting back to the original redump ISO:
 `./xboxkit.exe game.xiso`
 (requires all the original output files).
 
-Losslessly converting from a redump ISO to the loose game files:
-`./xboxkit.exe -aop game.iso`
+Best options for only conversion to XISO:
+`./xboxkit.exe -b game.iso`
+
+Outputs:
+- game.xiso (Usable by emulators, smaller, and compresses well)
 
 Losslessly converting from a redump ISO to a ZArchive of the game files:
-`./xboxkit.exe -apz game.iso`
+`./xboxkit.exe -c game.iso`
 
 Additionally outputs:
 - game.skeleton (XISO with all game files zeroed)
 - game.hash (SHA1 hashes of game files)
+- game.video.iso (Video partition, shared by similar discs with the same "wave")
+- game.filler (Random padding filler data, needed for lossless conversion)
+- game.seed (Initial seed used to generate early XGD1 disc random filler data)
+- su20076000_00000000 (System update file for XGD3 only, shared by similar discs)
 - game.zar (zstd compressed archive of game files)
 
 Losslessly converting back to the original redump ISO:
@@ -91,15 +103,7 @@ If you have renamed the output files, you can explicitly give the paths for rebu
 `./xboxkit.exe game.xiso example.video.iso example.filler su20076000_00000000`
 (replace example.filler with example.seed if applicable)
 
-Only creating a playable XISO from a redump ISO:
-`./xboxkit.exe -twx game.iso`
-which will only output a trimmed, wiped, playable XISO (cannot convert back to redump ISO).
-
-Only creating a playable ZAR file from a redump ISO:
-`./xboxkit.exe -z game.iso`
-which will only output a zstd-compressed archive of game files (cannot convert back to redump ISO).
-
-For more info on using the program, run `./xboxkit.exe --help`
+For more info on using the program options, run `./xboxkit.exe --help`
 
 # Technical Notes
 

@@ -36,18 +36,18 @@ namespace XboxKit
             Console.WriteLine("  -c, --compress\tOptions for lossless ZArchive compression (-prsuvz)");
             Console.WriteLine("");
             Console.WriteLine("Manual options:");
-            Console.WriteLine("  -o, --output \tExtracts and outputs the game files from the XISO");
-            Console.WriteLine("  -p, --petrify\tExtracts XDVDFS skeleton (game partition with zeroed files)");
-            Console.WriteLine("  -q, --quiet  \tDon't print INFO messages to console");
-            Console.WriteLine("  -r, --random \tExtracts random filler data to a separate file");
-            Console.WriteLine("  -s, --seed   \tExtracts RNG seed used for XGD1 filler");
-            Console.WriteLine("  -t, --trim   \tTrims end of XISO (game partition)");
-            Console.WriteLine("  -u, --update \tExtracts update file from video ISO (XGD3 only)");
-            Console.WriteLine("  -v, --video  \tExtracts video ISO (video partition)");
-            Console.WriteLine("  -w, --wipe   \tWipes random filler data in XISO");
-            Console.WriteLine("  -x, --xiso   \tExtracts XDVDFS ISO (game partition)");
-            Console.WriteLine("  -y, --yes    \tAssume yes for all interactive prompts (skips warnings)");
-            Console.WriteLine("  -z, --zar    \tCreates ZArchive of game files");
+            Console.WriteLine("  -o, --output  \tExtracts and outputs the game files from the XISO");
+            Console.WriteLine("  -p, --petrify \tExtracts XDVDFS skeleton (game partition with zeroed files)");
+            Console.WriteLine("  -q, --quiet   \tDon't print INFO messages to console");
+            Console.WriteLine("  -r, --random  \tExtracts random filler data to a separate file");
+            Console.WriteLine("  -s, --seed    \tExtracts RNG seed used for XGD1 filler");
+            Console.WriteLine("  -t, --trim    \tTrims end of XISO (game partition)");
+            Console.WriteLine("  -u, --update  \tExtracts update file from video ISO (XGD3 only)");
+            Console.WriteLine("  -v, --video   \tExtracts video ISO (video partition)");
+            Console.WriteLine("  -w, --wipe    \tWipes random filler data in XISO");
+            Console.WriteLine("  -x, --xiso    \tExtracts XDVDFS ISO (game partition)");
+            Console.WriteLine("  -y, --yes     \tAssume yes for all interactive prompts (skips warnings)");
+            Console.WriteLine("  -z, --zar     \tCreates ZArchive of game files");
         }
 
         static void Main(string[] args)
