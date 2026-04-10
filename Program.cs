@@ -296,19 +296,19 @@ namespace XboxKit
                 }
 
                 // Check option combination is valid
-                if (!assumeYes && wipeXISO && !extractXISO && (assumeNO || !quiet))
+                if (!assumeYes && wipeXISO && !extractXISO && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
-                    if (assumeNO)
+                    if (assumeNo)
                         return;
                 }
-                if (!assumeYes && trimXISO && !extractXISO && (assumeNO || !quiet))
+                if (!assumeYes && trimXISO && !extractXISO && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)");
                     if (assumeNo)
                         return;
                 }
-                if (!assumeYes && extractXISO && extractFiller && !wipeXISO && (assumeNO || !quiet))
+                if (!assumeYes && extractXISO && extractFiller && !wipeXISO && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Cannot write filler data without wiping XISO");
                     Console.WriteLine("       For now, use -w with -s");
