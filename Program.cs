@@ -330,7 +330,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
                 if (!assumeYes && extractVideo && File.Exists(videoPath))
@@ -346,7 +346,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
                 if (!assumeYes && extractFiller && File.Exists(fillerPath))
@@ -362,7 +362,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
                 if (!assumeYes && extractUpdate && File.Exists(updatePath))
@@ -378,7 +378,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
                 if (!assumeYes && extractSeed && File.Exists(seedPath))
@@ -394,7 +394,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
 
@@ -813,7 +813,7 @@ namespace XboxKit
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
                         string response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
-                            return
+                            return;
                     }
                 }
 
