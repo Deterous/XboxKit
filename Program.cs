@@ -193,6 +193,7 @@ namespace XboxKit
                                 extractUpdate = true;
                                 extractVideo = true;
                                 extractZAR = true;
+                                break;
                             case 'o':
                                 outputFiles = true;
                                 break;
