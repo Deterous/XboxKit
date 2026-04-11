@@ -611,7 +611,7 @@ namespace XboxKit
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
-                if (extractXISO)
+                if (extractXISO || extractSkeleton)
                 {
                     if (!quiet) Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
