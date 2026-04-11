@@ -37,7 +37,7 @@ namespace XboxKit
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, sysSectors fileSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
+                GetValidSectors(isoFS, isoOffset, sysSectors, fileSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
 
             if (isDirectory)
                 GetValidSectors(isoFS, isoOffset, sysSectors, fileSectors, entryOffset, entrySize, 0, quiet);
@@ -54,7 +54,7 @@ namespace XboxKit
         }
 
         // Get list of valid XISO ranges
-        public static (List<(uint, uint)> All, List<(uint, uint)> Sys, List<(uint, uint) Files>) GetXISORanges(FileStream isoFS, long offset, bool quiet)
+        public static (List<(uint, uint)> All, List<(uint, uint)> Sys, List<(uint, uint) Files) GetXISORanges(FileStream isoFS, long offset, bool quiet)
         {
             List<uint> sysSectors = new List<uint>();
             List<uint> fileSectors = new List<uint>();
