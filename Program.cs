@@ -754,7 +754,7 @@ namespace XboxKit
                             bool is_bone = false;
                             for (int i = 0; i < validRanges.Sys.Count; i++)
                             {
-                                if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.SyS[i].End)
+                                if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
                                 {
                                     // Retain in skeleton
                                     is_bone = true;
@@ -775,11 +775,7 @@ namespace XboxKit
                             else if (extractSkeleton)
                             {
                                 // Write zeroes to XISO Skeleton
-                                if (!Utils.WriteZeroes(xisoFS, -1, bytesToRead))
-                                {
-                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                    return;
-                                }
+                                Utils.WriteZeroes(xisoFS, -1, bytesToRead)
                             }
                             numBytes += bytesToRead;
                         }
@@ -961,7 +957,7 @@ namespace XboxKit
                         fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     // Parse XISO filesystem for all file extents 
-                    List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
+                    var validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
                     if (!quiet)
                         foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
