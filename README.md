@@ -87,7 +87,7 @@ Outputs:
 Losslessly converting from a redump ISO or XISO to a ZArchive of the game files:
 `./xboxkit.exe -c game.iso`
 
-Additionally outputs:
+Outputs:
 - game.skeleton.xiso (XISO with all game files zeroed)
 - game.hash (Integrity hashes of the game files)
 - game.video.iso (Video partition, shared by similar discs with the same "wave")

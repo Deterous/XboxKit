@@ -243,16 +243,16 @@ namespace XboxKit
 
             // TODO: Set isoPath to (redump ISO > XISO > video ISO) regardless of order
             string isoPath = filePaths[0];
+                if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
+            {
+                Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
+                return;
+            }
 
             // TODO: Account for isoPath being .video.iso or .redump.iso or .skeleton.xiso
             string dir = Path.GetDirectoryName(isoPath);
             string filename = Path.GetFileNameWithoutExtension(isoPath);
             string extension = Path.GetExtension(isoPath);
-            if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
-            {
-                Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
-                return;
-            }
 
             // TODO: Prefer just .iso if it doesn't already exist?
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
@@ -289,11 +289,21 @@ namespace XboxKit
 
                 #region Validation
 
+                // Must be doing something
                 if (!outputFiles && !extractSkeleton && !extractFiller && !extractSeed && !extractUpdate && !extractVideo && !extractXISO && !extractZAR)
                 {
                     Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                     Console.WriteLine("");
                     PrintHelp();
+                    return;
+                }
+
+                // Can't create both XISO and XISO Skeleton
+                if (extractXISO && extractSkeleton)
+                {
+                    Console.WriteLine("[ERROR] Cannot create both XISO (-x) and XISO Skeleton (-p)");
+                    Console.WriteLine("        Skeleton zeroes game files, typically used with -o or -z");
+                    Console.WriteLine("");
                     return;
                 }
 
@@ -413,8 +423,8 @@ namespace XboxKit
                 };
 
                 // Open redump ISO for reading
-                using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
+                using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
                 // Extract video partition
                 if (extractVideo)
@@ -429,9 +439,7 @@ namespace XboxKit
                             byte[] pvd = new byte[16];
                             int bytesRead = isoFS.Read(pvd, 0, pvd.Length);
                             if (bytesRead == 16)
-                            {
                                 wave = Array.IndexOf(WAVE_PVD, Encoding.ASCII.GetString(pvd));
-                            }
                             else
                             {
                                 Console.WriteLine($"[ERROR] Failed to read PVD from {isoPath}");
@@ -487,8 +495,8 @@ namespace XboxKit
                     }
 
                     // Create file for video partition
-                    using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
+                    using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     // Write layer 0 portion of video partition
                     long l0Length = VIDEO_L0_LENGTH[videoType];
@@ -592,48 +600,45 @@ namespace XboxKit
                     }
                 }
 
-                // Quit early if we're not extracting data from XISO
+                // Quit early if we're not extracting data from game partition
                 if (!extractXISO && !extractFiller && !outputFiles && !extractZAR && !extractSkeleton)
                     return;
 
                 // Parse XISO filesystem for all file extents 
                 List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, XISO_OFFSET[xgdType], quiet);
                 if (!quiet)
-                {
-                    foreach (var (start, end) in validRanges)
-                        Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
-                }
+                    foreach (var (start, end) in validRanges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
                 if (extractXISO)
                 {
-                    xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
+                    xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Create file for filler data
                 FileStream fillerFS = null!;
                 if (extractFiller)
                 {
-                    fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing random filler data to {fillerPath}");
+                    fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Create file for skeleton
                 FileStream skeletonFS = null!;
                 if (extractSkeleton)
                 {
-                    skeletonFS = new FileStream(skeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {skeletonPath}");
+                    skeletonFS = new FileStream(skeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Create file for ZAR
                 FileStream zarFS = null!;
                 if (extractZAR)
                 {
-                    zarFS = new FileStream(zarPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     if (!quiet) Console.WriteLine($"[INFO] Writing ZArchive to {zarPath}");
+                    zarFS = new FileStream(zarPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Process XISO
@@ -716,7 +721,7 @@ namespace XboxKit
                     }
 
                     // Write to XISO file
-                    if (extractXISO)
+                    if (extractXISO || extractSkeleton)
                     {
                         if (wipeXISO && bytesToWipe > 0 && !skipEnd)
                         {
@@ -736,7 +741,7 @@ namespace XboxKit
                         }
                         else if (!skipEnd)
                         {
-                            // Write data to XISO
+                            // Determine number of bytes to write
                             long bytesToRead;
                             if (bytesToWipe > 0)
                                 bytesToRead = bytesToWipe;
@@ -744,10 +749,24 @@ namespace XboxKit
                                 bytesToRead = bytesUntilEndOfExtent;
                             else
                                 bytesToRead = xisoLength - numBytes;
-                            if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+
+                            if (extractXISO)
                             {
-                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                return;
+                                // Write data to XISO
+                                if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+                                {
+                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
+                                    return;
+                                }
+                            }
+                            else if (extractSkeleton)
+                            {
+                                // Write zeroes to XISO Skeleton
+                                if (!Utils.WriteZeroes(xisoFS, -1, bytesToRead))
+                                {
+                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
+                                    return;
+                                }
                             }
                             numBytes += bytesToRead;
                         }
@@ -907,7 +926,7 @@ namespace XboxKit
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (!quiet) Console.WriteLine($"[INFO] Reading XISO from {isoPath}");
 
-                bool writeXISO = wipeXISO || trimXISO;
+                bool writeXISO = wipeXISO || trimXISO || extractSkeleton;
                 if (extractFiller || writeXISO)
                 {
                     // Cannot extract/wipe/trim from invalid XISO size
@@ -1040,7 +1059,7 @@ namespace XboxKit
                             }
                             else if (!skipEnd)
                             {
-                                // Write data to XISO
+                                // Determine number of bytes to write
                                 long bytesToRead;
                                 if (bytesToWipe > 0)
                                     bytesToRead = bytesToWipe;
@@ -1048,10 +1067,24 @@ namespace XboxKit
                                     bytesToRead = bytesUntilEndOfExtent;
                                 else
                                     bytesToRead = isoSize - currentByte;
-                                if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+
+                                if (extractSkeleton)
                                 {
-                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                    return;
+                                    // Write zeroes to XISO Skeleton
+                                    if (!Utils.WriteZeroes(xisoFS, -1, bytesToRead))
+                                    {
+                                        Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
+                                        return;
+                                    }
+                                }
+                                else
+                                {
+                                    // Write data to XISO
+                                    if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
+                                    {
+                                        Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
+                                        return;
+                                    }
                                 }
                                 currentByte += bytesToRead;
                             }
