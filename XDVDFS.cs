@@ -54,7 +54,7 @@ namespace XboxKit
         }
 
         // Get list of valid XISO ranges
-        public static (List<(uint, uint)> All, List<(uint, uint)> Sys, List<(uint, uint)> Files) GetXISORanges(FileStream isoFS, long offset, bool quiet)
+        public static (List<(uint Start, uint End)> All, List<(uint Start, uint End)> Sys, List<(uint Start, uint End)> Files) GetXISORanges(FileStream isoFS, long offset, bool quiet)
         {
             List<uint> sysSectors = new List<uint>();
             List<uint> fileSectors = new List<uint>();

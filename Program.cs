@@ -654,7 +654,7 @@ namespace XboxKit
                     bool skipEnd = false;
 
                     // Determine whether current sector is after last file extent
-                    if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.AllCount - 1].End)
+                    if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
                     {
                         // Remainder of XISO is filler
                         long bytesUntilEnd = xisoLength - numBytes;
