@@ -15,7 +15,7 @@ namespace XboxKit
         public static readonly byte[] MAGIC2 = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
 
         // Traverse file tree to get all valid data sectors in XISO
-        public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> validSectors, long rootOffset, uint rootSize, long childOffset, bool quiet)
+        public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> sysSectors, List<uint> fileSectors, long rootOffset, uint rootSize, long childOffset, bool quiet)
         {
             if (childOffset >= rootSize)
                 return;
@@ -24,7 +24,7 @@ namespace XboxKit
             long curOffset = cur / SECTOR_SIZE;
             long curSize = (rootSize - childOffset + SECTOR_SIZE - 1) / SECTOR_SIZE;
             for (long i = curOffset; i < curOffset + curSize; i++)
-                validSectors.Add((uint)i);
+                sysSectors.Add((uint)i);
 
             isoFS.Seek(cur, SeekOrigin.Begin);
 
@@ -37,56 +37,93 @@ namespace XboxKit
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
 
             if (leftChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
+                GetValidSectors(isoFS, isoOffset, sysSectors fileSectors, rootOffset, rootSize, (long)leftChildOffset * 4, quiet);
 
             if (isDirectory)
-                GetValidSectors(isoFS, isoOffset, validSectors, entryOffset, entrySize, 0, quiet);
+                GetValidSectors(isoFS, isoOffset, sysSectors, fileSectors, entryOffset, entrySize, 0, quiet);
             else
             {
                 long fileOffset = (isoOffset + entryOffset) / SECTOR_SIZE;
                 long fileSize = (entrySize + SECTOR_SIZE - 1) / SECTOR_SIZE;
                 for (long i = fileOffset; i < fileOffset + fileSize; i++)
-                    validSectors.Add((uint)i);
+                    fileSectors.Add((uint)i);
             }
 
             if (rightChildOffset != 0)
-                GetValidSectors(isoFS, isoOffset, validSectors, rootOffset, rootSize, (long)rightChildOffset * 4, quiet);
+                GetValidSectors(isoFS, isoOffset, sysSectors, fileSectors, rootOffset, rootSize, (long)rightChildOffset * 4, quiet);
         }
 
         // Get list of valid XISO ranges
-        public static List<(uint, uint)> GetXISORanges(FileStream isoFS, long offset, bool quiet)
+        public static (List<(uint, uint)> All, List<(uint, uint)> Sys, List<(uint, uint) Files>) GetXISORanges(FileStream isoFS, long offset, bool quiet)
         {
-            List<uint> validSectors = new List<uint>();
+            List<uint> sysSectors = new List<uint>();
+            List<uint> fileSectors = new List<uint>();
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
             long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
-            validSectors.Add((uint)headerOffsetSector);
+            sysSectors.Add((uint)headerOffsetSector);
             // TODO: Don't add 2nd header sector if MAGIC is not present
-            validSectors.Add((uint)headerOffsetSector + 1);
+            sysSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
-            GetValidSectors(isoFS, offset, validSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, quiet);
+            GetValidSectors(isoFS, offset, sysSectors, fileSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, quiet);
 
-            var ranges = new List<(uint, uint)>();
-            var sortedSectors = validSectors.Distinct().OrderBy(x => x).ToList();
-            uint start = sortedSectors[0];
-            uint prev = sortedSectors[0];
-            for (int i = 1; i < sortedSectors.Count; i++)
+            var allRanges = new List<(uint, uint)>();
+            var sortedAllSectors = fileSectors.Union(sysSectors).Distinct().OrderBy(x => x).ToList();
+            uint start = sortedAllSectors[0];
+            uint prev = sortedAllSectors[0];
+            for (int i = 1; i < sortedAllSectors.Count; i++)
             {
-                uint current = sortedSectors[i];
+                uint current = sortedAllSectors[i];
                 if (current == prev + 1)
                     prev = current;
                 else
                 {
-                    ranges.Add((start, prev));
+                    allRanges.Add((start, prev));
                     start = current;
                     prev = current;
                 }
             }
-            ranges.Add((start, prev));
+            allRanges.Add((start, prev));
 
-            return ranges;
+            var sysRanges = new List<(uint, uint)>();
+            var sortedSysSectors = sysSectors.Distinct().OrderBy(x => x).ToList();
+            start = sortedSysSectors[0];
+            prev = sortedSysSectors[0];
+            for (int i = 1; i < sortedSysSectors.Count; i++)
+            {
+                uint current = sortedSysSectors[i];
+                if (current == prev + 1)
+                    prev = current;
+                else
+                {
+                    sysRanges.Add((start, prev));
+                    start = current;
+                    prev = current;
+                }
+            }
+            sysRanges.Add((start, prev));
+
+            var fileRanges = new List<(uint, uint)>();
+            var sortedFileSectors = fileSectors.Distinct().OrderBy(x => x).ToList();
+            start = sortedFileSectors[0];
+            prev = sortedFileSectors[0];
+            for (int i = 1; i < sortedFileSectors.Count; i++)
+            {
+                uint current = sortedFileSectors[i];
+                if (current == prev + 1)
+                    prev = current;
+                else
+                {
+                    fileRanges.Add((start, prev));
+                    start = current;
+                    prev = current;
+                }
+            }
+            fileRanges.Add((start, prev));
+
+            return (allRanges, sysRanges, fileRanges);
         }
 
         // Heuristic to determine XGD3 system update file offset in video partition 

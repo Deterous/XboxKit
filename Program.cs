@@ -605,9 +605,9 @@ namespace XboxKit
                     return;
 
                 // Parse XISO filesystem for all file extents 
-                List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, XISO_OFFSET[xgdType], quiet);
+                var validRanges = XDVDFS.GetXISORanges(isoFS, XISO_OFFSET[xgdType], quiet);
                 if (!quiet)
-                    foreach (var (start, end) in validRanges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
+                    foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
@@ -654,7 +654,7 @@ namespace XboxKit
                     bool skipEnd = false;
 
                     // Determine whether current sector is after last file extent
-                    if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
+                    if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.AllCount - 1].End)
                     {
                         // Remainder of XISO is filler
                         long bytesUntilEnd = xisoLength - numBytes;
@@ -677,18 +677,18 @@ namespace XboxKit
                     else if (extractFiller || wipeXISO || trimXISO)
                     {
                         // Determine whether current sector is within a file extent or filler data
-                        for (int i = 0; i < validRanges.Count; i++)
+                        for (int i = 0; i < validRanges.All.Count; i++)
                         {
-                            if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
+                            if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
                             {
                                 // Number of bytes remaining in current file extent
-                                bytesUntilEndOfExtent = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
-                            else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                            else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
                             {
                                 // Wipe until next file extent
-                                bytesToWipe = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
+                                bytesToWipe = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
                         }
@@ -749,8 +749,21 @@ namespace XboxKit
                                 bytesToRead = bytesUntilEndOfExtent;
                             else
                                 bytesToRead = xisoLength - numBytes;
+                                
+                            // Check if current sector is a filesystem sector
+                            bool is_bone = false;
+                            for (int i = 0; i < validRanges.Sys.Count; i++)
+                            {
+                                if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.SyS[i].End)
+                                {
+                                    // Retain in skeleton
+                                    is_bone = true;
+                                    bytesToRead = (validRanges.Sys[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                    break;
+                                }
+                            }
 
-                            if (extractXISO)
+                            if (extractXISO || is_bone)
                             {
                                 // Write data to XISO
                                 if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
@@ -950,10 +963,7 @@ namespace XboxKit
                     // Parse XISO filesystem for all file extents 
                     List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
                     if (!quiet)
-                    {
-                        foreach (var (start, end) in validRanges)
-                            Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
-                    }
+                        foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                     if (extractFiller && !quiet)
                         Console.WriteLine($"[INFO] Extracting filler data to {fillerPath}");
@@ -972,7 +982,7 @@ namespace XboxKit
                         bool skipEnd = false;
 
                         // Determine whether current sector is after last file extent
-                        if (validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
+                        if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
                         {
                             // Remainder of XISO is filler
                             long bytesUntilEnd = isoSize - currentByte;
@@ -995,18 +1005,18 @@ namespace XboxKit
                         else if (extractFiller || writeXISO)
                         {
                             // Determine whether current sector is within a file extent or filler data
-                            for (int i = 0; i < validRanges.Count; i++)
+                            for (int i = 0; i < validRanges.All.Count; i++)
                             {
-                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
+                                if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                    bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
-                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                                else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    bytesToWipe = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
+                                    bytesToWipe = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
@@ -1067,8 +1077,21 @@ namespace XboxKit
                                     bytesToRead = bytesUntilEndOfExtent;
                                 else
                                     bytesToRead = isoSize - currentByte;
+                                
+                                // Check if current sector is a filesystem sector
+                                bool is_bone = false;
+                                for (int i = 0; i < validRanges.Sys.Count; i++)
+                                {
+                                    if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
+                                    {
+                                        // Retain in skeleton
+                                        is_bone = true;
+                                        bytesToRead = (validRanges.Sys[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                        break;
+                                    }
+                                }
 
-                                if (extractSkeleton)
+                                if (extractSkeleton && !is_bone)
                                 {
                                     // Write zeroes to XISO Skeleton
                                     if (!Utils.WriteZeroes(xisoFS, -1, bytesToRead))
@@ -1286,10 +1309,7 @@ namespace XboxKit
                     // Parse XISO filesystem for all file extents
                     List<(uint Start, uint End)> validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
                     if (!quiet)
-                    {
-                        foreach (var (start, end) in validRanges)
-                            Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
-                    }
+                        foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                     // Write filler data interleaved with XISO
                     long xisoOffsetSector = XISO_OFFSET[xisoType] / XDVDFS.SECTOR_SIZE;
@@ -1324,7 +1344,7 @@ namespace XboxKit
                         }
 
                         // Determine whether current sector is after last file extent
-                        if (writeFiller && validRanges.Count > 0 && currentSector > validRanges[validRanges.Count - 1].End)
+                        if (writeFiller && validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
                         {
                             // Remainder of XISO is filler
                             fillerBytes = xisoLength - currentByte;
@@ -1332,18 +1352,18 @@ namespace XboxKit
                         else if (writeFiller)
                         {
                             // Determine whether current sector is within a file extent or filler data
-                            for (int i = 0; i < validRanges.Count; i++)
+                            for (int i = 0; i < validRanges.All.Count; i++)
                             {
-                                if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
+                                if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
                                 {
                                     // Number of bytes remaining in current file extent
-                                    xisoBytes = (validRanges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                    xisoBytes = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
-                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                                else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
                                 {
                                     // Wipe until next file extent
-                                    fillerBytes = validRanges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
+                                    fillerBytes = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                     break;
                                 }
                             }
