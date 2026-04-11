@@ -775,7 +775,7 @@ namespace XboxKit
                             else if (extractSkeleton)
                             {
                                 // Write zeroes to XISO Skeleton
-                                Utils.WriteZeroes(xisoFS, -1, bytesToRead)
+                                Utils.WriteZeroes(xisoFS, -1, bytesToRead);
                             }
                             numBytes += bytesToRead;
                         }
