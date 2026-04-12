@@ -611,10 +611,16 @@ namespace XboxKit
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
-                if (extractXISO || extractSkeleton)
+                if (extractXISO)
                 {
                     if (!quiet) Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                }
+                // Create file for skeleton
+                else if (extractSkeleton)
+                {
+                    if (!quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {skeletonPath}");
+                    xisoFS = new FileStream(skeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Create file for filler data
@@ -623,14 +629,6 @@ namespace XboxKit
                 {
                     if (!quiet) Console.WriteLine($"[INFO] Writing random filler data to {fillerPath}");
                     fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                }
-
-                // Create file for skeleton
-                FileStream skeletonFS = null!;
-                if (extractSkeleton)
-                {
-                    if (!quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {skeletonPath}");
-                    skeletonFS = new FileStream(skeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
                 // Create file for ZAR
