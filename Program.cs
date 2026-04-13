@@ -320,19 +320,19 @@ namespace XboxKit
                 }
 
                 // Check option combination is valid
-                if (!assumeYes && wipeXISO && !extractXISO && (assumeNo || !quiet))
+                if (!assumeYes && wipeXISO && !(extractXISO && extractSkeleton) && (assumeNo || !quiet))
                 {
-                    Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x)");
+                    Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x) or skeleton (-p)");
                     if (assumeNo)
                         return;
                 }
-                if (!assumeYes && trimXISO && !extractXISO && (assumeNo || !quiet))
+                if (!assumeYes && trimXISO && !(extractXISO || extractSkeleton) && (assumeNo || !quiet))
                 {
-                    Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x)");
+                    Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x) or skeleton (-p)");
                     if (assumeNo)
                         return;
                 }
-                if (!assumeYes && extractXISO && extractFiller && !wipeXISO && (assumeNo || !quiet))
+                if (!assumeYes && (extractXISO || extractSkeleton) && extractFiller && !wipeXISO && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Cannot write filler data without wiping XISO");
                     Console.WriteLine("       For now, use -w with -s");
@@ -703,10 +703,10 @@ namespace XboxKit
                                 Console.WriteLine($"[ERROR] Failed writing filler data.");
                                 return;
                             }
-                            if (!extractXISO)
+                            if (!(extractXISO || extractSkeleton))
                                 numBytes += bytesToWipe;
                         }
-                        else if (!extractXISO)
+                        else if (!(extractXISO || extractSkeleton))
                         {
                             // Skip file extent
                             long bytesToEnd;
@@ -776,6 +776,7 @@ namespace XboxKit
                                 // Write zeroes to XISO Skeleton
                                 Utils.WriteZeroes(xisoFS, -1, bytesToRead);
                             }
+
                             numBytes += bytesToRead;
                         }
                         else if (bytesToWipe > 0)
