@@ -307,6 +307,18 @@ namespace XboxKit
                     return;
                 }
 
+                // Must extract video if also extracting SU
+                if (!assumeYes && extractUpdate && !extractVideo)
+                {
+                    Console.WriteLine("[ERROR] Extracting update (-u) implies extract video (-v)");
+                    if (assumeNo)
+                        return;
+                    Console.WriteLine($"Would you like to also extract Video? (Y/N)");
+                    string response = Console.ReadLine()?.ToUpper();
+                    if (response != "Y" && response != "YES")
+                        return;
+                }
+
                 // Check option combination is valid
                 if (!assumeYes && wipeXISO && !extractXISO && (assumeNo || !quiet))
                 {
@@ -518,86 +530,76 @@ namespace XboxKit
                 // Extract system update file from XGD3 video partition
                 if (extractUpdate && xgdType == 3)
                 {
-                    // Open video ISO for reading and writing
-                    using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    long videoLength = videoFS.Length;
-                    long updateOffset = XDVDFS.SUOffset(videoFS);
-                    
-                    // Write update file contents to file
                     if (!quiet) Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                    using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    long updateLength = videoLength - updateOffset - XDVDFS.SECTOR_SIZE;
-                    if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                    if (!quiet) Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
+                    if (!XDVDFS.ExtractSU(videoPath, updatePath))
                     {
                         Console.WriteLine($"[ERROR] Failed writing system update file.");
                         return;
                     }
-
-                    // Zero update file within XISO
-                    if (!quiet) Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
-                    Utils.WriteZeroes(videoFS, updateOffset, updateLength);
                 }
 
                 // If XGD1, try brute force the filler data seed
-                if (extractSeed)
+                if (extractSeed && xgdType == 0)
                 {
-                    if (xgdType == 0)
+                    // Validate XGD1 magic bytes
+                    byte[] magic = new byte[XDVDFS.MAGIC2.Length];
+                    if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
                     {
-                        // Validate XGD1 magic bytes
-                        byte[] magic = new byte[XDVDFS.MAGIC2.Length];
-                        if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
-                        {
-                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
-                            return;
-                        }
-                        if (!magic.SequenceEqual(XDVDFS.MAGIC2))
-                        {
-                            Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
-                            return;
-                        }
-
-                        // Determine version offset
-                        byte[] nextBuf = new byte[8];
-                        if (!Utils.WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
-                        {
-                            Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
-                            return;
-                        }
-                        int versionOffset = 0x10824;
-                        if (nextBuf.SequenceEqual(new byte[8]))
-                            versionOffset += 0x10;
-
-                        // Determine XGD1 version
-                        byte[] versionBuf = new byte[2];
-                        if (!Utils.WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
-                        {
-                            Console.WriteLine("[ERROR] Failed to read XGD1 version.");
-                            return;
-                        }
-                        ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
-                        if (version == 0)
-                        {
-                            Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
-                            return;
-                        }
-                        if (!quiet) Console.WriteLine($"[INFO] XGD1 Version: {version}");
-
-                        // Determine XGD1 pseudo random number generator seed, if possible
-                        byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
-                        if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
-                        {
-                            Console.WriteLine("[ERROR] Failed reading first XISO sector");
-                            return;
-                        }
-                        if (XboxPRNG.TryGetSeed(firstXISOSector, out uint seed))
-                        {
-                            if (!quiet) Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
-                            using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                            byte[] seedBytes = BitConverter.GetBytes(seed);
-                            seedFS.Write(seedBytes, 0, seedBytes.Length);
-                            if (!quiet) Console.WriteLine($"[INFO] Writing filler data to {seedPath}");
-                        }
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
+                        return;
                     }
+                    if (!magic.SequenceEqual(XDVDFS.MAGIC2))
+                    {
+                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
+                        return;
+                    }
+
+                    // Determine version offset
+                    byte[] nextBuf = new byte[8];
+                    if (!Utils.WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
+                    {
+                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
+                        return;
+                    }
+                    int versionOffset = 0x10824;
+                    if (nextBuf.SequenceEqual(new byte[8]))
+                        versionOffset += 0x10;
+
+                    // Determine XGD1 version
+                    byte[] versionBuf = new byte[2];
+                    if (!Utils.WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
+                    {
+                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
+                        return;
+                    }
+                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+                    if (version == 0)
+                    {
+                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
+                        return;
+                    }
+                    if (!quiet) Console.WriteLine($"[INFO] XGD1 Version: {version}");
+
+                    // Determine XGD1 pseudo random number generator seed, if possible
+                    byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
+                    if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
+                    {
+                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
+                        return;
+                    }
+                    if (XboxPRNG.TryGetSeed(firstXISOSector, out uint seed))
+                    {
+                        if (!quiet) Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
+                        using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                        byte[] seedBytes = BitConverter.GetBytes(seed);
+                        seedFS.Write(seedBytes, 0, seedBytes.Length);
+                        if (!quiet) Console.WriteLine($"[INFO] Writing filler data to {seedPath}");
+                    }
+                }
+                else if (extractSeed)
+                {
+                    if (!quiet) Console.WriteLine($"[INFO] Cannot extract seed from Xbox 360 discs");
                 }
 
                 // Quit early if we're not extracting data from game partition
@@ -616,7 +618,6 @@ namespace XboxKit
                     if (!quiet) Console.WriteLine($"[INFO] Writing game partition to {xisoPath}");
                     xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
-                // Create file for skeleton
                 else if (extractSkeleton)
                 {
                     if (!quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {skeletonPath}");
@@ -874,29 +875,22 @@ namespace XboxKit
 
                 #endregion
 
-                // Open video ISO for reading and writing
-                using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                long updateOffset = XDVDFS.SUOffset(videoFS);
-
                 if (!quiet) Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                long updateLength = videoFS.Length - updateOffset - XDVDFS.SECTOR_SIZE;
-                if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                if (!quiet) Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
+                if (!XDVDFS.ExtractSU(videoPath, updatePath))
                 {
                     Console.WriteLine($"[ERROR] Failed writing system update file.");
                     return;
                 }
 
-                // Zero out the update file in the video ISO
-                Utils.WriteZeroes(videoFS, updateOffset, updateLength);
-
                 #endregion
             }
             else
             {
-                // Mode 3: XISO as input
+                // Mode 3: XISO or ZAR as input
 
                 // TODO: Validate file is an XISO (other than filesize)
+                // TODO: If ZAR is input, extract
 
                 #region Wipe XISO
 

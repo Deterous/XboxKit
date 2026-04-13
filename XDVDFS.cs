@@ -150,5 +150,23 @@ namespace XboxKit
             }
             return updateOffset;
         }
+
+        // Extracts and zeroes the SU file from Video ISO
+        public static bool ExtractSU(string isoPath, string updatePath)
+        {
+            // Open video ISO for reading and writing
+            using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            long updateOffset = SUOffset(videoFS);
+
+            using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            long updateLength = videoFS.Length - updateOffset - SECTOR_SIZE;
+            if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                return false;
+
+            // Zero out the update file in the video ISO
+            Utils.WriteZeroes(videoFS, updateOffset, updateLength);
+
+            return true;
+        }
     }
 }
