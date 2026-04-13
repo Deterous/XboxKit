@@ -790,8 +790,6 @@ namespace XboxKit
                     xisoFS.Dispose();
                 if (fillerFS != null)
                     fillerFS.Dispose();
-                if (skeletonFS != null)
-                    skeletonFS.Dispose();
                 if (zarFS != null)
                     zarFS.Dispose();
 
