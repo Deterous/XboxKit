@@ -127,7 +127,7 @@ namespace XboxKit
         }
 
         // Heuristic to determine XGD3 system update file offset in video partition 
-        // TODO: Parse ISO filesystem instead
+        // This algorithm is easier than parsing UDF
         public static long SUOffset(FileStream videoFS)
         {
             long updateOffset = videoFS.Length;

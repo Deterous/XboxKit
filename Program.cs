@@ -877,8 +877,8 @@ namespace XboxKit
                 #endregion
 
                 if (!quiet) Console.WriteLine($"[INFO] Writing system update file to {updatePath}");
-                if (!quiet) Console.WriteLine($"[INFO] Zeroing system update file in {videoPath}");
-                if (!XDVDFS.ExtractSU(videoPath, updatePath))
+                if (!quiet) Console.WriteLine($"[INFO] Zeroing system update file in {isoPath}");
+                if (!XDVDFS.ExtractSU(isoPath, updatePath))
                 {
                     Console.WriteLine($"[ERROR] Failed writing system update file.");
                     return;
