@@ -320,7 +320,7 @@ namespace XboxKit
                 }
 
                 // Check option combination is valid
-                if (!assumeYes && wipeXISO && !(extractXISO && extractSkeleton) && (assumeNo || !quiet))
+                if (!assumeYes && wipeXISO && !(extractXISO || extractSkeleton) && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x) or skeleton (-p)");
                     if (assumeNo)
