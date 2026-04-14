@@ -61,12 +61,18 @@ namespace XboxKit
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
             long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
             sysSectors.Add((uint)headerOffsetSector);
-            // TODO: Don't add 2nd header sector if MAGIC is not present
-            sysSectors.Add((uint)headerOffsetSector + 1);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
+
+            isoFS.Seek(headerOffset + SECTOR_SIZE, SeekOrigin.Begin);
+            byte[] magic = new byte[24];
+            if (isoFS.Read(magic, 0, 24) != 24)
+                throw new EndOfStreamException("[ERROR] Failed to read XISO ranges");
+            if (magic.SequenceEqual(MAGIC2))
+                sysSectors.Add((uint)headerOffsetSector + 1);
+
             GetValidSectors(isoFS, offset, sysSectors, fileSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, quiet);
 
             var allRanges = new List<(uint, uint)>();
