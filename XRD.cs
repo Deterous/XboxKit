@@ -86,7 +86,7 @@ namespace XboxKit
             ringcode[0] = titleID[3];
             ringcode[1] = titleID[2];
             ushort idNum = (ushort)((titleID[1] << 8) | titleID[0]);
-            string idStr = idNum.ToString('D3');
+            string idStr = idNum.ToString("D3");
             for (int i = 0; i < 3; i++)
                 result[2 + i] = (byte)idStr[i];
             
