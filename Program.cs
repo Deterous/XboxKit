@@ -9,14 +9,14 @@ namespace XboxKit
     internal class Program
     {
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
-        static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
-        static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
+        internal static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
+        internal static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
         // Redump ISO Types:                               XGD1,      XGD2w0,      XGD2w1,      XGD2w2,     XGD2w3+, XGD2-Hybrid,      XGD3v0,     XGD3
-        static readonly long[] REDUMP_ISO_LENGTH = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
+        internal static readonly long[] REDUMP_ISO_LENGTH = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
         // Video Partition Types:                   XGD1,  XGD2w0,   XGD2w1,  XGD2w2,   XGD2w3,    XGD2w4-7,   XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15, XGD2w16,  XGD2w17-18, XGD2w19,  XGD2w20,  XGD2-Hybrid,  XGD3-beta   XGD3v0,    XGD3
-        static readonly long[] VIDEO_L0_LENGTH = [0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
-        static readonly long[] VIDEO_L1_LENGTH = [0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
-        static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
+        internal static readonly long[] VIDEO_L0_LENGTH = [0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
+        internal static readonly long[] VIDEO_L1_LENGTH = [0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
+        internal static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
 
         // Print help text to console
         static void PrintHelp()

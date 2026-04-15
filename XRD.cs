@@ -7,7 +7,7 @@ namespace XboxKit
     internal class XRD
     {
         // Create XRD file from redump ISO filestream
-        public static long ExtractRebuildData(FileStream isoFS, FileStream xrdFS, int redumpIsoType)
+        public static void ExtractRebuildData(FileStream isoFS, FileStream xrdFS, int redumpIsoType)
         {
             // Write the magic and version bytes (offset 0x00-0x05)
             byte[] magic = [0x58, 0x52, 0x44, 0xFF, 0x00, 0x01];
@@ -21,11 +21,11 @@ namespace XboxKit
                 6 or 7 => 3, // XGD3
                 _ => 0xFF, // Unknown
             };
-            xrdFS.Write(xgdType);
+            xrdFS.WriteByte(xgdType);
 
             // Write the XGD subtype/wave (offset 0x07)
             byte subType = 0xFF; // Default: "Unknown subtype"
-            int wave = GetWave(isoFS, redumpIsoType);
+            int wave = XGD.GetWave(isoFS, redumpIsoType);
             if (xgdType == 1)
             {
                 if (wave == 22)
@@ -53,7 +53,7 @@ namespace XboxKit
                     _ => 0xFF, // Unknown subtype
                 };
             }
-            xrdFS.Write(subType);
+            xrdFS.WriteByte(subType);
 
             // 8-character ringcode ASCII (offset 0x08-0x0F)
             if (xgdType == 1)
@@ -89,13 +89,13 @@ namespace XboxKit
             ushort idNum = (ushort)((titleID[1] << 8) | titleID[0]);
             string idStr = idNum.ToString("D3");
             for (int i = 0; i < 3; i++)
-                result[2 + i] = (byte)idStr[i];
+                ringcode[2 + i] = (byte)idStr[i];
             
             byte[] ver = Encoding.ASCII.GetBytes(version[0].ToString("D2"));
             ringcode[5] = ver[0];
             ringcode[6] = ver[1];
 
-            result[7] = regions[0] switch
+            ringcode[7] = regions[0] switch
             {
                 1 => (byte)'A',
                 2 => (byte)'J',
