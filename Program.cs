@@ -190,7 +190,7 @@ namespace XboxKit
                                 extractVideo = true;
                                 extractZAR = true;
                                 break;
-                            case "m":
+                            case 'm':
                                 extractXRD = true;
                                 break;
                             case 'n':
@@ -269,6 +269,7 @@ namespace XboxKit
 
             // TODO: Prefer just .iso if it doesn't already exist?
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
+            string xrdPath = Path.Combine(dir, $"{filename}.xrd");
             string skeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
             string fillerPath = Path.Combine(dir, $"{filename}.filler");
             string seedPath = Path.Combine(dir, $"{filename}.seed");
@@ -459,14 +460,14 @@ namespace XboxKit
                     using FileStream xrdFS = new(xrdPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     if (!quiet) Console.WriteLine("[INFO] Extracting XRD...");
-                    ExtractRebuildData(isoFS, xrdFS, xgdType);
+                    XRD.ExtractRebuildData(isoFS, xrdFS, xgdType);
                 }
 
                 // Extract video partition
                 if (extractVideo)
                 {
                     // Compare PVD creation datetime against known datetimes to determine wave
-                    int videoType = GetVideoType(isoFS, redumpIsoType);
+                    int videoType = XGD.GetVideoType(isoFS, redumpIsoType);
                     if (videoType == -1)
                     {
                         Console.WriteLine("[ERROR] Unexpected video partition. Cannot determine wave");

@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Text;
 
 namespace XboxKit
 {
@@ -52,7 +54,6 @@ namespace XboxKit
         public static int GetWave(FileStream isoFS, int redumpIsoType)
         {
             // Compare PVD creation datetime against known datetimes to determine wave
-            int? wave = null;
             if (redumpIsoType == 4 || redumpIsoType == 6)
             {
                 try
@@ -61,11 +62,11 @@ namespace XboxKit
                     byte[] pvd = new byte[16];
                     int bytesRead = isoFS.Read(pvd, 0, pvd.Length);
                     if (bytesRead == 16)
-                        wave = Array.IndexOf(WAVE_PVD, Encoding.ASCII.GetString(pvd));
+                        return Array.IndexOf(WAVE_PVD, Encoding.ASCII.GetString(pvd));
                     else
                         return -1;
                 }
-                catch (Exception ex)
+                catch
                 {
                     return -1;
                 }

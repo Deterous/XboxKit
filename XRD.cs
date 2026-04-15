@@ -77,7 +77,7 @@ namespace XboxKit
         // Xbox disc ringcode is the Media ID, can be determined from certificate
         private static byte[] GetXboxRingcode(FileStream isoFS)
         {
-            int xisoOffset = Program.XISO_OFFSET[0];
+            //long xisoOffset = Program.XISO_OFFSET[0];
 
             // TODO: Find XBE file, get cert offset (cert - base), read TitleID/Region/Version
             byte[] titleID = [0x07, 0x00, 0x4E, 0x4B]; // cert offset + 0x08
@@ -109,7 +109,7 @@ namespace XboxKit
         // Xbox 360 disc ringcode is the last 4 bytes of Media ID
         public static byte[] GetXbox360Ringcode(FileStream isoFS, int redumpIsoType)
         {
-            int xisoOffset = redumpIsoType switch
+            long xisoOffset = redumpIsoType switch
             {
                 1 or 2 or 3 or 4 => Program.XISO_OFFSET[1], // XGD2 wave 0-20
                 5 => Program.XISO_OFFSET[2], // XGD2 / DVD-Video Hybrid
