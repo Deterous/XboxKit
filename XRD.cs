@@ -126,7 +126,7 @@ namespace XboxKit
  
             byte[] mediaID = [0x63, 0xC4, 0x41, 0x62];
             // TODO: Find XEX file, get cert offset, read 4 bytes at offset 0x14C
-            byte[] ringcode = Encoding.ASCII.GetBytes(BitConverter.ToString(mediaID).Replace("-", ""));
+            return Encoding.ASCII.GetBytes(BitConverter.ToString(mediaID).Replace("-", ""));
         }
     }
 }

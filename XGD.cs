@@ -63,14 +63,11 @@ namespace XboxKit
                     int bytesRead = isoFS.Read(pvd, 0, pvd.Length);
                     if (bytesRead == 16)
                         return Array.IndexOf(WAVE_PVD, Encoding.ASCII.GetString(pvd));
-                    else
-                        return -1;
                 }
-                catch
-                {
-                    return -1;
-                }
+                catch { }
             }
+            
+            return -1;
         }
     }
 }

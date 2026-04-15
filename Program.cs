@@ -439,7 +439,7 @@ namespace XboxKit
                 #endregion
 
                 // Determine disc layout type
-                long xgdType = redumpIsoType switch
+                int xgdType = redumpIsoType switch
                 {
                     0 => 0, // XGD1
                     1 or 2 or 3 or 4 => 1, // XGD2
