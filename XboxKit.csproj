@@ -11,12 +11,12 @@
     <LangVersion>latest</LangVersion>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     
     <!-- Package Properties -->
     <Authors>Deterous</Authors>
     <Description>Xbox ISO Toolkit</Description>
-    <Copyright>Copyright (c) Deterous 2024-2025</Copyright>
+    <Copyright>Copyright (c) Deterous 2024-2026</Copyright>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Deterous/XboxKit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -26,6 +26,10 @@
 
   <ItemGroup>
     <None Include="./README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SabreTools.Serialization" Version="2.3.0" />
   </ItemGroup>
 
 </Project>

@@ -452,6 +452,8 @@ namespace XboxKit
                 if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
+                var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
+
                 // Extract rebuild data
                 if (extractXRD)
                 {
