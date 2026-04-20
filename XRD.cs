@@ -6,72 +6,159 @@ namespace XboxKit
 {
     internal class XRD
     {
-        // Create XRD file from redump ISO filestream
-        public static void ExtractRebuildData(FileStream isoFS, FileStream xrdFS, int redumpIsoType)
+        public static SabreTools.Data.Models.XRD.File? GetXRD(FileStream isoFS, SabreTools.Wrappers.XboxISO xboxISO, int redumpIsoType)
         {
-            // Write the magic and version bytes (offset 0x00-0x05)
-            byte[] magic = [0x58, 0x52, 0x44, 0xFF, 0x00, 0x01];
-            xrdFS.Write(magic, 0, magic.Length);
+            // Validate redumpIsoType
+            if (redumpIsoType < 0 || redumpIsoType > 8)
+                return null;
 
-            // Write the XGD type (offset 0x06)
-            byte xgdType = redumpIsoType switch
+            SabreTools.Data.Models.XRD.File xrd = new();
+            xrd.Magic = SabreTools.Data.Models.XRD.Constants.MagicBytes;
+
+            // Set XGD Type
+            xrd.XGDType = redumpIsoType switch
             {
-                0 => 1, // XGD1
-                1 or 2 or 3 or 4 or 5 => 2, // XGD2
-                6 or 7 => 3, // XGD3
-                _ => 0xFF, // Unknown
+                0 or 1 => 0, // XGD1
+                2 or 3 or 4 or 5 or 6 => 1, // XGD2
+                7 or 8 => 3, // XGD3
+                _ => 0,
             };
-            xrdFS.WriteByte(xgdType);
 
-            // Write the XGD subtype/wave (offset 0x07)
-            byte subType = 0xFF; // Default: "Unknown subtype"
-            int wave = XGD.GetWave(isoFS, redumpIsoType);
-            if (xgdType == 1)
+            // Set XGD Subtype
+            if (xrd.XGDType == 1)
             {
-                if (wave == 22)
-                    subType = 0x01; // Standard XGD1
+                xrd.XGDSubtype = redumpIsoType switch
+                {
+                    0 => 0, // XGD1 Beta (XB00104M)
+                    1 => 1, // Standard XGD1
+                    _ => 0xFF, // Unknown XGD1 Subtype
+                }
+            }
+            else if (xrd.XGDType == 2)
+            {
+                wave = GetWave(xboxISO.VideoPartition);
+                xrd.XGDSubtype = wave switch
+                {
+                    >= 0 and <= 20 => (byte)wave, // XGD2 Wave 0-20
+                    21 => 0x81, // XGD2-Hybrid
+                    _ => 0xFF // Unknown
+                }
+            }
+            else if (xrd.XGDType == 3)
+            {
+                if (redumpIsoType == 7)
+                {
+                    wave = GetWave(xboxISO.VideoPartition);
+                    if (wave == 23)
+                        xrd.XGDSubtype = 0x80; // HCXGD2 Internal Beta (FD91511A)
+                    else
+                        xrd.XGDSubtype = 0; // XGD3v0 (152C2978, FFFFFDEB, FFFFFDE3)
+                }
+                else if (redumpIsoType == 8)
+                    xrd.XGDSubtype == 1; // Standard XGD3
                 else
-                    subType = 0xFF; // Unknown XGD1
+                    xrd.XGDSubtype = 0xFF; // Unknown
             }
-            else if (xgdType == 2)
-            {
-                if (wave > 20 || wave < 0)
-                    wave = 0xFF;
-                subType = redumpIsoType switch
-                {
-                    1 or 2 or 3 or 4 => (byte)wave, // XGD2 wave 0-20
-                    5 => 0x80, // XGD2 / DVD-Video Hybrid
-                    _ => 0xFF, // Unknown subtype
-                };
-            }
-            else if (xgdType == 3)
-            {
-                subType = redumpIsoType switch
-                {
-                    6 => 0, // XGD3 Beta
-                    7 => 1, // Standard XGD3
-                    _ => 0xFF, // Unknown subtype
-                };
-            }
-            xrdFS.WriteByte(subType);
 
-            // 8-character ringcode ASCII (offset 0x08-0x0F)
-            if (xgdType == 1)
-            {
-                byte[] ringcode = GetXboxRingcode(isoFS);
-                xrdFS.Write(ringcode);
-            }
-            else if (xgdType == 2 || xgdType == 3)
-            {
-                byte[] ringcode = GetXbox360Ringcode(isoFS, redumpIsoType);
-                xrdFS.Write(ringcode);
-            }
+            // Set Version field, use Version 2 for non-standard Video partitions
+            bool nonStandardVideo = xrd.XGDType == 3 || xrd.XGDSubtype == 0xFF;
+            if (nonStandardVideo)
+                xrd.Version = 2;
             else
+                xrd.Version = 1;
+
+            // Set Ringcode
+            if (xrd.XGDType == 1)
+                xrd.Ringcode = GetXboxRingcode();
+            else if (xrd.XGDType == 2 || xrd.XGDType == 3)
+                xrd.Ringcode = GetXbox360Ringcode();
+            
+            // Set redump ISO size/hashes
+            xrd.RedumpSize = 0;
+            xrd.RedumpCRC = [0, 0, 0, 0];
+            xrd.RedumpMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.RedumpSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.RawXISOSize = 0;
+            xrd.RawXISOCRC = [0, 0, 0, 0];
+            xrd.RawXISOMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.RawXISOSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.CookedXISOSize = 0;
+            xrd.CookedXISOCRC = [0, 0, 0, 0];
+            xrd.CookedXISOMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.CookedXISOSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.VideoISOSize = 0;
+            xrd.VideoISOCRC = [0, 0, 0, 0];
+            xrd.VideoISOMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.VideoISOSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            if (xrd.Version == 2)
             {
-                // Unknown XGD, zeroed bytes
-                byte[] reserved = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-                xrdFS.Write(reserved);
+                xrd.WipedVideoISOSize = 0;
+                xrd.WipedVideoISOCRC = [0, 0, 0, 0];
+                xrd.WipedVideoISOMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                xrd.WipedVideoISOSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
             }
+            xrd.FillerSize = 0;
+            xrd.FillerCRC = [0, 0, 0, 0];
+            xrd.FillerMD5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            xrd.FillerSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+            // Set security sector values
+            if (xrd.XGDType == 1)
+            {
+                xrd.SecuritySectors = new uint[16];
+            }
+            else if (xrd.XGDType == 2 || xrd.XGDType == 3)
+            {
+                xrd.SecuritySectors = new uint[2];
+            }
+
+            // Set Xbox Certificate structure
+            if (xrd.XGDType == 1)
+            {
+                // TODO: Parse XBE Certificate
+                xrd.XboxCertificate = new();
+            }
+            else if (xrd.XGDType == 2 || xrd.XGDType == 3)
+            {
+                // TODO: Parse XEX Certificate
+                xrd.Xbox360Certificate = new();
+            }
+
+            // Set XDVDFS fields
+            // TODO: Calculate all file hashes
+            xrd.FileCount = 0
+            xrd.FileInfo = new FileEntry[0];
+            xrd.VolumeDescriptor = xboxISO.GamePartition.VolumeDescriptor;
+            xrd.LayoutDescriptor = xboxISO.GamePartition.LayoutDescriptor;
+            xrd.DirectoryCount = 0;
+            xrd.DirectoryInfo = new DirectoryEntry[0];
+
+            if (xrd.Version == 2)
+            {
+                xrd.VideoISOFileCount = 0;
+                xrd.VideoISOFileInfo = new FileEntry[0];
+            }
+
+            xrd.XRDSize = 0;
+            xrd.XRDSHA1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+            return xrd;
+        }
+
+        public static int GetWave(SabreTools.Data.Models.ISO9660.Volume volume)
+        {
+            var vd = volume.VolumeDescriptorSet[0];
+            if (vd is not PrimaryVolumeDescriptor pvd)
+                return null;
+            var pvdDatetime = new byte[16];
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Year, 0, pvdDatetime, 0,  4);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Month, 0, pvdDatetime, 4,  2);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Day, 0, pvdDatetime, 6,  2);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Hour, 0, pvdDatetime, 8,  2);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Minute, 0, pvdDatetime, 10,  2);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Second, 0, pvdDatetime, 12,  2);
+            Buffer.BlockCopy(pvd.VolumeCreationDateTime.Centisecond, 0, pvdDatetime, 14,  2);
+            return Array.IndexOf(XGD.WAVE_PVD, Encoding.ASCII.GetString(pvdDatetime));
         }
 
         // Xbox disc ringcode is the Media ID, can be determined from certificate

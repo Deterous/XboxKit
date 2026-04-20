@@ -11,11 +11,11 @@ namespace XboxKit
         // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
         internal static readonly long[] XISO_OFFSET = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
         internal static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
-        // Redump ISO Types:                               XGD1,      XGD2w0,      XGD2w1,      XGD2w2,     XGD2w3+, XGD2-Hybrid,      XGD3v0,     XGD3
-        internal static readonly long[] REDUMP_ISO_LENGTH = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
-        // Video Partition Types:                   XGD1,  XGD2w0,   XGD2w1,  XGD2w2,   XGD2w3,    XGD2w4-7,   XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15, XGD2w16,  XGD2w17-18, XGD2w19,  XGD2w20,  XGD2-Hybrid,  XGD3-beta   XGD3v0,    XGD3
-        internal static readonly long[] VIDEO_L0_LENGTH = [0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
-        internal static readonly long[] VIDEO_L1_LENGTH = [0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
+        // Redump ISO Types:                                   XGD1-Beta,        XGD1,      XGD2w0,      XGD2w1,      XGD2w2,     XGD2w3+, XGD2-Hybrid,      XGD3v0,     XGD3
+        internal static readonly long[] REDUMP_ISO_LENGTH = [0x1D330C000, 0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
+        // Video Partition Types:                           XGD1-Beta,   XGD1,  XGD2w0,   XGD2w1,  XGD2w2,   XGD2w3,    XGD2w4-7,   XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15, XGD2w16,  XGD2w17-18, XGD2w19,  XGD2w20,  XGD2-Hybrid,  XGD3-Beta   XGD3v0,    XGD3
+        internal static readonly long[] VIDEO_L0_LENGTH = [0x7458000, 0xD58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
+        internal static readonly long[] VIDEO_L1_LENGTH = [0x73B4000, 0x50000, 0x9800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
         internal static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
 
         // Print help text to console
@@ -442,10 +442,10 @@ namespace XboxKit
                 // Determine disc layout type
                 int xgdType = redumpIsoType switch
                 {
-                    0 => 0, // XGD1
-                    1 or 2 or 3 or 4 => 1, // XGD2
-                    5 => 2, // XGD2 (Hybrid)
-                    6 or 7 => 3, // XGD3
+                    0 or 1 => 0, // XGD1
+                    2 or 3 or 4 or 5 => 1, // XGD2
+                    6 => 2, // XGD2 (Hybrid)
+                    7 or 8 => 3, // XGD3
                     _ => 0,
                 };
 
@@ -453,38 +453,45 @@ namespace XboxKit
                 if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-                if (outputFiles)
+                if (outputFiles || extractXRD)
                 {
-                if (!quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
-                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                    var wrapper = SabreTools.Wrappers.XDVDFS.Create(isoFS);
+                    var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
                     if (wrapper is null)
                     {
-                        Console.WriteLine($"[ERROR Invalid ISO");
+                        Console.WriteLine($"[ERROR] Invalid ISO");
                         return;
                     }
-                    if (wrapper is not SabreTools.Wrappers.IExtractable extractable)
+
+                    // Extract game files
+                    if (outputFiles)
                     {
-                        Console.WriteLine($"[ERROR Unsupported ISO");
-                        return;
+                        if (!quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
+                        isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+
+                        if (!Directory.Exists(outputPath))
+                            Directory.CreateDirectory(outputPath);
+
+                        if (!quiet) Console.WriteLine($"[INFO] Outputting game files to {outputPath}");
+                        if (!wrapper.ExtractGamePartition(outputPath, !quiet))
+                        {
+                            Console.WriteLine($"[ERROR] Failed to extract files from {isoPath}");
+                            return;
+                        }
                     }
 
-                    if (!Directory.Exists(outputPath))
-                        Directory.CreateDirectory(outputPath);
-
-                    if (!quiet) Console.WriteLine($"[INFO] Outputting game files to {outputPath}");
-                    extractable.Extract(outputPath, !quiet);
-                }
-
-                // Extract rebuild data
-                if (extractXRD)
-                {
-                    // Create file for XRD
-                    if (!quiet) Console.WriteLine($"[INFO] Writing metadata XRD to {xrdPath}");
-                    using FileStream xrdFS = new(xrdPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-                    if (!quiet) Console.WriteLine("[INFO] Extracting XRD...");
-                    XRD.ExtractRebuildData(isoFS, xrdFS, xgdType);
+                    // Extract rebuild data
+                    if (extractXRD)
+                    {
+                        // Create file for XRD
+                        if (!quiet) Console.WriteLine($"[INFO] Writing XRD metadata file to {xrdPath}");
+                        var xrd = GetXRD(isoFS, wrapper, redumpIsoType);
+                        if (xrd is null)
+                        {
+                            Console.WriteLine($"[ERROR] Failed to create XRD");
+                            return;
+                        }
+                        var xrdStream = SabreTools.Writers.XRD().SerializeFile(xrd, xrdPath);
+                    }
                 }
 
                 // Extract video partition
@@ -860,7 +867,7 @@ namespace XboxKit
                 }
 
                 // Check that video partition is from XGD3 disc
-                if (videoIsoType != 15 && videoIsoType != 16 && videoIsoType != 17)
+                if (videoIsoType != 16 && videoIsoType != 17 && videoIsoType != 18)
                 {
                     Console.WriteLine("[ERROR] Can only extract su20076000_00000000 from XGD3 video partitions.");
                     return;
@@ -895,17 +902,17 @@ namespace XboxKit
                     bool invalidOptions = false;
                     if (extractXISO)
                     {
-                        Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is already XISO.");
+                        Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is already XISO (or unexpected ISO).");
                         invalidOptions = true;
                     }
                     if (extractVideo)
                     {
-                        Console.WriteLine("[INFO] Cannot extract video (-v), input file is XISO.");
+                        Console.WriteLine("[INFO] Cannot extract video (-v), input file is XISO (or unexpected ISO).");
                         invalidOptions = true;
                     }
                     if (extractUpdate)
                     {
-                        Console.WriteLine("[INFO] Cannot extract update (-u), input file is XISO.");
+                        Console.WriteLine("[INFO] Cannot extract update (-u), input file is XISO (or unexpected ISO).");
                         invalidOptions = true;
                     }
                     if (invalidOptions && assumeNo)
@@ -1144,14 +1151,15 @@ namespace XboxKit
                 // Determine length of output redump ISO
                 long redumpLength = videoType switch
                 {
-                    0 => REDUMP_ISO_LENGTH[0], // XGD1
-                    1 => REDUMP_ISO_LENGTH[1], // XGD2w0
-                    2 => REDUMP_ISO_LENGTH[2], // XGD2w1
-                    3 => REDUMP_ISO_LENGTH[3], // XGD2w2
-                    4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => REDUMP_ISO_LENGTH[4], // XGD2w3+
-                    14 => REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
-                    15 or 16 => REDUMP_ISO_LENGTH[6], // XGD3-beta, XGD3v0
-                    17 => REDUMP_ISO_LENGTH[7], // XGD3
+                    0 => REDUMP_ISO_LENGTH[0], // XGD1-Beta (XB00104M)
+                    1 => REDUMP_ISO_LENGTH[1], // XGD1
+                    2 => REDUMP_ISO_LENGTH[2], // XGD2w0
+                    3 => REDUMP_ISO_LENGTH[3], // XGD2w1
+                    4 => REDUMP_ISO_LENGTH[4], // XGD2w2
+                    5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 => REDUMP_ISO_LENGTH[4], // XGD2w3+
+                    15 => REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
+                    16 or 17 => REDUMP_ISO_LENGTH[6], // XGD3-Beta, XGD3v0
+                    18 => REDUMP_ISO_LENGTH[7], // XGD3
                     _ => 0,
                 };
 
