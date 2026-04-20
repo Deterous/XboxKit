@@ -455,12 +455,17 @@ namespace XboxKit
 
                 if (outputFiles)
                 {
+                if (!quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
                     isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
                     var wrapper = SabreTools.Wrappers.XDVDFS.Create(isoFS);
-                    if (wrapper is not SabreTools.Wrappers.IExtractable extractable)
+                    if (wrapper is null)
                     {
                         Console.WriteLine($"[ERROR Invalid ISO");
-                        Console.WriteLine();
+                        return;
+                    }
+                    if (wrapper is not SabreTools.Wrappers.IExtractable extractable)
+                    {
+                        Console.WriteLine($"[ERROR Unsupported ISO");
                         return;
                     }
 
