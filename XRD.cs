@@ -69,9 +69,9 @@ namespace XboxKit
 
             // Set Ringcode
             if (xrd.XGDType == 1)
-                xrd.Ringcode = "00000000"; // GetXboxRingcode();
+                xrd.Ringcode = [0, 0, 0, 0, 0, 0, 0, 0]; // GetXboxRingcode();
             else if (xrd.XGDType == 2 || xrd.XGDType == 3)
-                xrd.Ringcode = "00000000"; // GetXbox360Ringcode();
+                xrd.Ringcode = [0, 0, 0, 0, 0, 0, 0, 0]; // GetXbox360Ringcode();
             
             // Set redump ISO size/hashes
             xrd.RedumpSize = 0;

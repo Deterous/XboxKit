@@ -249,15 +249,15 @@ namespace XboxKit
 
             // TODO: Set isoPath to (redump ISO > XISO > video ISO) regardless of order
             string isoPath = filePaths[0];
-                if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
+            if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
             {
                 Console.WriteLine($"[ERROR] Invalid file path: {isoPath}");
                 return;
             }
 
             // TODO: Account for isoPath being .video.iso or .redump.iso or .skeleton.xiso
-            string dir = Path.GetDirectoryName(isoPath);
-            string filename = Path.GetFileNameWithoutExtension(isoPath);
+            string dir = Path.GetDirectoryName(isoPath) ? "";
+            string filename = Path.GetFileNameWithoutExtension(isoPath) ?? "";
             string extension = Path.GetExtension(isoPath);
 
             // TODO: Add SabreTools.Serialization
@@ -329,7 +329,7 @@ namespace XboxKit
                     if (assumeNo)
                         return;
                     Console.WriteLine($"Would you like to also extract Video? (Y/N)");
-                    string response = Console.ReadLine()?.ToUpper();
+                    string? response = Console.ReadLine()?.ToUpper();
                     if (response != "Y" && response != "YES")
                         return;
                 }
@@ -367,7 +367,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {xisoPath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -383,7 +383,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {videoPath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -399,7 +399,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {fillerPath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -415,7 +415,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {updatePath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -431,7 +431,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {seedPath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -490,7 +490,7 @@ namespace XboxKit
                             Console.WriteLine($"[ERROR] Failed to create XRD");
                             return;
                         }
-                        var xrdStream = SabreTools.Serialization.Writers.XRD().SerializeFile(xrd, xrdPath);
+                        var xrdStream = SabreTools.Serialization.Writers.XRD.SerializeFile(xrd, xrdPath);
                     }
                 }
 
@@ -860,7 +860,7 @@ namespace XboxKit
                     {
                         Console.WriteLine($"[WARNING] File already exists: {updatePath}");
                         Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string response = Console.ReadLine()?.ToUpper();
+                        string? response = Console.ReadLine()?.ToUpper();
                         if (response != "Y" && response != "YES")
                             return;
                     }
@@ -1254,7 +1254,7 @@ namespace XboxKit
                         if (!quiet) Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}");
                         using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         using StreamReader sectorsSR = new StreamReader(sectorsFS);
-                        string line;
+                        string? line;
                         int i = 0;
                         while ((line = sectorsSR.ReadLine()) != null)
                         {
@@ -1387,7 +1387,7 @@ namespace XboxKit
                                 // Generate filler data
                                 prng.WriteSectors(redumpFS, fillerBytes / XDVDFS.SECTOR_SIZE);
                             }
-                            else if (!Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
+                            else if (fillerFS != null && !Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
                             {
                                 Console.WriteLine($"[ERROR] Failed writing random filler data.");
                                 return;
