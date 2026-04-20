@@ -36,7 +36,7 @@ namespace XboxKit
             }
             else if (xrd.XGDType == 2)
             {
-                wave = GetWave(xboxISO.VideoPartition);
+                var wave = GetWave(xboxISO.VideoPartition);
                 xrd.XGDSubtype = wave switch
                 {
                     >= 0 and <= 20 => (byte)wave, // XGD2 Wave 0-20
@@ -48,14 +48,14 @@ namespace XboxKit
             {
                 if (redumpIsoType == 7)
                 {
-                    wave = GetWave(xboxISO.VideoPartition);
+                    var wave = GetWave(xboxISO.VideoPartition);
                     if (wave == 23)
                         xrd.XGDSubtype = 0x80; // HCXGD2 Internal Beta (FD91511A)
                     else
                         xrd.XGDSubtype = 0; // XGD3v0 (152C2978, FFFFFDEB, FFFFFDE3)
                 }
                 else if (redumpIsoType == 8)
-                    xrd.XGDSubtype == 1; // Standard XGD3
+                    xrd.XGDSubtype = 1; // Standard XGD3
                 else
                     xrd.XGDSubtype = 0xFF; // Unknown
             }
@@ -69,9 +69,9 @@ namespace XboxKit
 
             // Set Ringcode
             if (xrd.XGDType == 1)
-                xrd.Ringcode = GetXboxRingcode();
+                xrd.Ringcode = "00000000"; // GetXboxRingcode();
             else if (xrd.XGDType == 2 || xrd.XGDType == 3)
-                xrd.Ringcode = GetXbox360Ringcode();
+                xrd.Ringcode = "00000000"; // GetXbox360Ringcode();
             
             // Set redump ISO size/hashes
             xrd.RedumpSize = 0;
@@ -127,16 +127,16 @@ namespace XboxKit
             // Set XDVDFS fields
             // TODO: Calculate all file hashes
             xrd.FileCount = 0;
-            xrd.FileInfo = new FileEntry[0];
+            xrd.FileInfo = new SabreTools.Data.Models.XRD.FileEntry[0];
             xrd.VolumeDescriptor = xboxISO.GamePartition.VolumeDescriptor;
             xrd.LayoutDescriptor = xboxISO.GamePartition.LayoutDescriptor;
             xrd.DirectoryCount = 0;
-            xrd.DirectoryInfo = new DirectoryEntry[0];
+            xrd.DirectoryInfo = new SabreTools.Data.Models.XRD.DirectoryEntry[0];
 
             if (xrd.Version == 2)
             {
                 xrd.VideoISOFileCount = 0;
-                xrd.VideoISOFileInfo = new FileEntry[0];
+                xrd.VideoISOFileInfo = new SabreTools.Data.Models.XRD.FileEntry[0];
             }
 
             xrd.XRDSize = 0;
@@ -145,10 +145,10 @@ namespace XboxKit
             return xrd;
         }
 
-        public static int GetWave(SabreTools.Data.Models.ISO9660.Volume volume)
+        public static int? GetWave(SabreTools.Data.Models.ISO9660.Volume volume)
         {
             var vd = volume.VolumeDescriptorSet[0];
-            if (vd is not PrimaryVolumeDescriptor pvd)
+            if (vd is not SabreTools.Data.Models.ISO9660.PrimaryVolumeDescriptor pvd)
                 return null;
             var pvdDatetime = new byte[16];
             Buffer.BlockCopy(pvd.VolumeCreationDateTime.Year, 0, pvdDatetime, 0,  4);

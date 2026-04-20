@@ -484,13 +484,13 @@ namespace XboxKit
                     {
                         // Create file for XRD
                         if (!quiet) Console.WriteLine($"[INFO] Writing XRD metadata file to {xrdPath}");
-                        var xrd = GetXRD(isoFS, wrapper, redumpIsoType);
+                        var xrd = XRD.GetXRD(isoFS, wrapper, redumpIsoType);
                         if (xrd is null)
                         {
                             Console.WriteLine($"[ERROR] Failed to create XRD");
                             return;
                         }
-                        var xrdStream = SabreTools.Writers.XRD().SerializeFile(xrd, xrdPath);
+                        var xrdStream = SabreTools.Serialization.Writers.XRD().SerializeFile(xrd, xrdPath);
                     }
                 }
 
