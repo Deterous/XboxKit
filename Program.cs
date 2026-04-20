@@ -456,7 +456,7 @@ namespace XboxKit
                 if (outputFiles)
                 {
                     var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
-                    if (wrapper is not IExtractable extractable)
+                    if (wrapper is not SabreTools.Wrappers.IExtractable extractable)
                     {
                         Console.WriteLine($"[ERROR Invalid ISO");
                         Console.WriteLine();
