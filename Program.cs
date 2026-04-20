@@ -270,6 +270,7 @@ namespace XboxKit
             // TODO: Prefer just .iso if it doesn't already exist?
             string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
             string xrdPath = Path.Combine(dir, $"{filename}.xrd");
+            string outputPath = Path.Combine(dir, $"{filename}");
             string skeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
             string fillerPath = Path.Combine(dir, $"{filename}.filler");
             string seedPath = Path.Combine(dir, $"{filename}.seed");
@@ -452,7 +453,22 @@ namespace XboxKit
                 if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
                 using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-                var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
+                if (outputFiles)
+                {
+                    var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
+                    if (wrapper is not IExtractable extractable)
+                    {
+                        Console.WriteLine($"[ERROR Invalid ISO");
+                        Console.WriteLine();
+                        return;
+                    }
+
+                    if (!Directory.Exists(outputPath))
+                        Directory.CreateDirectory(outputPath);
+
+                    if (!quiet) Console.WriteLine("[INFO] Outputting files from ISO");
+                    extractable.Extract(outputPath, !quiet);
+                }
 
                 // Extract rebuild data
                 if (extractXRD)
