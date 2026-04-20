@@ -32,7 +32,7 @@ namespace XboxKit
                     0 => 0, // XGD1 Beta (XB00104M)
                     1 => 1, // Standard XGD1
                     _ => 0xFF, // Unknown XGD1 Subtype
-                }
+                };
             }
             else if (xrd.XGDType == 2)
             {
@@ -41,8 +41,8 @@ namespace XboxKit
                 {
                     >= 0 and <= 20 => (byte)wave, // XGD2 Wave 0-20
                     21 => 0x81, // XGD2-Hybrid
-                    _ => 0xFF // Unknown
-                }
+                    _ => 0xFF, // Unknown
+                };
             }
             else if (xrd.XGDType == 3)
             {
@@ -126,7 +126,7 @@ namespace XboxKit
 
             // Set XDVDFS fields
             // TODO: Calculate all file hashes
-            xrd.FileCount = 0
+            xrd.FileCount = 0;
             xrd.FileInfo = new FileEntry[0];
             xrd.VolumeDescriptor = xboxISO.GamePartition.VolumeDescriptor;
             xrd.LayoutDescriptor = xboxISO.GamePartition.LayoutDescriptor;
