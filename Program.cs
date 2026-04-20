@@ -449,9 +449,14 @@ namespace XboxKit
                     _ => 0,
                 };
 
+                // Open redump ISO for reading
+                if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
+                using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
                 if (outputFiles)
                 {
-                    var wrapper = SabreTools.Wrappers.XboxISO.Create(isoPath);
+                    isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                    var wrapper = SabreTools.Wrappers.XDVDFS.Create(isoFS);
                     if (wrapper is not SabreTools.Wrappers.IExtractable extractable)
                     {
                         Console.WriteLine($"[ERROR Invalid ISO");
@@ -462,13 +467,9 @@ namespace XboxKit
                     if (!Directory.Exists(outputPath))
                         Directory.CreateDirectory(outputPath);
 
-                    if (!quiet) Console.WriteLine("[INFO] Outputting files from ISO");
+                    if (!quiet) Console.WriteLine($"[INFO] Outputting game files to {outputPath}");
                     extractable.Extract(outputPath, !quiet);
                 }
-
-                // Open redump ISO for reading
-                if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
-                using FileStream isoFS = new(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
                 // Extract rebuild data
                 if (extractXRD)
