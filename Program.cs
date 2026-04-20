@@ -256,7 +256,7 @@ namespace XboxKit
             }
 
             // TODO: Account for isoPath being .video.iso or .redump.iso or .skeleton.xiso
-            string dir = Path.GetDirectoryName(isoPath) ? "";
+            string dir = Path.GetDirectoryName(isoPath) ?? "";
             string filename = Path.GetFileNameWithoutExtension(isoPath) ?? "";
             string extension = Path.GetExtension(isoPath);
 
