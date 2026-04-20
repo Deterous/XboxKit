@@ -595,7 +595,7 @@ namespace XboxKit
                 }
 
                 // Quit early if we're not extracting data from game partition
-                if (!extractXISO && !extractFiller && !outputFiles && !extractZAR && !extractSkeleton)
+                if (!extractXISO && !extractFiller && !extractSkeleton)
                     return;
 
                 // Parse XISO filesystem for all file extents 
