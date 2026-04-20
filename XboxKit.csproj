@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SabreTools.Serialization" Version="2.3.0" />
+    <PackageReference Include="SabreTools.Wrappers" Version="2.3.0" />
   </ItemGroup>
 
 </Project>

@@ -261,9 +261,9 @@ namespace XboxKit
             string extension = Path.GetExtension(isoPath);
 
             // TODO: Add SabreTools.Serialization
-            if (extractZAR || outputFiles || extension == ".zar")
+            if (extractZAR || extension == ".zar")
             {
-                Console.WriteLine("This feature is coming soon!");
+                Console.WriteLine("ZArchive support is coming soon!");
                 return;
             }
 
