@@ -72,7 +72,7 @@ namespace XboxKit
                 xrd.Ringcode = [0, 0, 0, 0, 0, 0, 0, 0]; // GetXboxRingcode();
             else if (xrd.XGDType == 2 || xrd.XGDType == 3)
                 xrd.Ringcode = [0, 0, 0, 0, 0, 0, 0, 0]; // GetXbox360Ringcode();
-            
+
             // Set redump ISO size/hashes
             xrd.RedumpSize = 0;
             xrd.RedumpCRC = [0, 0, 0, 0];
@@ -164,7 +164,7 @@ namespace XboxKit
         // Xbox disc ringcode is the Media ID, can be determined from certificate
         private static byte[] GetXboxRingcode(FileStream isoFS)
         {
-            //long xisoOffset = Program.XISO_OFFSET[0];
+            byte[] ringcode = [0, 0, 0, 0, 0, 0, 0, 0];
 
             // TODO: Find XBE file, get cert offset (cert - base), read TitleID/Region/Version
             byte[] titleID = [0x07, 0x00, 0x4E, 0x4B]; // cert offset + 0x08

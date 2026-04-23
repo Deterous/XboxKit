@@ -491,7 +491,11 @@ namespace XboxKit
                             return;
                         }
                         var writer = new SabreTools.Serialization.Writers.XRD();
-                        var xrdStream = writer.SerializeFile(xrd, xrdPath);
+                        if(!writer.SerializeFile(xrd, xrdPath))
+                        {
+                            Console.WriteLine($"[ERROR] Failed to write XRD");
+                            return;
+                        }
                     }
                 }
 
