@@ -9,15 +9,6 @@ namespace XboxKit
 {
     internal class Program
     {
-        // XISO Types:                              XGD1,    XGD2,   XGD2-Hybrid,    XGD3
-        internal static readonly long[] XISO_OFFSET = [0x18300000, 0x0FD90000, 0x89D80000, 0x02080000];
-        internal static readonly long[] XISO_LENGTH = [0x1A2DB0000, 0x1B3880000, 0x0BF8A0000, 0x204510000];
-        // Redump ISO Types:                                   XGD1-Beta,        XGD1,      XGD2w0,      XGD2w1,      XGD2w2,     XGD2w3+, XGD2-Hybrid,      XGD3v0,     XGD3
-        internal static readonly long[] REDUMP_ISO_LENGTH = [0x1D330C000, 0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
-        // Video Partition Types:                          XGD1-Beta,     XGD1,   XGD2w0,   XGD2w1,   XGD2w2,    XGD2w3,  XGD2w4-7,  XGD2w8-9, XGD2w10-12,  XGD2w13, XGD2w14-15,  XGD2w16, XGD2w17-18,  XGD2w19,   XGD2w20, XGD2-Hybrid, XGD3-Beta,   XGD3v0,      XGD3
-        internal static readonly long[] VIDEO_L0_LENGTH = [0x7458000, 0x0D58000, 0xA8000, 0x548000, 0x438000, 0x4BB0000, 0x56C0000, 0x5460000, 0x5BA0000, 0x5C10000, 0x55D0000, 0x55C0000, 0x8A40000, 0x8A90000, 0x8E80000, 0x4B1D0000, 0x1878000, 0x1880000, 0x1880000];
-        internal static readonly long[] VIDEO_L1_LENGTH = [0x73B4000, 0x0050000, 0x09800, 0x197800, 0x11A000, 0x4BA0000, 0x56B0000, 0x5450000, 0x5B90000, 0x5C00000, 0x55C0000, 0x55B0000, 0x8A30000, 0x8A80000, 0x8E70000, 0x4AFD0000, 0x186D800, 0x1875800, 0x1873800];
-        internal static readonly long[] VIDEO_LENGTH = new long[VIDEO_L0_LENGTH.Length];
 
         // Print help text to console
         static void PrintHelp()
@@ -55,9 +46,9 @@ namespace XboxKit
         {
             #region Initial Setup
 
-            // Initialize VIDEO_LENGTH array at run-time
-            for (int i = 0; i < VIDEO_LENGTH.Length; i++)
-                VIDEO_LENGTH[i] = VIDEO_L0_LENGTH[i] + VIDEO_L1_LENGTH[i];
+            // Initialize XGD.VIDEO_LENGTH array at run-time
+            for (int i = 0; i < XGD.VIDEO_LENGTH.Length; i++)
+                XGD.VIDEO_LENGTH[i] = XGD.VIDEO_L0_LENGTH[i] + XGD.VIDEO_L1_LENGTH[i];
 
             // Initialize program options
             bool help = false;
@@ -293,9 +284,9 @@ namespace XboxKit
             // Compare input ISO file size to determine file type
             FileInfo isoInfo = new(isoPath);
             long isoSize = isoInfo.Length;
-            int redumpIsoType = Array.IndexOf(REDUMP_ISO_LENGTH, isoSize);
-            int videoIsoType = Array.IndexOf(VIDEO_LENGTH, isoSize);
-            int xisoType = Array.IndexOf(XISO_LENGTH, isoSize);
+            int redumpIsoType = Array.IndexOf(XGD.REDUMP_ISO_LENGTH, isoSize);
+            int videoIsoType = Array.IndexOf(XGD.VIDEO_LENGTH, isoSize);
+            int xisoType = Array.IndexOf(XGD.XISO_LENGTH, isoSize);
 
             #endregion
 
@@ -467,7 +458,7 @@ namespace XboxKit
                     if (outputFiles)
                     {
                         if (!quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
-                        isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                        isoFS.Seek(XGD.XISO_OFFSET[xgdType], SeekOrigin.Begin);
 
                         if (!Directory.Exists(outputPath))
                             Directory.CreateDirectory(outputPath);
@@ -516,7 +507,7 @@ namespace XboxKit
                     using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                     // Write layer 0 portion of video partition
-                    long l0Length = VIDEO_L0_LENGTH[videoType];
+                    long l0Length = XGD.VIDEO_L0_LENGTH[videoType];
                     if (!Utils.WriteBytes(isoFS, videoFS, 0, l0Length))
                     {
                         Console.WriteLine($"[ERROR] Failed writing video partition.");
@@ -524,7 +515,7 @@ namespace XboxKit
                     }
 
                     // Write layer 1 portion of video partition
-                    long l1Length = VIDEO_L1_LENGTH[videoType];
+                    long l1Length = XGD.VIDEO_L1_LENGTH[videoType];
                     if (!Utils.WriteBytes(isoFS, videoFS, isoSize - l1Length, l1Length))
                     {
                         Console.WriteLine("[ERROR] Failed reading video partition.");
@@ -549,7 +540,7 @@ namespace XboxKit
                 {
                     // Validate XGD1 magic bytes
                     byte[] magic = new byte[XDVDFS.MAGIC2.Length];
-                    if (!Utils.WriteBytes(isoFS, magic, XISO_OFFSET[xgdType] + 0x10800))
+                    if (!Utils.WriteBytes(isoFS, magic, XGD.XISO_OFFSET[xgdType] + 0x10800))
                     {
                         Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
                         return;
@@ -562,7 +553,7 @@ namespace XboxKit
 
                     // Determine version offset
                     byte[] nextBuf = new byte[8];
-                    if (!Utils.WriteBytes(isoFS, nextBuf, XISO_OFFSET[xgdType] + 0x10820))
+                    if (!Utils.WriteBytes(isoFS, nextBuf, XGD.XISO_OFFSET[xgdType] + 0x10820))
                     {
                         Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
                         return;
@@ -573,7 +564,7 @@ namespace XboxKit
 
                     // Determine XGD1 version
                     byte[] versionBuf = new byte[2];
-                    if (!Utils.WriteBytes(isoFS, versionBuf, XISO_OFFSET[xgdType] + versionOffset))
+                    if (!Utils.WriteBytes(isoFS, versionBuf, XGD.XISO_OFFSET[xgdType] + versionOffset))
                     {
                         Console.WriteLine("[ERROR] Failed to read XGD1 version.");
                         return;
@@ -588,7 +579,7 @@ namespace XboxKit
 
                     // Determine XGD1 pseudo random number generator seed, if possible
                     byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
-                    if (!Utils.WriteBytes(isoFS, firstXISOSector, XISO_OFFSET[xgdType]))
+                    if (!Utils.WriteBytes(isoFS, firstXISOSector, XGD.XISO_OFFSET[xgdType]))
                     {
                         Console.WriteLine("[ERROR] Failed reading first XISO sector");
                         return;
@@ -612,7 +603,7 @@ namespace XboxKit
                     return;
 
                 // Parse XISO filesystem for all file extents 
-                var validRanges = XDVDFS.GetXISORanges(isoFS, XISO_OFFSET[xgdType], quiet);
+                var validRanges = XDVDFS.GetXISORanges(isoFS, XGD.XISO_OFFSET[xgdType], quiet);
                 if (!quiet)
                     foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
@@ -646,12 +637,12 @@ namespace XboxKit
                 }
 
                 // Process XISO
-                isoFS.Seek(XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                long xisoLength = XISO_LENGTH[xgdType];
+                isoFS.Seek(XGD.XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                long xisoLength = XGD.XISO_LENGTH[xgdType];
                 long numBytes = 0;
                 while (numBytes < xisoLength)
                 {
-                    long currentByte = XISO_OFFSET[xgdType] + numBytes;
+                    long currentByte = XGD.XISO_OFFSET[xgdType] + numBytes;
                     long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
                     long bytesUntilEndOfExtent = 0;
                     long bytesToWipe = 0;
@@ -1147,7 +1138,7 @@ namespace XboxKit
                 // Determine video type based on video partition size
                 FileInfo videoInfo = new(videoPath);
                 long videoSize = videoInfo.Length;
-                int videoType = Array.IndexOf(VIDEO_LENGTH, videoSize);
+                int videoType = Array.IndexOf(XGD.VIDEO_LENGTH, videoSize);
                 if (videoType < 0)
                 {
                     Console.WriteLine("[ERROR] Unexpected video partition ISO size. Your video file may be trimmed or corrupt.");
@@ -1157,15 +1148,15 @@ namespace XboxKit
                 // Determine length of output redump ISO
                 long redumpLength = videoType switch
                 {
-                    0 => REDUMP_ISO_LENGTH[0], // XGD1-Beta (XB00104M)
-                    1 => REDUMP_ISO_LENGTH[1], // XGD1
-                    2 => REDUMP_ISO_LENGTH[2], // XGD2w0
-                    3 => REDUMP_ISO_LENGTH[3], // XGD2w1
-                    4 => REDUMP_ISO_LENGTH[4], // XGD2w2
-                    5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 => REDUMP_ISO_LENGTH[4], // XGD2w3+
-                    15 => REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
-                    16 or 17 => REDUMP_ISO_LENGTH[6], // XGD3-Beta, XGD3v0
-                    18 => REDUMP_ISO_LENGTH[7], // XGD3
+                    0 => XGD.REDUMP_ISO_LENGTH[0], // XGD1-Beta (XB00104M)
+                    1 => XGD.REDUMP_ISO_LENGTH[1], // XGD1
+                    2 => XGD.REDUMP_ISO_LENGTH[2], // XGD2w0
+                    3 => XGD.REDUMP_ISO_LENGTH[3], // XGD2w1
+                    4 => XGD.REDUMP_ISO_LENGTH[4], // XGD2w2
+                    5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 => XGD.REDUMP_ISO_LENGTH[4], // XGD2w3+
+                    15 => XGD.REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
+                    16 or 17 => XGD.REDUMP_ISO_LENGTH[6], // XGD3-Beta, XGD3v0
+                    18 => XGD.REDUMP_ISO_LENGTH[7], // XGD3
                     _ => 0,
                 };
 
@@ -1178,7 +1169,7 @@ namespace XboxKit
                     15 or 16 or 17 => 3, // XGD3
                     _ => 0,
                 };
-                long xisoLength = XISO_LENGTH[xisoType];
+                long xisoLength = XGD.XISO_LENGTH[xisoType];
 
                 // Create redump ISO
                 using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -1189,7 +1180,7 @@ namespace XboxKit
                 if (!quiet) Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
 
                 // Write Layer 0 portion of video partition
-                long l0Length = VIDEO_L0_LENGTH[videoType];
+                long l0Length = XGD.VIDEO_L0_LENGTH[videoType];
                 if (!Utils.WriteBytes(videoFS, redumpFS, 0, l0Length))
                 {
                     Console.WriteLine($"[ERROR] Failed writing layer 0 portion of video partition.");
@@ -1197,7 +1188,7 @@ namespace XboxKit
                 }
 
                 // Write layer 0 padding
-                long xisoOffset = XISO_OFFSET[xisoType];
+                long xisoOffset = XGD.XISO_OFFSET[xisoType];
                 long l0Padding = xisoOffset - l0Length;
                 Utils.WriteZeroes(redumpFS, -1, l0Padding);
 
@@ -1301,7 +1292,7 @@ namespace XboxKit
                         foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                     // Write filler data interleaved with XISO
-                    long xisoOffsetSector = XISO_OFFSET[xisoType] / XDVDFS.SECTOR_SIZE;
+                    long xisoOffsetSector = XGD.XISO_OFFSET[xisoType] / XDVDFS.SECTOR_SIZE;
                     long currentByte = 0;
                     isoFS.Seek(0, SeekOrigin.Begin);
                     while (currentByte < xisoLength)
@@ -1431,7 +1422,7 @@ namespace XboxKit
                 }
 
                 // Write layer 1 padding
-                long l1Length = VIDEO_L1_LENGTH[videoType];
+                long l1Length = XGD.VIDEO_L1_LENGTH[videoType];
                 long l1Padding = (redumpLength - l1Length) - (xisoOffset + xisoLength);
                 Utils.WriteZeroes(redumpFS, -1, l1Padding);
 

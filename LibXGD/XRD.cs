@@ -170,7 +170,6 @@ namespace LibXGD
             byte[] titleID = [0x07, 0x00, 0x4E, 0x4B]; // cert offset + 0x08
             byte[] regions = [0x01, 0x00, 0x00, 0x00]; // cert offset + 0xA0
             byte[] version = [0x06, 0x00, 0x00, 0x00]; // cert offset + 0xB0
-            byte[] ringcode = new byte[8];
             ringcode[0] = titleID[3];
             ringcode[1] = titleID[2];
             ushort idNum = (ushort)((titleID[1] << 8) | titleID[0]);
@@ -198,9 +197,9 @@ namespace LibXGD
         {
             long xisoOffset = redumpIsoType switch
             {
-                1 or 2 or 3 or 4 => Program.XISO_OFFSET[1], // XGD2 wave 0-20
-                5 => Program.XISO_OFFSET[2], // XGD2 / DVD-Video Hybrid
-                6 or 7 => Program.XISO_OFFSET[3], // XGD3
+                1 or 2 or 3 or 4 => XGD.XISO_OFFSET[1], // XGD2 wave 0-20
+                5 => XGD.XISO_OFFSET[2], // XGD2 / DVD-Video Hybrid
+                6 or 7 => XGD.XISO_OFFSET[3], // XGD3
                 _ => -1, // Unknown
             };
             if (xisoOffset == -1)
