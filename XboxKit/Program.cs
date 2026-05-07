@@ -9,10 +9,9 @@ namespace XboxKit
 {
     internal class Program
     {
-
-        // Print help text to console
         static void PrintHelp()
         {
+            // Print help text to console
             Console.WriteLine("XboxKit (c) Deterous 2024-2026");
             Console.WriteLine("");
             Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [files]");
@@ -45,10 +44,6 @@ namespace XboxKit
         static void Main(string[] args)
         {
             #region Initial Setup
-
-            // Initialize XGD.VIDEO_LENGTH array at run-time
-            for (int i = 0; i < XGD.VIDEO_LENGTH.Length; i++)
-                XGD.VIDEO_LENGTH[i] = XGD.VIDEO_L0_LENGTH[i] + XGD.VIDEO_L1_LENGTH[i];
 
             // Initialize program options
             bool help = false;
