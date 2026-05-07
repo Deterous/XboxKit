@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Assembly Properties -->
+    <TargetFrameworks>net20;net35;net40;net452;net462;net472;net48;netcoreapp3.1;net5.0;net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <LangVersion>latest</LangVersion>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>0.7.0</Version>
+    <PackageOutputPath>../nupkg</PackageOutputPath>
+    
+    <!-- Package Properties -->
+    <Authors>Deterous</Authors>
+    <Description>Xbox ISO Toolkit</Description>
+    <Copyright>Copyright (c) Deterous 2024-2026</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Deterous/XboxKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>xbox iso redump</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="./README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SabreTools.Serialization" Version="2.3.0" />
+  </ItemGroup>
+
+</Project>

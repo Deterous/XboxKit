@@ -30,6 +30,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LibXGD\LibXGD.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="SabreTools.Serialization" Version="2.3.0" />
   </ItemGroup>
 

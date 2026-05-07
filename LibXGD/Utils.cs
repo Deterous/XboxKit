@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace XboxKit
+namespace LibXGD
 {
     internal class Utils
     {
