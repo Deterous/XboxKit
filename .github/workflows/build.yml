@@ -21,7 +21,7 @@ jobs:
       run: dotnet restore XboxKit/XboxKit.csproj --source . --source https://api.nuget.org/v3/index.json
 
     - name: Build project
-      run: dotnet publish XboxKit/XboxKit.csproj --configuration Release -f net10.0 -r win-x64 --no-self-contained -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false
+      run: dotnet publish XboxKit/XboxKit.csproj --configuration Release -f net10.0 -r win-x64 --no-self-contained -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols= -p:IncludeNativeLibrariesForSelfExtract=true
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v6
