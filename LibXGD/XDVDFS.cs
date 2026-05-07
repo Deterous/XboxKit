@@ -6,7 +6,7 @@ using System.Text;
 
 namespace LibXGD
 {
-    internal class XDVDFS
+    public class XDVDFS
     {
         public const long SECTOR_SIZE = 2048;
         public const long XISO_HEADER_OFFSET = 0x10000;

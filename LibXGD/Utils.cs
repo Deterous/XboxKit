@@ -3,7 +3,7 @@ using System.IO;
 
 namespace LibXGD
 {
-    internal class Utils
+    public class Utils
     {
         // Read uint16 from filestream
         public static ushort ReadUShort(FileStream fs)

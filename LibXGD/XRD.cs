@@ -4,7 +4,7 @@ using System.Text;
 
 namespace LibXGD
 {
-    internal class XRD
+    public class XRD
     {
         public static SabreTools.Data.Models.XRD.File? GetXRD(FileStream isoFS, SabreTools.Wrappers.XboxISO xboxISO, int redumpIsoType)
         {

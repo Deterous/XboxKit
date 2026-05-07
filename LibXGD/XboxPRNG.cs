@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace LibXGD
 {
-    internal class XboxPRNG
+    public class XboxPRNG
     {
         private static readonly uint[] FIXED_SEEDS = { 0x52F690D5, 0x534D7DDE, 0x5B71A70F, 0x66793320, 0x9B7E5ED5, 0xA465265E, 0xA53F1D11, 0xB154430F };
 
