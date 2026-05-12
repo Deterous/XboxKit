@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -52,6 +53,42 @@ namespace LibXGD
                 sector[j+1] = (byte)(sample >> 8);
             }
             return sector;
+        }
+
+        // Extract seed from XGD1 XISO at given offset, returns null if not found
+        public static uint? ExtractSeed(FileStream isoFS, long xisoOffset, bool quiet)
+        {
+            // Validate XGD1 magic bytes
+            byte[] magic = new byte[XDVDFS.MAGIC2.Length];
+            if (!Utils.WriteBytes(isoFS, magic, xisoOffset + 0x10800))
+                return null;
+            if (!magic.SequenceEqual(XDVDFS.MAGIC2))
+                return null;
+
+            // Determine version offset
+            byte[] nextBuf = new byte[8];
+            if (!Utils.WriteBytes(isoFS, nextBuf, xisoOffset + 0x10820))
+                return null;
+            int versionOffset = 0x10824;
+            if (nextBuf.SequenceEqual(new byte[8]))
+                versionOffset += 0x10;
+
+            // Determine XGD1 version
+            byte[] versionBuf = new byte[2];
+            if (!Utils.WriteBytes(isoFS, versionBuf, xisoOffset + versionOffset))
+                return null;
+            ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
+            if (version == 0)
+                return null;
+            if (!quiet) Console.WriteLine($"[INFO] XGD1 Version: {version}");
+
+            // Read first two sectors and brute force seed
+            byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
+            if (!Utils.WriteBytes(isoFS, firstXISOSector, xisoOffset))
+                return null;
+            if (TryGetSeed(firstXISOSector, out uint seed))
+                return seed;
+            return null;
         }
 
         // Brute force seed for pseudo random number generator

@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using LibXGD;
 
 namespace XboxKit
@@ -39,6 +37,22 @@ namespace XboxKit
             Console.WriteLine("  -x, --xiso      Extracts XDVDFS ISO (game partition)");
             Console.WriteLine("  -y, --yes       Assume yes (ignores warnings, always overwrites)");
             Console.WriteLine("  -z, --zar       Creates ZArchive of game files");
+        }
+
+        // Returns true if OK to proceed, false if user declined
+        static bool ConfirmOverwrite(string path, bool assumeNo)
+        {
+            if (!File.Exists(path))
+                return true;
+            if (assumeNo)
+            {
+                Console.WriteLine($"[ERROR] File already exists: {path}");
+                return false;
+            }
+            Console.WriteLine($"[WARNING] File already exists: {path}");
+            Console.WriteLine($"Would you like to overwrite? (Y/N)");
+            string? response = Console.ReadLine()?.ToUpper();
+            return response == "Y" || response == "YES";
         }
 
         static void Main(string[] args)
@@ -234,7 +248,6 @@ namespace XboxKit
                 return;
             }
 
-            // TODO: Set isoPath to (redump ISO > XISO > video ISO) regardless of order
             string isoPath = filePaths[0];
             if (string.IsNullOrEmpty(isoPath) || !File.Exists(isoPath))
             {
@@ -242,10 +255,20 @@ namespace XboxKit
                 return;
             }
 
-            // TODO: Account for isoPath being .video.iso or .redump.iso or .skeleton.xiso
             string dir = Path.GetDirectoryName(isoPath) ?? "";
             string filename = Path.GetFileNameWithoutExtension(isoPath) ?? "";
             string extension = Path.GetExtension(isoPath);
+
+            // Strip compound extensions
+            string[] compoundExtensions = [".video.iso", ".redump.iso", ".skeleton.xiso"];
+            foreach (var ext in compoundExtensions)
+            {
+                if (isoPath.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                {
+                    filename = Path.GetFileName(isoPath).Substring(0, Path.GetFileName(isoPath).Length - ext.Length);
+                    break;
+                }
+            }
 
             // TODO: Add SabreTools.Serialization
             if (extractZAR || extension == ".zar")
@@ -254,8 +277,8 @@ namespace XboxKit
                 return;
             }
 
-            // TODO: Prefer just .iso if it doesn't already exist?
-            string redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
+            string isoBasePath = Path.Combine(dir, $"{filename}.iso");
+            string redumpPath = (isoBasePath == isoPath || File.Exists(isoBasePath)) ? Path.Combine(dir, $"{filename}.redump.iso") : isoBasePath;
             string xrdPath = Path.Combine(dir, $"{filename}.xrd");
             string outputPath = Path.Combine(dir, $"{filename}");
             string skeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
@@ -267,14 +290,40 @@ namespace XboxKit
             string xisoPath = Path.Combine(dir, $"{filename}.xiso");
             string zarPath = Path.Combine(dir, $"{filename}.zar");
 
-            // Parse additional input files
-            // TODO: Don't rely on the order of the input files, detect instead
-            if (filePaths.Count > 1)
-                videoPath = filePaths[1];
-            if (filePaths.Count > 2)
-                fillerPath = filePaths[2];
-            if (filePaths.Count > 3)
-                updatePath = filePaths[3];
+            // Detect additional input files by size/extension
+            for (int f = 1; f < filePaths.Count; f++)
+            {
+                string fp = filePaths[f];
+                if (!File.Exists(fp))
+                {
+                    Console.WriteLine($"[ERROR] Invalid file path: {fp}");
+                    return;
+                }
+                long fpSize = new FileInfo(fp).Length;
+                if (Array.IndexOf(XGD.VIDEO_LENGTH, fpSize) >= 0 || fp.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase))
+                    videoPath = fp;
+                else if (fp.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) || fpSize == 4)
+                    seedPath = fp;
+                else if (Path.GetFileName(fp).StartsWith("su200760", StringComparison.OrdinalIgnoreCase))
+                    updatePath = fp;
+                else
+                    fillerPath = fp;
+            }
+
+            // Resolve output path conflicts with input file
+            string isoFullPath = Path.GetFullPath(isoPath);
+            if (Path.GetFullPath(redumpPath) == isoFullPath)
+                redumpPath = Path.Combine(dir, $"{filename}.redump.iso");
+            if (Path.GetFullPath(xisoPath) == isoFullPath)
+                xisoPath = Path.Combine(dir, $"{filename}.wiped.xiso");
+            if (Path.GetFullPath(skeletonPath) == isoFullPath)
+                skeletonPath = Path.Combine(dir, $"{filename}.out.skeleton.xiso");
+            if (Path.GetFullPath(videoPath) == isoFullPath)
+                videoPath = Path.Combine(dir, $"{filename}.out.video.iso");
+            if (Path.GetFullPath(fillerPath) == isoFullPath)
+                fillerPath = Path.Combine(dir, $"{filename}.out.filler");
+            if (Path.GetFullPath(seedPath) == isoFullPath)
+                seedPath = Path.Combine(dir, $"{filename}.out.seed");
 
             // Compare input ISO file size to determine file type
             FileInfo isoInfo = new(isoPath);
@@ -319,6 +368,7 @@ namespace XboxKit
                     string? response = Console.ReadLine()?.ToUpper();
                     if (response != "Y" && response != "YES")
                         return;
+                    extractVideo = true;
                 }
 
                 // Check option combination is valid
@@ -337,104 +387,27 @@ namespace XboxKit
                 if (!assumeYes && (extractXISO || extractSkeleton) && extractFiller && !wipeXISO && (assumeNo || !quiet))
                 {
                     Console.WriteLine("[INFO] Cannot write filler data without wiping XISO");
-                    Console.WriteLine("       For now, use -w with -s");
+                    Console.WriteLine("       For now, use -w with -r");
                     if (assumeNo)
                         return;
                 }
 
                 // Check that files don't already exist
-                if (!assumeYes && extractXISO && File.Exists(xisoPath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {xisoPath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {xisoPath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
-                if (!assumeYes && extractVideo && File.Exists(videoPath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {videoPath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {videoPath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
-                if (!assumeYes && extractFiller && File.Exists(fillerPath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {fillerPath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {fillerPath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
-                if (!assumeYes && extractUpdate && File.Exists(updatePath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {updatePath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {updatePath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
-                if (!assumeYes && extractSeed && File.Exists(seedPath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {seedPath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {seedPath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
+                if (!assumeYes && extractXISO && !ConfirmOverwrite(xisoPath, assumeNo))
+                    return;
+                if (!assumeYes && extractVideo && !ConfirmOverwrite(videoPath, assumeNo))
+                    return;
+                if (!assumeYes && extractFiller && !ConfirmOverwrite(fillerPath, assumeNo))
+                    return;
+                if (!assumeYes && extractUpdate && !ConfirmOverwrite(updatePath, assumeNo))
+                    return;
+                if (!assumeYes && extractSeed && !ConfirmOverwrite(seedPath, assumeNo))
+                    return;
 
                 #endregion
 
                 // Determine disc layout type
-                int xgdType = redumpIsoType switch
-                {
-                    0 or 1 => 0, // XGD1
-                    2 or 3 or 4 or 5 => 1, // XGD2
-                    6 => 2, // XGD2 (Hybrid)
-                    7 or 8 => 3, // XGD3
-                    _ => 0,
-                };
+                int xgdType = XGD.GetXGDType(redumpIsoType);
 
                 // Open redump ISO for reading
                 if (!quiet) Console.WriteLine($"[INFO] Reading redump ISO from {isoPath}");
@@ -489,31 +462,10 @@ namespace XboxKit
                 // Extract video partition
                 if (extractVideo)
                 {
-                    // Compare PVD creation datetime against known datetimes to determine wave
-                    int videoType = XGD.GetVideoType(isoFS, redumpIsoType);
-                    if (videoType == -1)
-                    {
-                        Console.WriteLine("[ERROR] Unexpected video partition. Cannot determine wave");
-                        return;
-                    }
-
-                    // Create file for video partition
                     if (!quiet) Console.WriteLine($"[INFO] Writing video partition to {videoPath}");
-                    using FileStream videoFS = new(videoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-                    // Write layer 0 portion of video partition
-                    long l0Length = XGD.VIDEO_L0_LENGTH[videoType];
-                    if (!Utils.WriteBytes(isoFS, videoFS, 0, l0Length))
+                    if (!XGD.ExtractVideo(isoFS, videoPath, redumpIsoType))
                     {
                         Console.WriteLine($"[ERROR] Failed writing video partition.");
-                        return;
-                    }
-
-                    // Write layer 1 portion of video partition
-                    long l1Length = XGD.VIDEO_L1_LENGTH[videoType];
-                    if (!Utils.WriteBytes(isoFS, videoFS, isoSize - l1Length, l1Length))
-                    {
-                        Console.WriteLine("[ERROR] Failed reading video partition.");
                         return;
                     }
                 }
@@ -533,59 +485,18 @@ namespace XboxKit
                 // If XGD1, try brute force the filler data seed
                 if (extractSeed && xgdType == 0)
                 {
-                    // Validate XGD1 magic bytes
-                    byte[] magic = new byte[XDVDFS.MAGIC2.Length];
-                    if (!Utils.WriteBytes(isoFS, magic, XGD.XISO_OFFSET[xgdType] + 0x10800))
+                    uint? seed = XboxPRNG.ExtractSeed(isoFS, XGD.XISO_OFFSET[xgdType], quiet);
+                    if (seed.HasValue)
                     {
-                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS.");
-                        return;
-                    }
-                    if (!magic.SequenceEqual(XDVDFS.MAGIC2))
-                    {
-                        Console.WriteLine("[ERROR] Invalid data in XDVDFS volume descriptor.");
-                        return;
-                    }
-
-                    // Determine version offset
-                    byte[] nextBuf = new byte[8];
-                    if (!Utils.WriteBytes(isoFS, nextBuf, XGD.XISO_OFFSET[xgdType] + 0x10820))
-                    {
-                        Console.WriteLine("[ERROR] Failed reading XGD1 XDVDFS volume descriptor.");
-                        return;
-                    }
-                    int versionOffset = 0x10824;
-                    if (nextBuf.SequenceEqual(new byte[8]))
-                        versionOffset += 0x10;
-
-                    // Determine XGD1 version
-                    byte[] versionBuf = new byte[2];
-                    if (!Utils.WriteBytes(isoFS, versionBuf, XGD.XISO_OFFSET[xgdType] + versionOffset))
-                    {
-                        Console.WriteLine("[ERROR] Failed to read XGD1 version.");
-                        return;
-                    }
-                    ushort version = (ushort)(versionBuf[0] | (versionBuf[1] << 8));
-                    if (version == 0)
-                    {
-                        Console.WriteLine("[ERROR] Invalid XGD1 version (0)");
-                        return;
-                    }
-                    if (!quiet) Console.WriteLine($"[INFO] XGD1 Version: {version}");
-
-                    // Determine XGD1 pseudo random number generator seed, if possible
-                    byte[] firstXISOSector = new byte[XDVDFS.SECTOR_SIZE * 2];
-                    if (!Utils.WriteBytes(isoFS, firstXISOSector, XGD.XISO_OFFSET[xgdType]))
-                    {
-                        Console.WriteLine("[ERROR] Failed reading first XISO sector");
-                        return;
-                    }
-                    if (XboxPRNG.TryGetSeed(firstXISOSector, out uint seed))
-                    {
-                        if (!quiet) Console.WriteLine($"[INFO] Filler data seed: {seed:X8}");
+                        if (!quiet) Console.WriteLine($"[INFO] Filler data seed: {seed.Value:X8}");
                         using FileStream seedFS = new(seedPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                        byte[] seedBytes = BitConverter.GetBytes(seed);
+                        byte[] seedBytes = BitConverter.GetBytes(seed.Value);
                         seedFS.Write(seedBytes, 0, seedBytes.Length);
                         if (!quiet) Console.WriteLine($"[INFO] Writing filler data to {seedPath}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("[ERROR] Failed to extract XGD1 seed.");
                     }
                 }
                 else if (extractSeed)
@@ -596,11 +507,6 @@ namespace XboxKit
                 // Quit early if we're not extracting data from game partition
                 if (!extractXISO && !extractFiller && !extractSkeleton)
                     return;
-
-                // Parse XISO filesystem for all file extents 
-                var validRanges = XDVDFS.GetXISORanges(isoFS, XGD.XISO_OFFSET[xgdType], quiet);
-                if (!quiet)
-                    foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                 // Create file for game partition
                 FileStream xisoFS = null!;
@@ -623,159 +529,11 @@ namespace XboxKit
                     fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 }
 
-                // Create file for ZAR
-                FileStream zarFS = null!;
-                if (extractZAR)
-                {
-                    if (!quiet) Console.WriteLine($"[INFO] Writing ZArchive to {zarPath}");
-                    zarFS = new FileStream(zarPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                }
-
                 // Process XISO
-                isoFS.Seek(XGD.XISO_OFFSET[xgdType], SeekOrigin.Begin);
-                long xisoLength = XGD.XISO_LENGTH[xgdType];
-                long numBytes = 0;
-                while (numBytes < xisoLength)
+                if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[xgdType], XGD.XISO_LENGTH[xgdType], xisoFS, fillerFS, wipeXISO, trimXISO, extractSkeleton, quiet))
                 {
-                    long currentByte = XGD.XISO_OFFSET[xgdType] + numBytes;
-                    long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
-                    long bytesUntilEndOfExtent = 0;
-                    long bytesToWipe = 0;
-                    bool skipEnd = false;
-
-                    // Determine whether current sector is after last file extent
-                    if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
-                    {
-                        // Remainder of XISO is filler
-                        long bytesUntilEnd = xisoLength - numBytes;
-                        if (extractFiller || wipeXISO)
-                            bytesToWipe = bytesUntilEnd;
-                        
-                        // Trim XISO
-                        if (trimXISO)
-                        {
-                            skipEnd = true;
-                            if (!quiet) Console.WriteLine($"[INFO] Trimming XISO");
-                        }
-                        if (trimXISO && !extractFiller)
-                        {
-                            // Nothing else to do, finish processing XISO early
-                            numBytes += bytesUntilEnd;
-                            break;
-                        }
-                    }
-                    else if (extractFiller || wipeXISO || trimXISO)
-                    {
-                        // Determine whether current sector is within a file extent or filler data
-                        for (int i = 0; i < validRanges.All.Count; i++)
-                        {
-                            if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
-                            {
-                                // Number of bytes remaining in current file extent
-                                bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
-                                break;
-                            }
-                            else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
-                            {
-                                // Wipe until next file extent
-                                bytesToWipe = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Write filler data to file
-                    if (extractFiller)
-                    {
-                        if (bytesToWipe > 0)
-                        {
-                            if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
-                            {
-                                Console.WriteLine($"[ERROR] Failed writing filler data.");
-                                return;
-                            }
-                            if (!(extractXISO || extractSkeleton))
-                                numBytes += bytesToWipe;
-                        }
-                        else if (!(extractXISO || extractSkeleton))
-                        {
-                            // Skip file extent
-                            long bytesToEnd;
-                            if (bytesUntilEndOfExtent > 0)
-                                bytesToEnd = bytesUntilEndOfExtent;
-                            else
-                                bytesToEnd = xisoLength - numBytes;
-                            isoFS.Seek(bytesToEnd, SeekOrigin.Current);
-                            numBytes += bytesToEnd;
-                        }
-                    }
-
-                    // Write to XISO file
-                    if (extractXISO || extractSkeleton)
-                    {
-                        if (wipeXISO && bytesToWipe > 0 && !skipEnd)
-                        {
-                            // Validity check
-                            if (bytesToWipe % XDVDFS.SECTOR_SIZE != 0)
-                            {
-                                Console.WriteLine("[ERROR] Unexpected Error 2, please report this.");
-                                return;
-                            }
-                            // Write zeroes to XISO (unless trimming end)
-                            Utils.WriteZeroes(xisoFS, -1, bytesToWipe);
-                            numBytes += bytesToWipe;
-
-                            // Move ahead in ISO file if filler was not read
-                            if (!extractFiller)
-                                isoFS.Seek(bytesToWipe, SeekOrigin.Current);
-                        }
-                        else if (!skipEnd)
-                        {
-                            // Determine number of bytes to write
-                            long bytesToRead;
-                            if (bytesToWipe > 0)
-                                bytesToRead = bytesToWipe;
-                            else if (bytesUntilEndOfExtent > 0)
-                                bytesToRead = bytesUntilEndOfExtent;
-                            else
-                                bytesToRead = xisoLength - numBytes;
-                                
-                            // Check if current sector is a filesystem sector
-                            bool is_bone = false;
-                            for (int i = 0; i < validRanges.Sys.Count; i++)
-                            {
-                                if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
-                                {
-                                    // Retain in skeleton
-                                    is_bone = true;
-                                    bytesToRead = (validRanges.Sys[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                            }
-
-                            if (extractXISO || is_bone)
-                            {
-                                // Write data to XISO
-                                if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
-                                {
-                                    Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                    return;
-                                }
-                            }
-                            else if (extractSkeleton)
-                            {
-                                // Write zeroes to XISO Skeleton
-                                Utils.WriteZeroes(xisoFS, -1, bytesToRead);
-                            }
-
-                            numBytes += bytesToRead;
-                        }
-                        else if (bytesToWipe > 0)
-                        {
-                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
-                            numBytes += bytesToWipe;
-                        }
-                    }
+                    Console.WriteLine("[ERROR] Failed processing XISO.");
+                    return;
                 }
 
                 // Close files
@@ -783,15 +541,6 @@ namespace XboxKit
                     xisoFS.Dispose();
                 if (fillerFS != null)
                     fillerFS.Dispose();
-                if (zarFS != null)
-                    zarFS.Dispose();
-
-                // Validity check
-                if (numBytes != xisoLength)
-                {
-                    Console.WriteLine("[ERROR] Unexpected Error 3, please report this");
-                    return;
-                }
 
                 #endregion
             }
@@ -823,7 +572,7 @@ namespace XboxKit
                     }
                     if (extractFiller)
                     {
-                        Console.WriteLine("[INFO] Cannot extract filler (-s), input file is video ISO.");
+                        Console.WriteLine("[INFO] Cannot extract filler (-r), input file is video ISO.");
                         invalidOptions = true;
                     }
                     if (wipeXISO)
@@ -841,22 +590,8 @@ namespace XboxKit
                 }
 
                 // Check that update file doesn't already exist
-                if (!assumeYes && extractUpdate && File.Exists(updatePath))
-                {
-                    if (assumeNo)
-                    {
-                        Console.WriteLine($"[ERROR] File already exists: {updatePath}");
-                        return;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WARNING] File already exists: {updatePath}");
-                        Console.WriteLine($"Would you like to overwrite? (Y/N)");
-                        string? response = Console.ReadLine()?.ToUpper();
-                        if (response != "Y" && response != "YES")
-                            return;
-                    }
-                }
+                if (!assumeYes && extractUpdate && !ConfirmOverwrite(updatePath, assumeNo))
+                    return;
 
                 // Check that video partition is from XGD3 disc
                 if (videoIsoType != 16 && videoIsoType != 17 && videoIsoType != 18)
@@ -931,167 +666,27 @@ namespace XboxKit
                     // Create file for game partition
                     FileStream xisoFS = null!;
                     if (writeXISO)
+                    {
+                        if (wipeXISO && !quiet)
+                            Console.WriteLine($"[INFO] Writing wiped XISO to {xisoPath}");
+                        else if (trimXISO && !quiet)
+                            Console.WriteLine($"[INFO] Writing XISO to {xisoPath}");
                         xisoFS = new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    }
 
                     // Create file for filler data
                     FileStream fillerFS = null!;
                     if (extractFiller)
-                        fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-                    // Parse XISO filesystem for all file extents 
-                    var validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
-                    if (!quiet)
-                        foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
-
-                    if (extractFiller && !quiet)
-                        Console.WriteLine($"[INFO] Extracting filler data to {fillerPath}");
-                    if (wipeXISO && !quiet)
-                        Console.WriteLine($"[INFO] Writing wiped XISO to {xisoPath}");
-                    if (!wipeXISO && trimXISO && !quiet)
-                        Console.WriteLine($"[INFO] Writing XISO to {xisoPath}");
-
-                    isoFS.Seek(0, SeekOrigin.Begin);
-                    long currentByte = 0;
-                    while (currentByte < isoSize)
                     {
-                        long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
-                        long bytesUntilEndOfExtent = 0;
-                        long bytesToWipe = 0;
-                        bool skipEnd = false;
+                        if (!quiet) Console.WriteLine($"[INFO] Extracting filler data to {fillerPath}");
+                        fillerFS = new FileStream(fillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    }
 
-                        // Determine whether current sector is after last file extent
-                        if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
-                        {
-                            // Remainder of XISO is filler
-                            long bytesUntilEnd = isoSize - currentByte;
-                            if (extractFiller || wipeXISO)
-                                bytesToWipe = bytesUntilEnd;
-                            
-                            // Trim XISO
-                            if (trimXISO)
-                            {
-                                skipEnd = true;
-                                if (!quiet) Console.WriteLine($"[INFO] Trimming XISO");
-                            }
-                            if (trimXISO && !extractFiller)
-                            {
-                                // Nothing else to do, finish processing XISO early
-                                currentByte += bytesUntilEnd;
-                                break;
-                            }
-                        }
-                        else if (extractFiller || writeXISO)
-                        {
-                            // Determine whether current sector is within a file extent or filler data
-                            for (int i = 0; i < validRanges.All.Count; i++)
-                            {
-                                if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
-                                {
-                                    // Number of bytes remaining in current file extent
-                                    bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                                else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
-                                {
-                                    // Wipe until next file extent
-                                    bytesToWipe = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Write filler data to file
-                        if (extractFiller)
-                        {
-                            if (bytesToWipe > 0)
-                            {
-                                if (!Utils.WriteBytes(isoFS, fillerFS, -1, bytesToWipe))
-                                {
-                                    Console.WriteLine($"[ERROR] Failed writing filler data.");
-                                    return;
-                                }
-                                if (!writeXISO)
-                                    currentByte += bytesToWipe;
-                            }
-                            else if (!writeXISO)
-                            {
-                                // Skip file extent
-                                long bytesToEnd;
-                                if (bytesUntilEndOfExtent > 0)
-                                    bytesToEnd = bytesUntilEndOfExtent;
-                                else
-                                    bytesToEnd = isoSize - currentByte;
-                                isoFS.Seek(bytesToEnd, SeekOrigin.Current);
-                                currentByte += bytesToEnd;
-                            }
-                        }
-
-                        // Write to XISO file
-                        if (writeXISO)
-                        {
-                            if (wipeXISO && bytesToWipe > 0 && !skipEnd)
-                            {
-                                // Validity check
-                                if (bytesToWipe % XDVDFS.SECTOR_SIZE != 0)
-                                {
-                                    Console.WriteLine("[ERROR] Unexpected Error 4, please report this.");
-                                    return;
-                                }
-                                // Write zeroes to XISO (unless trimming end)
-                                Utils.WriteZeroes(xisoFS, -1, bytesToWipe);
-                                currentByte += bytesToWipe;
-
-                                // Move ahead in ISO file if filler was not read
-                                if (!extractFiller)
-                                    isoFS.Seek(bytesToWipe, SeekOrigin.Current);
-                            }
-                            else if (!skipEnd)
-                            {
-                                // Determine number of bytes to write
-                                long bytesToRead;
-                                if (bytesToWipe > 0)
-                                    bytesToRead = bytesToWipe;
-                                else if (bytesUntilEndOfExtent > 0)
-                                    bytesToRead = bytesUntilEndOfExtent;
-                                else
-                                    bytesToRead = isoSize - currentByte;
-                                
-                                // Check if current sector is a filesystem sector
-                                bool is_bone = false;
-                                for (int i = 0; i < validRanges.Sys.Count; i++)
-                                {
-                                    if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
-                                    {
-                                        // Retain in skeleton
-                                        is_bone = true;
-                                        bytesToRead = (validRanges.Sys[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
-                                        break;
-                                    }
-                                }
-
-                                if (extractSkeleton && !is_bone)
-                                {
-                                    // Write zeroes to XISO Skeleton
-                                    Utils.WriteZeroes(xisoFS, -1, bytesToRead);
-                                }
-                                else
-                                {
-                                    // Write data to XISO
-                                    if (!Utils.WriteBytes(isoFS, xisoFS, -1, bytesToRead))
-                                    {
-                                        Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                        return;
-                                    }
-                                }
-                                currentByte += bytesToRead;
-                            }
-                            else if (bytesToWipe > 0)
-                            {
-                                // Trim end of XISO
-                                isoFS.Seek(bytesToWipe, SeekOrigin.Current);
-                                currentByte += bytesToWipe;
-                            }
-                        }
+                    // Process XISO
+                    if (!XDVDFS.ProcessXISO(isoFS, 0, isoSize, xisoFS, fillerFS, wipeXISO, trimXISO, extractSkeleton, quiet))
+                    {
+                        Console.WriteLine("[ERROR] Failed processing XISO.");
+                        return;
                     }
 
                     // Close files
@@ -1099,13 +694,6 @@ namespace XboxKit
                         xisoFS.Dispose();
                     if (fillerFS != null)
                         fillerFS.Dispose();
-
-                    // Validity check
-                    if (currentByte != isoSize)
-                    {
-                        Console.WriteLine("[ERROR] Unexpected Error 5, please report this");
-                        return;
-                    }
 
                     return;
                 }
@@ -1140,31 +728,8 @@ namespace XboxKit
                     return;
                 }
 
-                // Determine length of output redump ISO
-                long redumpLength = videoType switch
-                {
-                    0 => XGD.REDUMP_ISO_LENGTH[0], // XGD1-Beta (XB00104M)
-                    1 => XGD.REDUMP_ISO_LENGTH[1], // XGD1
-                    2 => XGD.REDUMP_ISO_LENGTH[2], // XGD2w0
-                    3 => XGD.REDUMP_ISO_LENGTH[3], // XGD2w1
-                    4 => XGD.REDUMP_ISO_LENGTH[4], // XGD2w2
-                    5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 => XGD.REDUMP_ISO_LENGTH[4], // XGD2w3+
-                    15 => XGD.REDUMP_ISO_LENGTH[5], // XGD2 (Hybrid)
-                    16 or 17 => XGD.REDUMP_ISO_LENGTH[6], // XGD3-Beta, XGD3v0
-                    18 => XGD.REDUMP_ISO_LENGTH[7], // XGD3
-                    _ => 0,
-                };
-
                 // Determine intended xisoType based on video ISO length
-                xisoType = videoType switch
-                {
-                    0 => 0, // XGD1
-                    1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 => 1, // XGD2
-                    14 => 2, // XGD2 (Hybrid)
-                    15 or 16 or 17 => 3, // XGD3
-                    _ => 0,
-                };
-                long xisoLength = XGD.XISO_LENGTH[xisoType];
+                int rebuildXisoType = XGD.GetXISOTypeFromVideo(videoType);
 
                 // Create redump ISO
                 using FileStream redumpFS = new(redumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -1174,291 +739,94 @@ namespace XboxKit
                 using FileStream videoFS = new(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (!quiet) Console.WriteLine($"[INFO] Reading video partition from {videoPath}");
 
-                // Write Layer 0 portion of video partition
-                long l0Length = XGD.VIDEO_L0_LENGTH[videoType];
-                if (!Utils.WriteBytes(videoFS, redumpFS, 0, l0Length))
+                // Open filler data for reading if available
+                FileStream fillerFS = null!;
+                if (File.Exists(fillerPath))
                 {
-                    Console.WriteLine($"[ERROR] Failed writing layer 0 portion of video partition.");
-                    return;
+                    fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    if (!quiet) Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
                 }
 
-                // Write layer 0 padding
-                long xisoOffset = XGD.XISO_OFFSET[xisoType];
-                long l0Padding = xisoOffset - l0Length;
-                Utils.WriteZeroes(redumpFS, -1, l0Padding);
-
-                // Write game partition
-                isoFS.Seek(0, SeekOrigin.Begin);
-                if (!File.Exists(fillerPath) && !File.Exists(seedPath))
+                // Get XGD1 initial seed, if path exists
+                XboxPRNG prng = null!;
+                if (fillerFS == null && rebuildXisoType == 0 && File.Exists(seedPath))
                 {
-                    // No filler data or seed available, write entire XISO
-                    // TODO: Warn or error if filler is zeroed in XISO
-                    if (!Utils.WriteBytes(isoFS, redumpFS, -1, isoSize))
+                    FileInfo seedInfo = new(seedPath);
+                    if (seedInfo.Length == 4)
                     {
-                        Console.WriteLine($"[ERROR] Failed writing game partition: {isoSize}");
+                        using FileStream seedFS = new(seedPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        if (!quiet) Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
+                        prng = new(Utils.ReadUInt(seedFS));
+                    }
+                }
+
+                // Check fillerPath for initial seed
+                if (fillerFS == null && rebuildXisoType == 0 && prng == null && File.Exists(fillerPath))
+                {
+                    FileInfo seedInfo = new(fillerPath);
+                    if (seedInfo.Length == 4)
+                    {
+                        using FileStream seedFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        if (!quiet) Console.WriteLine($"[INFO] Reading initial seed from {fillerPath}");
+                        prng = new(Utils.ReadUInt(seedFS));
+                    }
+                }
+
+                // Open sectors.txt if an initial seed is being used
+                int[] securitySectors = new int[16];
+                if (fillerFS == null && rebuildXisoType == 0 && prng != null)
+                {
+                    long redumpLength = XGD.GetRedumpLength(videoType);
+                    if (!File.Exists(sectorsTXTPath))
+                    {
+                        Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
                         return;
                     }
-                }
-                else
-                {
-                    // Open filler data for reading if no seed found
-                    FileStream fillerFS = null!;
-                    if (File.Exists(fillerPath))
+                    if (!quiet) Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}");
+                    using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using StreamReader sectorsSR = new StreamReader(sectorsFS);
+                    string? line;
+                    int i = 0;
+                    while ((line = sectorsSR.ReadLine()) != null)
                     {
-                        fillerFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        if (!quiet) Console.WriteLine($"[INFO] Reading random filler data from {fillerPath}");
-                    }
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
 
-                    // Get XGD1 initial seed, if path exists
-                    XboxPRNG prng = null!;
-                    if (fillerFS == null && xisoType == 0 && File.Exists(seedPath))
-                    {
-                        FileInfo seedInfo = new(seedPath);
-                        if (seedInfo.Length == 4)
+                        string[] range = line.Split('-');
+                        if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
                         {
-                            using FileStream seedFS = new(seedPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                            if (!quiet) Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            prng = new(Utils.ReadUInt(seedFS));
+                            if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                            {
+                                Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
+                                return;
+                            }
+                            securitySectors[i] = startSector;
+                            i += 1;
                         }
-                    }
-
-                    // Check fillerPath for initial seed
-                    if (fillerFS == null && xisoType == 0 && prng == null && File.Exists(fillerPath))
-                    {
-                        FileInfo seedInfo = new(fillerPath);
-                        if (seedInfo.Length == 4)
+                        else
                         {
-                            using FileStream seedFS = new(fillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                            if (!quiet) Console.WriteLine($"[INFO] Reading initial seed from {seedPath}");
-                            prng = new(Utils.ReadUInt(seedFS));
-                        }
-                    }
-
-                    // Open sectors.txt if an initial seed is being used
-                    int[] securitySectors = new int[16];
-                    if (fillerFS == null && xisoType == 0 && prng != null)
-                    {
-                        if (!File.Exists(sectorsTXTPath))
-                        {
-                            Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                            Console.WriteLine("[ERROR] Invalid format of sectors.txt");
                             return;
                         }
-                        if (!quiet) Console.WriteLine($"[INFO] Reading security sector ranges {sectorsTXTPath}");
-                        using FileStream sectorsFS = new(sectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        using StreamReader sectorsSR = new StreamReader(sectorsFS);
-                        string? line;
-                        int i = 0;
-                        while ((line = sectorsSR.ReadLine()) != null)
-                        {
-                            if (string.IsNullOrWhiteSpace(line))
-                                continue;
-
-                            string[] range = line.Split('-');
-                            if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
-                            {
-                                if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
-                                {
-                                    Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
-                                    return;
-                                }
-                                securitySectors[i] = startSector;
-                                i += 1;
-                            }
-                            else
-                            {
-                                Console.WriteLine("[ERROR] Invalid format of sectors.txt");
-                                return;
-                            }
-                        }
-                    }
-
-                    bool writeFiller = fillerFS != null || prng != null;
-                    if (!writeFiller && !quiet)
-                    {
-                        if (xisoType == 0)
-                            Console.WriteLine("[INFO] No filler data or seed provided, using XISO only");
-                        else
-                            Console.WriteLine("[INFO] No filler data provided, using XISO only");
-                    }
-
-                    // Parse XISO filesystem for all file extents
-                    var validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
-                    if (!quiet)
-                        foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
-
-                    // Write filler data interleaved with XISO
-                    long xisoOffsetSector = XGD.XISO_OFFSET[xisoType] / XDVDFS.SECTOR_SIZE;
-                    long currentByte = 0;
-                    isoFS.Seek(0, SeekOrigin.Begin);
-                    while (currentByte < xisoLength)
-                    {
-                        long currentSector = (currentByte + XDVDFS.SECTOR_SIZE - 1) / XDVDFS.SECTOR_SIZE;
-                        long xisoBytes = 0;
-                        long fillerBytes = 0;
-
-                        // Write zeroes into security sector range (only needed for rebuilding from initial seed)
-                        if (prng != null)
-                        {
-                            bool wipedSectors = false;
-                            for (int i = 0; i < securitySectors.Length; i++)
-                            {
-                                if (currentSector + xisoOffsetSector == securitySectors[i])
-                                {
-                                    if (!quiet) Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
-                                    long securitySectorBytes = 4096 * XDVDFS.SECTOR_SIZE;
-                                    Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
-                                    prng.SimulateSectors(securitySectorBytes / XDVDFS.SECTOR_SIZE);
-                                    currentByte += securitySectorBytes;
-                                    isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
-                                    wipedSectors = true;
-                                    break;
-                                }
-                            }
-                            if (wipedSectors)
-                                continue;
-                        }
-
-                        // Determine whether current sector is after last file extent
-                        if (writeFiller && validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
-                        {
-                            // Remainder of XISO is filler
-                            fillerBytes = xisoLength - currentByte;
-                        }
-                        else if (writeFiller)
-                        {
-                            // Determine whether current sector is within a file extent or filler data
-                            for (int i = 0; i < validRanges.All.Count; i++)
-                            {
-                                if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
-                                {
-                                    // Number of bytes remaining in current file extent
-                                    xisoBytes = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                                else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
-                                {
-                                    // Wipe until next file extent
-                                    fillerBytes = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // If rebuilding from initial seed, trim bytes to read/write until next security sector
-                        if (prng != null)
-                        {
-                            for (int i = 0; i < securitySectors.Length; i++)
-                            {
-                                if (currentSector + xisoOffsetSector < securitySectors[i] + 4095)
-                                {
-                                    if (currentSector + xisoOffsetSector + fillerBytes / XDVDFS.SECTOR_SIZE >= securitySectors[i])
-                                    {
-                                        fillerBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * XDVDFS.SECTOR_SIZE;
-                                        break;
-                                    }
-                                    else if (currentSector + xisoOffsetSector + xisoBytes / XDVDFS.SECTOR_SIZE >= securitySectors[i])
-                                    {
-                                        xisoBytes = (securitySectors[i] - currentSector - xisoOffsetSector) * XDVDFS.SECTOR_SIZE;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (fillerBytes > 0)
-                        {
-                            // Validity check
-                            if (fillerBytes % XDVDFS.SECTOR_SIZE != 0)
-                            {
-                                Console.WriteLine("[ERROR] Unexpected Error 6, please report this.");
-                                return;
-                            }
-                            // Write filler data
-                            if (prng != null)
-                            {
-                                // Generate filler data
-                                prng.WriteSectors(redumpFS, fillerBytes / XDVDFS.SECTOR_SIZE);
-                            }
-                            else if (fillerFS != null && !Utils.WriteBytes(fillerFS, redumpFS, -1, fillerBytes))
-                            {
-                                Console.WriteLine($"[ERROR] Failed writing random filler data.");
-                                return;
-                            }
-                            currentByte += fillerBytes;
-                            isoFS.Seek(fillerBytes, SeekOrigin.Current);
-                        }
-                        else
-                        {
-                            // Write data to XISO
-                            long bytesToWrite;
-                            if (xisoBytes > 0)
-                                bytesToWrite = xisoBytes;
-                            else
-                                bytesToWrite = xisoLength - currentByte;
-                            if (!Utils.WriteBytes(isoFS, redumpFS, -1, bytesToWrite))
-                            {
-                                Console.WriteLine($"[ERROR] Failed writing game partition (XISO).");
-                                return;
-                            }
-                            currentByte += bytesToWrite;
-                        }
-                    }
-
-                    // Close files
-                    if (fillerFS != null)
-                        fillerFS.Dispose();
-
-                    // Validity check
-                    if (currentByte != xisoLength)
-                    {
-                        Console.WriteLine("[ERROR] Unexpected Error 7, please report this.");
-                        return;
                     }
                 }
 
-                // Write layer 1 padding
-                long l1Length = XGD.VIDEO_L1_LENGTH[videoType];
-                long l1Padding = (redumpLength - l1Length) - (xisoOffset + xisoLength);
-                Utils.WriteZeroes(redumpFS, -1, l1Padding);
-
-                // If writing system update file, stop video partition early
-                long suSize = 0;
-                if (File.Exists(updatePath))
+                // Rebuild redump ISO
+                if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, fillerFS, prng, securitySectors, videoType, quiet))
                 {
-                    if (!quiet) Console.WriteLine($"[INFO] Rebuilding with update file: {updatePath}");
-                    FileInfo suInfo = new(updatePath);
-                    suSize = suInfo.Length;
-                    l1Length -= suSize + XDVDFS.SECTOR_SIZE;
-                }
-
-                // Write layer 1 portion of video partition
-                if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Length))
-                {
-                    Console.WriteLine($"[ERROR] Failed writing layer 1 portion of video partition.");
+                    Console.WriteLine("[ERROR] Failed rebuilding redump ISO.");
                     return;
                 }
 
-                // Write system update file
-                if (File.Exists(updatePath))
+                // Close filler file
+                if (fillerFS != null)
+                    fillerFS.Dispose();
+
+                // Insert system update file if available
+                if (!XGD.RebuildWithUpdate(redumpFS, videoFS, updatePath, videoType, quiet))
                 {
-                    // Open system update file for reading
-                    using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    if (!quiet) Console.WriteLine($"[INFO] Reading system update from {updatePath}");
-
-                    // Write system update file to redump ISO
-                    if (!Utils.WriteBytes(updateFS, redumpFS, 0, suSize))
-                    {
-                        Console.WriteLine($"[ERROR] Failed writing system update file.");
-                        return;
-                    }
-
-                    // Write final video partition sector
-                    videoFS.Seek(-XDVDFS.SECTOR_SIZE, SeekOrigin.End);
-                    if (!Utils.WriteBytes(videoFS, redumpFS, -1, XDVDFS.SECTOR_SIZE))
-                    {
-                        Console.WriteLine("[ERROR] Failed writing last sector of video partition.");
-                        return;
-                    }
+                    Console.WriteLine("[ERROR] Failed writing system update file.");
+                    return;
                 }
 
                 #endregion

@@ -132,6 +132,137 @@ namespace LibXGD
             return (allRanges, sysRanges, fileRanges);
         }
 
+        // Process XISO: extract filler, wipe, trim, and/or create skeleton
+        public static bool ProcessXISO(FileStream isoFS, long isoOffset, long xisoLength, FileStream? xisoFS, FileStream? fillerFS, bool wipe, bool trim, bool skeleton, bool quiet)
+        {
+            // Parse XISO filesystem for all file extents
+            var validRanges = GetXISORanges(isoFS, isoOffset, quiet);
+            if (!quiet)
+                foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
+
+            bool writeXISO = xisoFS != null;
+            bool extractFiller = fillerFS != null;
+
+            isoFS.Seek(isoOffset, SeekOrigin.Begin);
+            long numBytes = 0;
+            while (numBytes < xisoLength)
+            {
+                long currentByte = isoOffset + numBytes;
+                long currentSector = (currentByte + SECTOR_SIZE - 1) / SECTOR_SIZE;
+                long bytesUntilEndOfExtent = 0;
+                long bytesToWipe = 0;
+                bool skipEnd = false;
+
+                // Determine whether current sector is after last file extent
+                if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
+                {
+                    long bytesUntilEnd = xisoLength - numBytes;
+                    if (extractFiller || wipe)
+                        bytesToWipe = bytesUntilEnd;
+
+                    if (trim)
+                    {
+                        skipEnd = true;
+                        if (!quiet) Console.WriteLine($"[INFO] Trimming XISO");
+                    }
+                    if (trim && !extractFiller)
+                    {
+                        numBytes += bytesUntilEnd;
+                        break;
+                    }
+                }
+                else if (extractFiller || writeXISO)
+                {
+                    for (int i = 0; i < validRanges.All.Count; i++)
+                    {
+                        if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
+                        {
+                            bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * SECTOR_SIZE - currentByte;
+                            break;
+                        }
+                        else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
+                        {
+                            bytesToWipe = validRanges.All[i].Start * SECTOR_SIZE - currentByte;
+                            break;
+                        }
+                    }
+                }
+
+                // Write filler data to file
+                if (extractFiller)
+                {
+                    if (bytesToWipe > 0)
+                    {
+                        if (!Utils.WriteBytes(isoFS, fillerFS!, -1, bytesToWipe))
+                            return false;
+                        if (!writeXISO)
+                            numBytes += bytesToWipe;
+                    }
+                    else if (!writeXISO)
+                    {
+                        long bytesToEnd = bytesUntilEndOfExtent > 0 ? bytesUntilEndOfExtent : xisoLength - numBytes;
+                        isoFS.Seek(bytesToEnd, SeekOrigin.Current);
+                        numBytes += bytesToEnd;
+                    }
+                }
+
+                // Write to XISO file
+                if (writeXISO)
+                {
+                    if (wipe && bytesToWipe > 0 && !skipEnd)
+                    {
+                        if (bytesToWipe % SECTOR_SIZE != 0)
+                            return false;
+                        Utils.WriteZeroes(xisoFS!, -1, bytesToWipe);
+                        numBytes += bytesToWipe;
+                        if (!extractFiller)
+                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
+                    }
+                    else if (!skipEnd)
+                    {
+                        long bytesToRead;
+                        if (bytesToWipe > 0)
+                            bytesToRead = bytesToWipe;
+                        else if (bytesUntilEndOfExtent > 0)
+                            bytesToRead = bytesUntilEndOfExtent;
+                        else
+                            bytesToRead = xisoLength - numBytes;
+
+                        // Check if current sector is a filesystem sector
+                        bool is_bone = false;
+                        for (int i = 0; i < validRanges.Sys.Count; i++)
+                        {
+                            if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
+                            {
+                                is_bone = true;
+                                bytesToRead = (validRanges.Sys[i].End + 1) * SECTOR_SIZE - currentByte;
+                                break;
+                            }
+                        }
+
+                        if (skeleton && !is_bone)
+                        {
+                            Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
+                            isoFS.Seek(bytesToRead, SeekOrigin.Current);
+                        }
+                        else
+                        {
+                            if (!Utils.WriteBytes(isoFS, xisoFS!, -1, bytesToRead))
+                                return false;
+                        }
+                        numBytes += bytesToRead;
+                    }
+                    else if (bytesToWipe > 0)
+                    {
+                        isoFS.Seek(bytesToWipe, SeekOrigin.Current);
+                        numBytes += bytesToWipe;
+                    }
+                }
+            }
+
+            return numBytes == xisoLength;
+        }
+
         // Heuristic to determine XGD3 system update file offset in video partition 
         // This algorithm is easier than parsing UDF
         public static long SUOffset(FileStream videoFS)
