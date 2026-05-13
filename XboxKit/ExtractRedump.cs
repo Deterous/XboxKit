@@ -1,0 +1,212 @@
+using System;
+using System.IO;
+using LibXGD;
+
+namespace XboxKit
+{
+    internal static class ExtractRedump
+    {
+        public static void Run(Options opts)
+        {
+            // Must be doing something
+            if (!opts.OutputFiles && !opts.ExtractXRD && !opts.ExtractSkeleton && !opts.ExtractFiller && !opts.ExtractSeed && !opts.ExtractUpdate && !opts.ExtractVideo && !opts.ExtractXISO && !opts.ExtractZAR)
+            {
+                Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
+                Console.WriteLine("");
+                Program.PrintHelp();
+                return;
+            }
+
+            // Can't create both XISO and XISO Skeleton
+            if (opts.ExtractXISO && opts.ExtractSkeleton)
+            {
+                Console.WriteLine("[ERROR] Cannot create both XISO (-x) and XISO Skeleton (-p)");
+                Console.WriteLine("        Skeleton zeroes game files, typically used with -o or -z");
+                Console.WriteLine("");
+                return;
+            }
+
+            // Must extract video if also extracting SU
+            if (!opts.AssumeYes && opts.ExtractUpdate && !opts.ExtractVideo)
+            {
+                Console.WriteLine("[ERROR] Extracting update (-u) implies extract video (-v)");
+                if (opts.AssumeNo)
+                    return;
+                Console.WriteLine($"Would you like to also extract Video? (Y/N)");
+                string? response = Console.ReadLine()?.ToUpper();
+                if (response != "Y" && response != "YES")
+                    return;
+                opts.ExtractVideo = true;
+            }
+
+            // Check option combination is valid
+            if (!opts.AssumeYes && opts.WipeXISO && !(opts.ExtractXISO || opts.ExtractSkeleton) && (opts.AssumeNo || !opts.Quiet))
+            {
+                Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x) or skeleton (-p)");
+                if (opts.AssumeNo)
+                    return;
+            }
+            if (!opts.AssumeYes && opts.TrimXISO && !(opts.ExtractXISO || opts.ExtractSkeleton) && (opts.AssumeNo || !opts.Quiet))
+            {
+                Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x) or skeleton (-p)");
+                if (opts.AssumeNo)
+                    return;
+            }
+            if (!opts.AssumeYes && (opts.ExtractXISO || opts.ExtractSkeleton) && opts.ExtractFiller && !opts.WipeXISO && (opts.AssumeNo || !opts.Quiet))
+            {
+                Console.WriteLine("[INFO] Cannot write filler data without wiping XISO");
+                Console.WriteLine("       For now, use -w with -r");
+                if (opts.AssumeNo)
+                    return;
+            }
+
+            // Check that files don't already exist
+            if (!opts.AssumeYes && opts.ExtractXISO && !Program.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
+                return;
+            if (!opts.AssumeYes && opts.ExtractVideo && !Program.ConfirmOverwrite(opts.VideoPath, opts.AssumeNo))
+                return;
+            if (!opts.AssumeYes && opts.ExtractFiller && !Program.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
+                return;
+            if (!opts.AssumeYes && opts.ExtractUpdate && !Program.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
+                return;
+            if (!opts.AssumeYes && opts.ExtractSeed && !Program.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
+                return;
+
+            // Determine disc layout type
+            int xgdType = XGD.GetXGDType(opts.RedumpIsoType);
+
+            // Open redump ISO for reading
+            if (!opts.Quiet) Console.WriteLine($"[INFO] Reading redump ISO from {opts.IsoPath}");
+            using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+            if (opts.OutputFiles || opts.ExtractXRD)
+            {
+                var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
+                if (wrapper is null)
+                {
+                    Console.WriteLine($"[ERROR] Invalid ISO");
+                    return;
+                }
+
+                // Extract game files
+                if (opts.OutputFiles)
+                {
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
+                    isoFS.Seek(XGD.XISO_OFFSET[xgdType], SeekOrigin.Begin);
+
+                    if (!Directory.Exists(opts.OutputPath))
+                        Directory.CreateDirectory(opts.OutputPath);
+
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Outputting game files to {opts.OutputPath}");
+                    if (!wrapper.ExtractGamePartition(opts.OutputPath, !opts.Quiet))
+                    {
+                        Console.WriteLine($"[ERROR] Failed to extract files from {opts.IsoPath}");
+                        return;
+                    }
+                }
+
+                // Extract rebuild data
+                if (opts.ExtractXRD)
+                {
+                    // Create file for XRD
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Writing XRD metadata file to {opts.XrdPath}");
+                    var xrd = XRD.GetXRD(isoFS, wrapper, opts.RedumpIsoType);
+                    if (xrd is null)
+                    {
+                        Console.WriteLine($"[ERROR] Failed to create XRD");
+                        return;
+                    }
+                    var writer = new SabreTools.Serialization.Writers.XRD();
+                    if(!writer.SerializeFile(xrd, opts.XrdPath))
+                    {
+                        Console.WriteLine($"[ERROR] Failed to write XRD");
+                        return;
+                    }
+                }
+            }
+
+            // Extract video partition
+            if (opts.ExtractVideo)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing video partition to {opts.VideoPath}");
+                if (!XGD.ExtractVideo(isoFS, opts.VideoPath, opts.RedumpIsoType))
+                {
+                    Console.WriteLine($"[ERROR] Failed writing video partition.");
+                    return;
+                }
+            }
+
+            // Extract system update file from XGD3 video partition
+            if (opts.ExtractUpdate && xgdType == 3)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.VideoPath}");
+                if (!XDVDFS.ExtractSU(opts.VideoPath, opts.UpdatePath))
+                {
+                    Console.WriteLine($"[ERROR] Failed writing system update file.");
+                    return;
+                }
+            }
+
+            // If XGD1, try brute force the filler data seed
+            if (opts.ExtractSeed && xgdType == 0)
+            {
+                uint? seed = XboxPRNG.ExtractSeed(isoFS, XGD.XISO_OFFSET[xgdType], opts.Quiet);
+                if (seed.HasValue)
+                {
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Filler data seed: {seed.Value:X8}");
+                    using FileStream seedFS = new(opts.SeedPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    byte[] seedBytes = BitConverter.GetBytes(seed.Value);
+                    seedFS.Write(seedBytes, 0, seedBytes.Length);
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Writing filler data to {opts.SeedPath}");
+                }
+                else
+                {
+                    Console.WriteLine("[ERROR] Failed to extract XGD1 seed.");
+                }
+            }
+            else if (opts.ExtractSeed)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Cannot extract seed from Xbox 360 discs");
+            }
+
+            // Quit early if we're not extracting data from game partition
+            if (!opts.ExtractXISO && !opts.ExtractFiller && !opts.ExtractSkeleton)
+                return;
+
+            // Create file for game partition
+            FileStream xisoFS = null!;
+            if (opts.ExtractXISO)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
+                xisoFS = new FileStream(opts.XisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            }
+            else if (opts.ExtractSkeleton)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {opts.SkeletonPath}");
+                xisoFS = new FileStream(opts.SkeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            }
+
+            // Create file for filler data
+            FileStream fillerFS = null!;
+            if (opts.ExtractFiller)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
+                fillerFS = new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            }
+
+            // Process XISO
+            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[xgdType], XGD.XISO_LENGTH[xgdType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+            {
+                Console.WriteLine("[ERROR] Failed processing XISO.");
+                return;
+            }
+
+            // Close files
+            if (xisoFS != null)
+                xisoFS.Dispose();
+            if (fillerFS != null)
+                fillerFS.Dispose();
+        }
+    }
+}
