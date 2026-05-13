@@ -243,10 +243,7 @@ namespace XboxKit
             return opts;
         }
 
-        /// <summary>
-        /// Resolves all output paths on the Options object based on the input file.
-        /// Returns false if an error occurred.
-        /// </summary>
+        /// Determines all output paths on the Options object based on the input file
         static bool ResolvePaths(Options opts, bool hasOptions)
         {
             opts.IsoPath = opts.FilePaths[0];

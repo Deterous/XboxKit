@@ -6,9 +6,6 @@ namespace XboxKit
 {
     internal static class RebuildISO
     {
-        /// <summary>
-        /// Parses sectors.txt for security sector ranges. Returns null on failure.
-        /// </summary>
         static int[]? ParseSecuritySectors(Options opts, long redumpLength)
         {
             if (!File.Exists(opts.SectorsTXTPath))
