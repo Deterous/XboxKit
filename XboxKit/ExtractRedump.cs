@@ -141,7 +141,7 @@ namespace XboxKit
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.VideoPath}");
-                if (!XDVDFS.ExtractSU(opts.VideoPath, opts.UpdatePath))
+                if (!ExtractVideo.ExtractSU(opts.VideoPath, opts.UpdatePath))
                 {
                     Console.WriteLine($"[ERROR] Failed writing system update file.");
                     return;

@@ -263,47 +263,5 @@ namespace LibXGD
             return numBytes == xisoLength;
         }
 
-        // Heuristic to determine XGD3 system update file offset in video partition 
-        // This algorithm is easier than parsing UDF
-        public static long SUOffset(FileStream videoFS)
-        {
-            long updateOffset = videoFS.Length;
-            byte[] videoBuf = new byte[16];
-            while (updateOffset >= SECTOR_SIZE)
-            {
-                videoFS.Seek(updateOffset - SECTOR_SIZE, SeekOrigin.Begin);
-                int bytesRead = 0;
-                while (bytesRead < videoBuf.Length)
-                {
-                    int n = videoFS.Read(videoBuf, bytesRead, videoBuf.Length - bytesRead);
-                    if (n == 0)
-                        break;
-                    bytesRead += n;
-                }
-                if (FILLER.AsSpan().SequenceEqual(videoBuf))
-                    break;
-
-                updateOffset -= SECTOR_SIZE;
-            }
-            return updateOffset;
-        }
-
-        // Extracts and zeroes the SU file from Video ISO
-        public static bool ExtractSU(string isoPath, string updatePath)
-        {
-            // Open video ISO for reading and writing
-            using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            long updateOffset = SUOffset(videoFS);
-
-            using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-            long updateLength = videoFS.Length - updateOffset - SECTOR_SIZE;
-            if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
-                return false;
-
-            // Zero out the update file in the video ISO
-            Utils.WriteZeroes(videoFS, updateOffset, updateLength);
-
-            return true;
-        }
     }
 }

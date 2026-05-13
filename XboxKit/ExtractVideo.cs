@@ -1,10 +1,52 @@
 using System;
+using System.IO;
 using LibXGD;
 
 namespace XboxKit
 {
     internal static class ExtractVideo
     {
+        // Heuristic to determine XGD3 system update file offset in video partition
+        // This algorithm is easier than parsing UDF
+        static long SUOffset(FileStream videoFS)
+        {
+            long updateOffset = videoFS.Length;
+            byte[] videoBuf = new byte[16];
+            while (updateOffset >= XDVDFS.SECTOR_SIZE)
+            {
+                videoFS.Seek(updateOffset - XDVDFS.SECTOR_SIZE, SeekOrigin.Begin);
+                int bytesRead = 0;
+                while (bytesRead < videoBuf.Length)
+                {
+                    int n = videoFS.Read(videoBuf, bytesRead, videoBuf.Length - bytesRead);
+                    if (n == 0)
+                        break;
+                    bytesRead += n;
+                }
+                if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
+                    break;
+
+                updateOffset -= XDVDFS.SECTOR_SIZE;
+            }
+            return updateOffset;
+        }
+
+        // Extracts and zeroes the SU file from Video ISO
+        internal static bool ExtractSU(string isoPath, string updatePath)
+        {
+            using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            long updateOffset = SUOffset(videoFS);
+
+            using FileStream updateFS = new(updatePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            long updateLength = videoFS.Length - updateOffset - XDVDFS.SECTOR_SIZE;
+            if (!Utils.WriteBytes(videoFS, updateFS, updateOffset, updateLength))
+                return false;
+
+            // Zero out the update file in the video ISO
+            Utils.WriteZeroes(videoFS, updateOffset, updateLength);
+
+            return true;
+        }
         public static void Run(Options opts)
         {
             if (!opts.ExtractUpdate)
@@ -59,7 +101,7 @@ namespace XboxKit
 
             if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
             if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.IsoPath}");
-            if (!XDVDFS.ExtractSU(opts.IsoPath, opts.UpdatePath))
+            if (!ExtractSU(opts.IsoPath, opts.UpdatePath))
             {
                 Console.WriteLine($"[ERROR] Failed writing system update file.");
                 return;

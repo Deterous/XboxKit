@@ -4,7 +4,7 @@ using LibXGD;
 
 namespace XboxKit
 {
-    internal static class ProcessXISO
+    internal static class RebuildISO
     {
         public static void Run(Options opts)
         {

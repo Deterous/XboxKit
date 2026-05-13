@@ -9,7 +9,7 @@ namespace XboxKit
     {
         ExtractRedump,
         ExtractVideo,
-        ProcessXISO
+        RebuildISO
     }
 
     internal class Options
@@ -387,7 +387,7 @@ namespace XboxKit
             else if (opts.VideoIsoType >= 0)
                 opts.Mode = Mode.ExtractVideo;
             else
-                opts.Mode = Mode.ProcessXISO;
+                opts.Mode = Mode.RebuildISO;
 
             return true;
         }
