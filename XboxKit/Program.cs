@@ -16,6 +16,9 @@
                 case Mode.ExtractVideo:
                     ExtractVideo.Run(opts);
                     break;
+                case Mode.ProcessXISO:
+                    ProcessXISO.Run(opts);
+                    break;
                 case Mode.RebuildISO:
                     RebuildISO.Run(opts);
                     break;

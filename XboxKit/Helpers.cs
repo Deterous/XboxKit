@@ -1,58 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
 namespace XboxKit
 {
-    internal enum Mode
-    {
-        ExtractRedump,
-        ExtractVideo,
-        RebuildISO
-    }
-
-    internal class Options
-    {
-        public Mode Mode;
-        public bool Help;
-        public bool ExtractXRD;
-        public bool AssumeNo;
-        public bool OutputFiles;
-        public bool ExtractSkeleton;
-        public bool Quiet;
-        public bool ExtractFiller;
-        public bool ExtractSeed;
-        public bool TrimXISO;
-        public bool ExtractUpdate;
-        public bool ExtractVideo;
-        public bool WipeXISO;
-        public bool ExtractXISO;
-        public bool AssumeYes;
-        public bool ExtractZAR;
-        public List<string> FilePaths = new();
-
-        // Resolved paths
-        public string IsoPath = "";
-        public string RedumpPath = "";
-        public string XrdPath = "";
-        public string OutputPath = "";
-        public string SkeletonPath = "";
-        public string FillerPath = "";
-        public string SeedPath = "";
-        public string SectorsTXTPath = "";
-        public string UpdatePath = "";
-        public string VideoPath = "";
-        public string XisoPath = "";
-        public string ZarPath = "";
-
-        // Derived from input file
-        public long IsoSize;
-        public int RedumpIsoType = -1;
-        public int VideoIsoType = -1;
-        public int XisoType = -1;
-    }
-
     internal static class Helpers
     {
         internal static void PrintHelp()
@@ -286,7 +237,7 @@ namespace XboxKit
                 return null;
             }
 
-            if (!ResolvePaths(opts))
+            if (!ResolvePaths(opts, args.Any(a => a.StartsWith("-"))))
                 return null;
 
             return opts;
@@ -296,7 +247,7 @@ namespace XboxKit
         /// Resolves all output paths on the Options object based on the input file.
         /// Returns false if an error occurred.
         /// </summary>
-        internal static bool ResolvePaths(Options opts)
+        static bool ResolvePaths(Options opts, bool hasOptions)
         {
             opts.IsoPath = opts.FilePaths[0];
             if (string.IsNullOrEmpty(opts.IsoPath) || !File.Exists(opts.IsoPath))
@@ -386,6 +337,8 @@ namespace XboxKit
                 opts.Mode = Mode.ExtractRedump;
             else if (opts.VideoIsoType >= 0)
                 opts.Mode = Mode.ExtractVideo;
+            else if (opts.FilePaths.Count == 1 && hasOptions)
+                opts.Mode = Mode.ProcessXISO;
             else
                 opts.Mode = Mode.RebuildISO;
 

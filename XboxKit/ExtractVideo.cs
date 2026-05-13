@@ -47,12 +47,12 @@ namespace XboxKit
 
             return true;
         }
-        public static void Run(Options opts)
+        static bool Validate(Options opts)
         {
             if (!opts.ExtractUpdate)
             {
                 Console.WriteLine("[ERROR] Use -u flag to extract system update from video partition.");
-                return;
+                return false;
             }
 
             // Check for valid options
@@ -85,19 +85,27 @@ namespace XboxKit
                     invalidOptions = true;
                 }
                 if (invalidOptions && opts.AssumeNo)
-                    return;
+                    return false;
             }
 
             // Check that update file doesn't already exist
             if (!opts.AssumeYes && opts.ExtractUpdate && !Helpers.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
-                return;
+                return false;
 
             // Check that video partition is from XGD3 disc
             if (opts.VideoIsoType != 16 && opts.VideoIsoType != 17 && opts.VideoIsoType != 18)
             {
                 Console.WriteLine("[ERROR] Can only extract su20076000_00000000 from XGD3 video partitions.");
-                return;
+                return false;
             }
+
+            return true;
+        }
+
+        public static void Run(Options opts)
+        {
+            if (!Validate(opts))
+                return;
 
             if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
             if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.IsoPath}");

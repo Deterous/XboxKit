@@ -6,7 +6,7 @@ namespace XboxKit
 {
     internal static class ExtractRedump
     {
-        public static void Run(Options opts)
+        static bool Validate(Options opts)
         {
             // Must be doing something
             if (!opts.OutputFiles && !opts.ExtractXRD && !opts.ExtractSkeleton && !opts.ExtractFiller && !opts.ExtractSeed && !opts.ExtractUpdate && !opts.ExtractVideo && !opts.ExtractXISO && !opts.ExtractZAR)
@@ -14,7 +14,7 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                 Console.WriteLine("");
                 Helpers.PrintHelp();
-                return;
+                return false;
             }
 
             // Can't create both XISO and XISO Skeleton
@@ -23,7 +23,7 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Cannot create both XISO (-x) and XISO Skeleton (-p)");
                 Console.WriteLine("        Skeleton zeroes game files, typically used with -o or -z");
                 Console.WriteLine("");
-                return;
+                return false;
             }
 
             // Must extract video if also extracting SU
@@ -31,11 +31,11 @@ namespace XboxKit
             {
                 Console.WriteLine("[ERROR] Extracting update (-u) implies extract video (-v)");
                 if (opts.AssumeNo)
-                    return;
+                    return false;
                 Console.WriteLine($"Would you like to also extract Video? (Y/N)");
                 string? response = Console.ReadLine()?.ToUpper();
                 if (response != "Y" && response != "YES")
-                    return;
+                    return false;
                 opts.ExtractVideo = true;
             }
 
@@ -44,32 +44,40 @@ namespace XboxKit
             {
                 Console.WriteLine("[INFO] Wiping XISO option (-w) does nothing without extracting XISO (-x) or skeleton (-p)");
                 if (opts.AssumeNo)
-                    return;
+                    return false;
             }
             if (!opts.AssumeYes && opts.TrimXISO && !(opts.ExtractXISO || opts.ExtractSkeleton) && (opts.AssumeNo || !opts.Quiet))
             {
                 Console.WriteLine("[INFO] Trimming XISO option (-t) does nothing without extracting XISO (-x) or skeleton (-p)");
                 if (opts.AssumeNo)
-                    return;
+                    return false;
             }
             if (!opts.AssumeYes && (opts.ExtractXISO || opts.ExtractSkeleton) && opts.ExtractFiller && !opts.WipeXISO && (opts.AssumeNo || !opts.Quiet))
             {
                 Console.WriteLine("[INFO] Cannot write filler data without wiping XISO");
                 Console.WriteLine("       For now, use -w with -r");
                 if (opts.AssumeNo)
-                    return;
+                    return false;
             }
 
             // Check that files don't already exist
             if (!opts.AssumeYes && opts.ExtractXISO && !Helpers.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
-                return;
+                return false;
             if (!opts.AssumeYes && opts.ExtractVideo && !Helpers.ConfirmOverwrite(opts.VideoPath, opts.AssumeNo))
-                return;
+                return false;
             if (!opts.AssumeYes && opts.ExtractFiller && !Helpers.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
-                return;
+                return false;
             if (!opts.AssumeYes && opts.ExtractUpdate && !Helpers.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
-                return;
+                return false;
             if (!opts.AssumeYes && opts.ExtractSeed && !Helpers.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
+                return false;
+
+            return true;
+        }
+
+        public static void Run(Options opts)
+        {
+            if (!Validate(opts))
                 return;
 
             // Determine disc layout type

@@ -6,85 +6,53 @@ namespace XboxKit
 {
     internal static class RebuildISO
     {
+        /// <summary>
+        /// Parses sectors.txt for security sector ranges. Returns null on failure.
+        /// </summary>
+        static int[]? ParseSecuritySectors(Options opts, long redumpLength)
+        {
+            if (!File.Exists(opts.SectorsTXTPath))
+            {
+                Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                return null;
+            }
+            if (!opts.Quiet) Console.WriteLine($"[INFO] Reading security sector ranges {opts.SectorsTXTPath}");
+
+            int[] securitySectors = new int[16];
+            using FileStream sectorsFS = new(opts.SectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using StreamReader sectorsSR = new StreamReader(sectorsFS);
+            string? line;
+            int i = 0;
+            while ((line = sectorsSR.ReadLine()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                string[] range = line.Split('-');
+                if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
+                {
+                    if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                    {
+                        Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
+                        return null;
+                    }
+                    securitySectors[i] = startSector;
+                    i += 1;
+                }
+                else
+                {
+                    Console.WriteLine("[ERROR] Invalid format of sectors.txt");
+                    return null;
+                }
+            }
+            return securitySectors;
+        }
+
         public static void Run(Options opts)
         {
-            // TODO: Validate file is an XISO (other than filesize)
-            // TODO: If ZAR is input, extract
-
-            // Check for invalid options
-            if (!opts.AssumeYes && (opts.AssumeNo || !opts.Quiet))
-            {
-                bool invalidOptions = false;
-                if (opts.ExtractXISO)
-                {
-                    Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is already XISO (or unexpected ISO).");
-                    invalidOptions = true;
-                }
-                if (opts.ExtractVideo)
-                {
-                    Console.WriteLine("[INFO] Cannot extract video (-v), input file is XISO (or unexpected ISO).");
-                    invalidOptions = true;
-                }
-                if (opts.ExtractUpdate)
-                {
-                    Console.WriteLine("[INFO] Cannot extract update (-u), input file is XISO (or unexpected ISO).");
-                    invalidOptions = true;
-                }
-                if (invalidOptions && opts.AssumeNo)
-                    return;
-            }
-
             // Open XISO for reading
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
-
-            bool writeXISO = opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton;
-            if (opts.ExtractFiller || writeXISO)
-            {
-                // Cannot extract/wipe/trim from invalid XISO size
-                if (opts.XisoType < 0)
-                {
-                    Console.WriteLine("[ERROR] Unexpected XISO size. Your file may be trimmed or corrupt.");
-                    Console.WriteLine("        Use the full XISO if you want to trim/wipe/extract filler.");
-                    return;
-                }
-
-                // Create file for game partition
-                FileStream xisoFS = null!;
-                if (writeXISO)
-                {
-                    if (opts.WipeXISO && !opts.Quiet)
-                        Console.WriteLine($"[INFO] Writing wiped XISO to {opts.XisoPath}");
-                    else if (opts.TrimXISO && !opts.Quiet)
-                        Console.WriteLine($"[INFO] Writing XISO to {opts.XisoPath}");
-                    xisoFS = new FileStream(opts.XisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                }
-
-                // Create file for filler data
-                FileStream fillerFS = null!;
-                if (opts.ExtractFiller)
-                {
-                    if (!opts.Quiet) Console.WriteLine($"[INFO] Extracting filler data to {opts.FillerPath}");
-                    fillerFS = new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                }
-
-                // Process XISO
-                if (!XDVDFS.ProcessXISO(isoFS, 0, opts.IsoSize, xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
-                {
-                    Console.WriteLine("[ERROR] Failed processing XISO.");
-                    return;
-                }
-
-                // Close files
-                if (xisoFS != null)
-                    xisoFS.Dispose();
-                if (fillerFS != null)
-                    fillerFS.Dispose();
-
-                return;
-            }
-
-            // Rebuild Redump ISO
 
             // Check that video partition exists
             if (!File.Exists(opts.VideoPath))
@@ -156,43 +124,15 @@ namespace XboxKit
                 }
             }
 
-            // Open sectors.txt if an initial seed is being used
+            // Parse sectors.txt if an initial seed is being used
             int[] securitySectors = new int[16];
             if (rebuildFillerFS == null && rebuildXisoType == 0 && prng != null)
             {
                 long redumpLength = XGD.GetRedumpLength(videoType);
-                if (!File.Exists(opts.SectorsTXTPath))
-                {
-                    Console.WriteLine("[ERROR] To rebuild from an initial seed, a list of security sector ranges is needed in sectors.txt");
+                int[]? parsed = ParseSecuritySectors(opts, redumpLength);
+                if (parsed == null)
                     return;
-                }
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Reading security sector ranges {opts.SectorsTXTPath}");
-                using FileStream sectorsFS = new(opts.SectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using StreamReader sectorsSR = new StreamReader(sectorsFS);
-                string? line;
-                int i = 0;
-                while ((line = sectorsSR.ReadLine()) != null)
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-
-                    string[] range = line.Split('-');
-                    if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
-                    {
-                        if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
-                        {
-                            Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
-                            return;
-                        }
-                        securitySectors[i] = startSector;
-                        i += 1;
-                    }
-                    else
-                    {
-                        Console.WriteLine("[ERROR] Invalid format of sectors.txt");
-                        return;
-                    }
-                }
+                securitySectors = parsed;
             }
 
             // Rebuild redump ISO
