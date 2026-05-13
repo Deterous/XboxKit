@@ -13,7 +13,7 @@ namespace XboxKit
             {
                 Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                 Console.WriteLine("");
-                Program.PrintHelp();
+                Helpers.PrintHelp();
                 return;
             }
 
@@ -61,15 +61,15 @@ namespace XboxKit
             }
 
             // Check that files don't already exist
-            if (!opts.AssumeYes && opts.ExtractXISO && !Program.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractXISO && !Helpers.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
                 return;
-            if (!opts.AssumeYes && opts.ExtractVideo && !Program.ConfirmOverwrite(opts.VideoPath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractVideo && !Helpers.ConfirmOverwrite(opts.VideoPath, opts.AssumeNo))
                 return;
-            if (!opts.AssumeYes && opts.ExtractFiller && !Program.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractFiller && !Helpers.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
                 return;
-            if (!opts.AssumeYes && opts.ExtractUpdate && !Program.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractUpdate && !Helpers.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
                 return;
-            if (!opts.AssumeYes && opts.ExtractSeed && !Program.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractSeed && !Helpers.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
                 return;
 
             // Determine disc layout type

@@ -47,7 +47,7 @@ namespace XboxKit
             }
 
             // Check that update file doesn't already exist
-            if (!opts.AssumeYes && opts.ExtractUpdate && !Program.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
+            if (!opts.AssumeYes && opts.ExtractUpdate && !Helpers.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
                 return;
 
             // Check that video partition is from XGD3 disc

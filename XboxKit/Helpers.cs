@@ -5,8 +5,16 @@ using System.Linq;
 
 namespace XboxKit
 {
+    internal enum Mode
+    {
+        ExtractRedump,
+        ExtractVideo,
+        ProcessXISO
+    }
+
     internal class Options
     {
+        public Mode Mode;
         public bool Help;
         public bool ExtractXRD;
         public bool AssumeNo;
@@ -277,6 +285,10 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Extract mode only accepts one input file");
                 return null;
             }
+
+            if (!ResolvePaths(opts))
+                return null;
+
             return opts;
         }
 
@@ -368,6 +380,14 @@ namespace XboxKit
             opts.RedumpIsoType = Array.IndexOf(LibXGD.XGD.REDUMP_ISO_LENGTH, opts.IsoSize);
             opts.VideoIsoType = Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, opts.IsoSize);
             opts.XisoType = Array.IndexOf(LibXGD.XGD.XISO_LENGTH, opts.IsoSize);
+
+            // Determine mode
+            if (opts.RedumpIsoType >= 0)
+                opts.Mode = Mode.ExtractRedump;
+            else if (opts.VideoIsoType >= 0)
+                opts.Mode = Mode.ExtractVideo;
+            else
+                opts.Mode = Mode.ProcessXISO;
 
             return true;
         }

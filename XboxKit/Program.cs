@@ -8,20 +8,17 @@
             if (opts == null)
                 return;
 
-            if (!Helpers.ResolvePaths(opts))
-                return;
-
-            if (opts.RedumpIsoType >= 0)
+            switch (opts.Mode)
             {
-                ExtractRedump.Run(opts);
-            }
-            else if (opts.VideoIsoType >= 0)
-            {
-                ExtractVideo.Run(opts);
-            }
-            else
-            {
-                ProcessXISO.Run(opts);
+                case Mode.ExtractRedump:
+                    ExtractRedump.Run(opts);
+                    break;
+                case Mode.ExtractVideo:
+                    ExtractVideo.Run(opts);
+                    break;
+                case Mode.ProcessXISO:
+                    ProcessXISO.Run(opts);
+                    break;
             }
         }
     }
