@@ -45,39 +45,48 @@ namespace XboxKit
             return securitySectors;
         }
 
-        public static void Run(Options opts)
+        static bool Validate(Options opts)
         {
-            // Open XISO for reading
-            using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
-
             // Check that video partition exists
             if (!File.Exists(opts.VideoPath))
             {
                 Console.WriteLine($"[ERROR] Invalid file path: {opts.VideoPath}");
                 Console.WriteLine("         Provide a file path to the video partition to rebuild the redump ISO.");
-                return;
+                return false;
             }
 
-            // TODO: Allow for rebuilding with trimmed XISO file without filler data
+            // TODO: Allow for rebuilding with trimmed XISO file without filler data, even if it will not match redump?
             if (opts.XisoType < 0 && !File.Exists(opts.FillerPath) && !File.Exists(opts.SeedPath))
             {
                 Console.WriteLine("[ERROR] Unexpected XISO size. Your XISO may be trimmed or corrupt.");
                 Console.WriteLine("        Cannot rebuild redump ISO from trimmed XISO without filler or seed.");
-                return;
+                return false;
             }
 
-            // Determine video type based on video partition size
-            FileInfo videoInfo = new(opts.VideoPath);
-            long videoSize = videoInfo.Length;
-            int videoType = Array.IndexOf(XGD.VIDEO_LENGTH, videoSize);
-            if (videoType < 0)
+            if (opts.VideoType < 0)
             {
                 Console.WriteLine("[ERROR] Unexpected video partition ISO size. Your video file may be trimmed or corrupt.");
-                return;
+                return false;
             }
 
+            // Check that redump ISO doesn't already exist
+            if (!opts.AssumeYes && !Helpers.ConfirmOverwrite(opts.RedumpPath, opts.AssumeNo))
+                return false;
+
+            return true;
+        }
+
+        public static void Run(Options opts)
+        {
+            if (!Validate(opts))
+                return;
+
+            // Open XISO for reading
+            using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
+
             // Determine intended xisoType based on video ISO length
+            int videoType = opts.VideoType;
             int rebuildXisoType = XGD.GetXISOTypeFromVideo(videoType);
 
             // Create redump ISO

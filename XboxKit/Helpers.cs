@@ -231,13 +231,15 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Cannot use both --no (-n) and --yes (-y)");
                 return null;
             }
-            if (opts.FilePaths.Count > 1 && args.Any(a => a.StartsWith("-")))
+
+            bool optsProvided = args.Any(a => a.StartsWith("-"));
+            if (opts.FilePaths.Count > 1 && optsProvided)
             {
                 Console.WriteLine("[ERROR] Extract mode only accepts one input file");
                 return null;
             }
 
-            if (!ResolvePaths(opts, args.Any(a => a.StartsWith("-"))))
+            if (!ResolvePaths(opts, optsProvided))
                 return null;
 
             return opts;
@@ -287,24 +289,40 @@ namespace XboxKit
             opts.XisoPath = Path.Combine(dir, $"{filename}.xiso");
             opts.ZarPath = Path.Combine(dir, $"{filename}.zar");
 
-            // Detect additional input files by size/extension
-            for (int f = 1; f < opts.FilePaths.Count; f++)
+            // Detect additional input files by extension and size
+            for (int i = 1; i < opts.FilePaths.Count; i++)
             {
-                string fp = opts.FilePaths[f];
-                if (!File.Exists(fp))
+                string filePath = opts.FilePaths[i];
+                if (!File.Exists(filePath))
                 {
-                    Console.WriteLine($"[ERROR] Invalid file path: {fp}");
+                    Console.WriteLine($"[ERROR] Invalid file path: {filePath}");
                     return false;
                 }
-                long fpSize = new FileInfo(fp).Length;
-                if (Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, fpSize) >= 0 || fp.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase))
-                    opts.VideoPath = fp;
-                else if (fp.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) || fpSize == 4)
-                    opts.SeedPath = fp;
-                else if (Path.GetFileName(fp).StartsWith("su200760", StringComparison.OrdinalIgnoreCase))
-                    opts.UpdatePath = fp;
+                long fileSize = new FileInfo(filePath).Length;
+                string fileName = Path.GetFileName(filePath);
+
+                if (filePath.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase)
+                    || Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, fileSize) >= 0)
+                    opts.VideoPath = filePath;
+                else if (filePath.EndsWith(".skeleton.xiso", StringComparison.OrdinalIgnoreCase))
+                    opts.SkeletonPath = filePath;
+                else if (filePath.EndsWith(".xiso", StringComparison.OrdinalIgnoreCase)
+                    || Array.IndexOf(LibXGD.XGD.XISO_LENGTH, fileSize) >= 0)
+                    opts.XisoPath = filePath;
+                else if (filePath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) || fileSize == 4)
+                    opts.SeedPath = filePath;
+                else if (fileName.StartsWith("su20076000_00000000", StringComparison.OrdinalIgnoreCase))
+                    opts.UpdatePath = filePath;
+                else if (filePath.EndsWith(".zar", StringComparison.OrdinalIgnoreCase))
+                    opts.ZarPath = filePath;
+                else if (filePath.EndsWith(".filler", StringComparison.OrdinalIgnoreCase)
+                    || filePath.EndsWith(".rc4", StringComparison.OrdinalIgnoreCase))
+                    opts.FillerPath = filePath;
                 else
-                    opts.FillerPath = fp;
+                {
+                    Console.WriteLine($"[ERROR] Unrecognized file type: {filePath}");
+                    return false;
+                }
             }
 
             // Resolve output path conflicts with input file
@@ -328,6 +346,10 @@ namespace XboxKit
             opts.RedumpIsoType = Array.IndexOf(LibXGD.XGD.REDUMP_ISO_LENGTH, opts.IsoSize);
             opts.VideoIsoType = Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, opts.IsoSize);
             opts.XisoType = Array.IndexOf(LibXGD.XGD.XISO_LENGTH, opts.IsoSize);
+
+            // Determine video type from video partition file
+            if (File.Exists(opts.VideoPath))
+                opts.VideoType = Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, new FileInfo(opts.VideoPath).Length);
 
             // Determine mode
             if (opts.RedumpIsoType >= 0)

@@ -7,11 +7,12 @@ namespace XboxKit
     internal static class ExtractVideo
     {
         // Heuristic to determine XGD3 system update file offset in video partition
-        // This algorithm is easier than parsing UDF
+        // This algorithm is easier than parsing UDF, but reads backwards (bad I/O behaviour)
         static long SUOffset(FileStream videoFS)
         {
             long updateOffset = videoFS.Length;
             byte[] videoBuf = new byte[16];
+            ReadOnlySpan<byte> filler = XDVDFS.FILLER;
             while (updateOffset >= XDVDFS.SECTOR_SIZE)
             {
                 videoFS.Seek(updateOffset - XDVDFS.SECTOR_SIZE, SeekOrigin.Begin);
@@ -23,7 +24,7 @@ namespace XboxKit
                         break;
                     bytesRead += n;
                 }
-                if (XDVDFS.FILLER.AsSpan().SequenceEqual(videoBuf))
+                if (filler.SequenceEqual(videoBuf))
                     break;
 
                 updateOffset -= XDVDFS.SECTOR_SIZE;
@@ -31,7 +32,7 @@ namespace XboxKit
             return updateOffset;
         }
 
-        // Extracts and zeroes the SU file from Video ISO
+        // Extracts then zeroes the SU file from Video ISO
         internal static bool ExtractSU(string isoPath, string updatePath)
         {
             using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
@@ -84,6 +85,31 @@ namespace XboxKit
                     Console.WriteLine("[INFO] Cannot trim XISO (-t), input file is video ISO.");
                     invalidOptions = true;
                 }
+                if (opts.ExtractSeed)
+                {
+                    Console.WriteLine("[INFO] Cannot extract seed (-s), input file is video ISO.");
+                    invalidOptions = true;
+                }
+                if (opts.ExtractSkeleton)
+                {
+                    Console.WriteLine("[INFO] Cannot extract skeleton (-p), input file is video ISO.");
+                    invalidOptions = true;
+                }
+                if (opts.OutputFiles)
+                {
+                    Console.WriteLine("[INFO] Cannot output game files (-o), input file is video ISO.");
+                    invalidOptions = true;
+                }
+                if (opts.ExtractZAR)
+                {
+                    Console.WriteLine("[INFO] Cannot create ZArchive (-z), input file is video ISO.");
+                    invalidOptions = true;
+                }
+                if (opts.ExtractXRD)
+                {
+                    Console.WriteLine("[INFO] Cannot extract metadata (-m), input file is video ISO.");
+                    invalidOptions = true;
+                }
                 if (invalidOptions && opts.AssumeNo)
                     return false;
             }
@@ -111,7 +137,7 @@ namespace XboxKit
             if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.IsoPath}");
             if (!ExtractSU(opts.IsoPath, opts.UpdatePath))
             {
-                Console.WriteLine($"[ERROR] Failed writing system update file.");
+                Console.WriteLine($"[ERROR] Failed extracting system update file.");
                 return;
             }
         }
