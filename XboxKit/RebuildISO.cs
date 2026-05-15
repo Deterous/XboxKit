@@ -85,9 +85,6 @@ namespace XboxKit
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
 
-            // Determine intended xisoType based on video ISO length
-            int videoType = opts.VideoType;
-            int rebuildXisoType = XGD.GetXISOTypeFromVideo(videoType);
 
             // Create redump ISO
             using FileStream redumpFS = new(opts.RedumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -107,7 +104,7 @@ namespace XboxKit
 
             // Get XGD1 initial seed, if path exists
             XboxPRNG prng = null!;
-            if (rebuildFillerFS == null && rebuildXisoType == 0 && File.Exists(opts.SeedPath))
+            if (rebuildFillerFS == null && opts.XGDType == 0 && File.Exists(opts.SeedPath))
             {
                 FileInfo seedInfo = new(opts.SeedPath);
                 if (seedInfo.Length == 4)
@@ -119,7 +116,7 @@ namespace XboxKit
             }
 
             // Check fillerPath for initial seed
-            if (rebuildFillerFS == null && rebuildXisoType == 0 && prng == null && File.Exists(opts.FillerPath))
+            if (rebuildFillerFS == null && opts.XGDType == 0 && prng == null && File.Exists(opts.FillerPath))
             {
                 FileInfo seedInfo = new(opts.FillerPath);
                 if (seedInfo.Length == 4)
@@ -132,9 +129,9 @@ namespace XboxKit
 
             // Parse sectors.txt if an initial seed is being used
             int[] securitySectors = new int[16];
-            if (rebuildFillerFS == null && rebuildXisoType == 0 && prng != null)
+            if (rebuildFillerFS == null && opts.XGDType == 0 && prng != null)
             {
-                long redumpLength = XGD.GetRedumpLength(videoType);
+                long redumpLength = XGD.GetRedumpLength(opts.VideoType);
                 int[]? parsed = ParseSecuritySectors(opts, redumpLength);
                 if (parsed == null)
                     return;
@@ -142,7 +139,7 @@ namespace XboxKit
             }
 
             // Rebuild redump ISO
-            if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, prng, securitySectors, videoType, opts.Quiet))
+            if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, prng, securitySectors, opts.VideoType, opts.Quiet))
             {
                 Console.WriteLine("[ERROR] Failed rebuilding redump ISO.");
                 return;
@@ -153,7 +150,7 @@ namespace XboxKit
                 rebuildFillerFS.Dispose();
 
             // Insert system update file if available
-            if (!XGD.RebuildWithUpdate(redumpFS, videoFS, opts.UpdatePath, videoType, opts.Quiet))
+            if (!XGD.RebuildWithUpdate(redumpFS, videoFS, opts.UpdatePath, opts.VideoType, opts.Quiet))
             {
                 Console.WriteLine("[ERROR] Failed writing system update file.");
                 return;

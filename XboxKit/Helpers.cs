@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -56,6 +57,7 @@ namespace XboxKit
         internal static Options? ParseArgs(string[] args)
         {
             Options opts = new();
+            List<string> filePaths = new();
 
             if (args.Length == 0)
             {
@@ -134,7 +136,7 @@ namespace XboxKit
                             opts.ExtractZAR = true;
                             break;
                         default:
-                            opts.FilePaths.Add(arg);
+                            filePaths.Add(arg);
                             break;
                     }
                 }
@@ -218,10 +220,10 @@ namespace XboxKit
                 }
                 else
                 {
-                    opts.FilePaths.Add(arg);
+                    filePaths.Add(arg);
                 }
             }
-            if (opts.Help || opts.FilePaths.Count == 0)
+            if (opts.Help || filePaths.Count == 0)
             {
                 PrintHelp();
                 return null;
@@ -233,22 +235,22 @@ namespace XboxKit
             }
 
             bool optsProvided = args.Any(a => a.StartsWith("-"));
-            if (opts.FilePaths.Count > 1 && optsProvided)
+            if (filePaths.Count > 1 && optsProvided)
             {
                 Console.WriteLine("[ERROR] Extract mode only accepts one input file");
                 return null;
             }
 
-            if (!ResolvePaths(opts, optsProvided))
+            if (!ResolvePaths(opts, filePaths, optsProvided))
                 return null;
 
             return opts;
         }
 
         /// Determines all output paths on the Options object based on the input file
-        static bool ResolvePaths(Options opts, bool hasOptions)
+        static bool ResolvePaths(Options opts, List<string> filePaths, bool hasOptions)
         {
-            opts.IsoPath = opts.FilePaths[0];
+            opts.IsoPath = filePaths[0];
             if (string.IsNullOrEmpty(opts.IsoPath) || !File.Exists(opts.IsoPath))
             {
                 Console.WriteLine($"[ERROR] Invalid file path: {opts.IsoPath}");
@@ -276,54 +278,67 @@ namespace XboxKit
                 return false;
             }
 
-            string isoBasePath = Path.Combine(dir, $"{filename}.iso");
-            opts.RedumpPath = (isoBasePath == opts.IsoPath || File.Exists(isoBasePath)) ? Path.Combine(dir, $"{filename}.redump.iso") : isoBasePath;
-            opts.XrdPath = Path.Combine(dir, $"{filename}.xrd");
-            opts.OutputPath = Path.Combine(dir, $"{filename}");
-            opts.SkeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
-            opts.FillerPath = Path.Combine(dir, $"{filename}.filler");
-            opts.SeedPath = Path.Combine(dir, $"{filename}.seed");
-            opts.SectorsTXTPath = Path.Combine(dir, "sectors.txt");
-            opts.UpdatePath = Path.Combine(dir, "su20076000_00000000");
-            opts.VideoPath = Path.Combine(dir, $"{filename}.video.iso");
-            opts.XisoPath = Path.Combine(dir, $"{filename}.xiso");
-            opts.ZarPath = Path.Combine(dir, $"{filename}.zar");
-
             // Detect additional input files by extension and size
-            for (int i = 1; i < opts.FilePaths.Count; i++)
+            for (int i = 1; i < filePaths.Count; i++)
             {
-                string filePath = opts.FilePaths[i];
+                string filePath = filePaths[i];
+                if (Directory.Exists(filePath) && string.IsNullOrEmpty(opts.OutputPath))
+                {
+                    opts.OutputPath = filePath;
+                    continue;
+                }
                 if (!File.Exists(filePath))
                 {
-                    Console.WriteLine($"[ERROR] Invalid file path: {filePath}");
+                    Console.WriteLine($"[ERROR] File not found: {filePath}");
                     return false;
                 }
                 long fileSize = new FileInfo(filePath).Length;
                 string fileName = Path.GetFileName(filePath);
 
-                if (filePath.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase)
-                    || Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, fileSize) >= 0)
+                if (string.IsNullOrEmpty(opts.VideoPath) && (filePath.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase)
+                    || Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, fileSize) >= 0))
                     opts.VideoPath = filePath;
-                else if (filePath.EndsWith(".skeleton.xiso", StringComparison.OrdinalIgnoreCase))
+                else if (string.IsNullOrEmpty(opts.SkeletonPath) && filePath.EndsWith(".skeleton.xiso", StringComparison.OrdinalIgnoreCase))
                     opts.SkeletonPath = filePath;
-                else if (filePath.EndsWith(".xiso", StringComparison.OrdinalIgnoreCase)
-                    || Array.IndexOf(LibXGD.XGD.XISO_LENGTH, fileSize) >= 0)
+                else if (string.IsNullOrEmpty(opts.XisoPath) && (filePath.EndsWith(".xiso", StringComparison.OrdinalIgnoreCase)
+                    || Array.IndexOf(LibXGD.XGD.XISO_LENGTH, fileSize) >= 0))
                     opts.XisoPath = filePath;
-                else if (filePath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) || fileSize == 4)
+                else if (string.IsNullOrEmpty(opts.SeedPath) && (filePath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) || fileSize == 4))
                     opts.SeedPath = filePath;
-                else if (fileName.StartsWith("su20076000_00000000", StringComparison.OrdinalIgnoreCase))
+                else if (string.IsNullOrEmpty(opts.UpdatePath) && fileName.StartsWith("su20076000_00000000", StringComparison.OrdinalIgnoreCase))
                     opts.UpdatePath = filePath;
-                else if (filePath.EndsWith(".zar", StringComparison.OrdinalIgnoreCase))
+                else if (string.IsNullOrEmpty(opts.ZarPath) && filePath.EndsWith(".zar", StringComparison.OrdinalIgnoreCase))
                     opts.ZarPath = filePath;
-                else if (filePath.EndsWith(".filler", StringComparison.OrdinalIgnoreCase)
-                    || filePath.EndsWith(".rc4", StringComparison.OrdinalIgnoreCase))
+                else if (string.IsNullOrEmpty(opts.FillerPath) && (filePath.EndsWith(".filler", StringComparison.OrdinalIgnoreCase)
+                    || filePath.EndsWith(".rc4", StringComparison.OrdinalIgnoreCase)))
                     opts.FillerPath = filePath;
+                else if (string.IsNullOrEmpty(opts.HashPath) && filePath.EndsWith(".hash", StringComparison.OrdinalIgnoreCase))
+                    opts.HashPath = filePath;
+                else if (string.IsNullOrEmpty(opts.XrdPath) && filePath.EndsWith(".xrd", StringComparison.OrdinalIgnoreCase))
+                    opts.XrdPath = filePath;
+                else if (string.IsNullOrEmpty(opts.SectorsTXTPath) && fileName.Equals("sectors.txt", StringComparison.OrdinalIgnoreCase))
+                    opts.SectorsTXTPath = filePath;
                 else
                 {
-                    Console.WriteLine($"[ERROR] Unrecognized file type: {filePath}");
+                    Console.WriteLine($"[ERROR] Invalid input file: {filePath}");
                     return false;
                 }
             }
+
+            // Set default paths for any that weren't explicitly provided
+            string isoBasePath = Path.Combine(dir, $"{filename}.iso");
+            if (string.IsNullOrEmpty(opts.RedumpPath)) opts.RedumpPath = (isoBasePath == opts.IsoPath || File.Exists(isoBasePath)) ? Path.Combine(dir, $"{filename}.redump.iso") : isoBasePath;
+            if (string.IsNullOrEmpty(opts.XrdPath)) opts.XrdPath = Path.Combine(dir, $"{filename}.xrd");
+            if (string.IsNullOrEmpty(opts.OutputPath)) opts.OutputPath = Path.Combine(dir, $"{filename}");
+            if (string.IsNullOrEmpty(opts.SkeletonPath)) opts.SkeletonPath = Path.Combine(dir, $"{filename}.skeleton.xiso");
+            if (string.IsNullOrEmpty(opts.HashPath)) opts.HashPath = Path.Combine(dir, $"{filename}.hash");
+            if (string.IsNullOrEmpty(opts.FillerPath)) opts.FillerPath = Path.Combine(dir, $"{filename}.filler");
+            if (string.IsNullOrEmpty(opts.SeedPath)) opts.SeedPath = Path.Combine(dir, $"{filename}.seed");
+            if (string.IsNullOrEmpty(opts.SectorsTXTPath)) opts.SectorsTXTPath = Path.Combine(dir, "sectors.txt");
+            if (string.IsNullOrEmpty(opts.UpdatePath)) opts.UpdatePath = Path.Combine(dir, "su20076000_00000000");
+            if (string.IsNullOrEmpty(opts.VideoPath)) opts.VideoPath = Path.Combine(dir, $"{filename}.video.iso");
+            if (string.IsNullOrEmpty(opts.XisoPath)) opts.XisoPath = Path.Combine(dir, $"{filename}.xiso");
+            if (string.IsNullOrEmpty(opts.ZarPath)) opts.ZarPath = Path.Combine(dir, $"{filename}.zar");
 
             // Resolve output path conflicts with input file
             string isoFullPath = Path.GetFullPath(opts.IsoPath);
@@ -351,15 +366,28 @@ namespace XboxKit
             if (File.Exists(opts.VideoPath))
                 opts.VideoType = Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, new FileInfo(opts.VideoPath).Length);
 
-            // Determine mode
+            // Determine mode and XGD type
             if (opts.RedumpIsoType >= 0)
+            {
                 opts.Mode = Mode.ExtractRedump;
+                opts.XGDType = LibXGD.XGD.GetXGDType(opts.RedumpIsoType);
+            }
             else if (opts.VideoIsoType >= 0)
+            {
                 opts.Mode = Mode.ExtractVideo;
-            else if (opts.FilePaths.Count == 1 && hasOptions)
+            }
+            else if (filePaths.Count == 1 && hasOptions)
+            {
                 opts.Mode = Mode.ProcessXISO;
+                if (opts.XisoType >= 0)
+                    opts.XGDType = opts.XisoType;
+            }
             else
+            {
                 opts.Mode = Mode.RebuildISO;
+                if (opts.VideoType >= 0)
+                    opts.XGDType = LibXGD.XGD.GetXISOTypeFromVideo(opts.VideoType);
+            }
 
             return true;
         }

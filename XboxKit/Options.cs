@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace XboxKit
 {
     internal enum Mode
@@ -12,7 +10,10 @@ namespace XboxKit
 
     internal class Options
     {
+        // Program mode
         public Mode Mode;
+
+        // Program flags
         public bool Help;
         public bool ExtractXRD;
         public bool AssumeNo;
@@ -28,7 +29,6 @@ namespace XboxKit
         public bool ExtractXISO;
         public bool AssumeYes;
         public bool ExtractZAR;
-        public List<string> FilePaths = new();
 
         // Resolved paths
         public string IsoPath = "";
@@ -36,6 +36,7 @@ namespace XboxKit
         public string XrdPath = "";
         public string OutputPath = "";
         public string SkeletonPath = "";
+        public string HashPath = "";
         public string FillerPath = "";
         public string SeedPath = "";
         public string SectorsTXTPath = "";
@@ -44,10 +45,12 @@ namespace XboxKit
         public string XisoPath = "";
         public string ZarPath = "";
 
-        // Derived from input file
+        // Mode-specific file types
         public long IsoSize;
         public int RedumpIsoType = -1;
         public int VideoIsoType = -1;
+        public int VideoType = -1;
         public int XisoType = -1;
+        public int XGDType = -1;
     }
 }

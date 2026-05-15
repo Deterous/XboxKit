@@ -80,9 +80,6 @@ namespace XboxKit
             if (!Validate(opts))
                 return;
 
-            // Determine disc layout type
-            int xgdType = XGD.GetXGDType(opts.RedumpIsoType);
-
             // Open redump ISO for reading
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading redump ISO from {opts.IsoPath}");
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -145,7 +142,7 @@ namespace XboxKit
             }
 
             // Extract system update file from XGD3 video partition
-            if (opts.ExtractUpdate && xgdType == 3)
+            if (opts.ExtractUpdate && opts.XGDType == 3)
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.VideoPath}");
@@ -157,9 +154,9 @@ namespace XboxKit
             }
 
             // If XGD1, try brute force the filler data seed
-            if (opts.ExtractSeed && xgdType == 0)
+            if (opts.ExtractSeed && opts.XGDType == 0)
             {
-                uint? seed = XboxPRNG.ExtractSeed(isoFS, XGD.XISO_OFFSET[xgdType], opts.Quiet);
+                uint? seed = XboxPRNG.ExtractSeed(isoFS, XGD.XISO_OFFSET[opts.XGDType], opts.Quiet);
                 if (seed.HasValue)
                 {
                     if (!opts.Quiet) Console.WriteLine($"[INFO] Filler data seed: {seed.Value:X8}");
@@ -204,7 +201,7 @@ namespace XboxKit
             }
 
             // Process XISO
-            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[xgdType], XGD.XISO_LENGTH[xgdType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
             {
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
