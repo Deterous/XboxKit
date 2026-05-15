@@ -97,7 +97,7 @@ namespace XboxKit
                 if (opts.OutputFiles)
                 {
                     if (!opts.Quiet) Console.WriteLine($"[INFO] Parsing Xbox DVD filesystem");
-                    isoFS.Seek(XGD.XISO_OFFSET[xgdType], SeekOrigin.Begin);
+                    isoFS.Seek(XGD.XISO_OFFSET[opts.XGDType], SeekOrigin.Begin);
 
                     if (!Directory.Exists(opts.OutputPath))
                         Directory.CreateDirectory(opts.OutputPath);
