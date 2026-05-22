@@ -188,7 +188,7 @@ namespace XboxKit
                 return;
 
             // Create file for game partition
-            FileStream xisoFS = null!;
+            using FileStream? xisoFS = null;
             if (opts.ExtractXISO)
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
@@ -201,7 +201,7 @@ namespace XboxKit
             }
 
             // Create file for filler data
-            FileStream fillerFS = null!;
+            using FileStream? fillerFS = null;
             if (opts.ExtractFiller)
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
@@ -209,17 +209,11 @@ namespace XboxKit
             }
 
             // Process XISO
-            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS!, fillerFS!, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
             {
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
             }
-
-            // Close files
-            if (xisoFS != null)
-                xisoFS.Dispose();
-            if (fillerFS != null)
-                fillerFS.Dispose();
         }
     }
 }
