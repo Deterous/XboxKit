@@ -263,7 +263,7 @@ namespace LibXGD
             byte[] compressed;
             using (var ms = new MemoryStream())
             {
-                using (var zstd = new ZstandardStream(ms))
+                using (var zstd = new ZStandardStream(ms))
                     zstd.Write(data, 0, BLOCK_SIZE);
                 compressed = ms.ToArray();
             }
