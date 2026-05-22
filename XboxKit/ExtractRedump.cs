@@ -205,6 +205,18 @@ namespace XboxKit
                     return;
                 }
             }
+
+            // Create ZArchive of game files
+            if (opts.ExtractZAR)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
+                if (!ZArchive.CreateZAR(isoFS, XGD.XISO_OFFSET[opts.XGDType], opts.ZarPath, opts.Quiet))
+                {
+                    Console.WriteLine("[ERROR] Failed creating ZArchive.");
+                    return;
+                }
+            }
+
         }
     }
 }

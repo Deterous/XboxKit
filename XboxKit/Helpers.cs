@@ -323,10 +323,10 @@ namespace XboxKit
                 }
             }
 
-            // TODO: Add SabreTools.Serialization
-            if (opts.ExtractZAR || Path.GetExtension(opts.IsoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
+            // TODO: Add SabreTools.Serialization for ZAR rebuild
+            if (Path.GetExtension(opts.IsoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("ZArchive support is coming soon!");
+                Console.WriteLine("ZArchive rebuild is coming soon!");
                 return false;
             }
 

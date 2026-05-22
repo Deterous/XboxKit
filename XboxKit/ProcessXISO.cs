@@ -88,6 +88,17 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
             }
+
+            // Create ZArchive of game files
+            if (opts.ExtractZAR)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
+                if (!ZArchive.CreateZAR(isoFS, 0, opts.ZarPath, opts.Quiet))
+                {
+                    Console.WriteLine("[ERROR] Failed creating ZArchive.");
+                    return;
+                }
+            }
         }
     }
 }
