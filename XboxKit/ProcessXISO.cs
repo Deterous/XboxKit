@@ -13,17 +13,17 @@ namespace XboxKit
                 bool invalidOptions = false;
                 if (opts.ExtractXISO)
                 {
-                    Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is already XISO (or unexpected ISO).");
+                    Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is not a redump ISO.");
                     invalidOptions = true;
                 }
                 if (opts.ExtractVideo)
                 {
-                    Console.WriteLine("[INFO] Cannot extract video (-v), input file is XISO (or unexpected ISO).");
+                    Console.WriteLine("[INFO] Cannot extract video (-v), input file is not a redump ISO.");
                     invalidOptions = true;
                 }
                 if (opts.ExtractUpdate)
                 {
-                    Console.WriteLine("[INFO] Cannot extract update (-u), input file is XISO (or unexpected ISO).");
+                    Console.WriteLine("[INFO] Cannot extract update (-u), input file is not a redump ISO.");
                     invalidOptions = true;
                 }
                 if (invalidOptions && opts.AssumeNo)
@@ -38,14 +38,21 @@ namespace XboxKit
             if (!Validate(opts))
                 return;
 
+            bool writeXISO = opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton;
+            if (!writeXISO && !opts.ExtractFiller && !opts.ExtractSeed && !opts.ExtractFiles && !opts.ExtractZAR)
+            {
+                if (!opts.Quiet) Console.WriteLine("[ERROR] XISO file provided but nothing to do.");
+                return;
+            }
+
             // Open XISO for reading
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
 
-            // Validate XISO
+            // Validate XISO magic
             if (!XDVDFS.IsValidXISO(isoFS))
             {
-                Console.WriteLine($"[ERROR] Invalid XISO file: {opts.IsoPath}");
+                Console.WriteLine("[ERROR] Invalid XISO file");
                 return;
             }
 
@@ -58,7 +65,6 @@ namespace XboxKit
             }
 
             // Create file for game partition
-            bool writeXISO = opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton;
             if (writeXISO && opts.WipeXISO && !opts.Quiet)
                 Console.WriteLine($"[INFO] Writing wiped XISO to {opts.XisoPath}");
             else if (writeXISO && opts.TrimXISO && !opts.Quiet)
