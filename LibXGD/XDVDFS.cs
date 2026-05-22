@@ -73,7 +73,7 @@ namespace LibXGD
             List<uint> sysSectors = new List<uint>();
             List<uint> fileSectors = new List<uint>();
             long headerOffset = offset + XDVDFS.XISO_HEADER_OFFSET;
-            long headerOffsetSector = (headerOffset) / SECTOR_SIZE;
+            long headerOffsetSector = headerOffset / SECTOR_SIZE;
             sysSectors.Add((uint)headerOffsetSector);
 
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
@@ -127,21 +127,24 @@ namespace LibXGD
 
             var fileRanges = new List<(uint, uint)>();
             var sortedFileSectors = fileSectors.Distinct().OrderBy(x => x).ToList();
-            start = sortedFileSectors[0];
-            prev = sortedFileSectors[0];
-            for (int i = 1; i < sortedFileSectors.Count; i++)
+            if (sortedFileSectors.Count > 0)
             {
-                uint current = sortedFileSectors[i];
-                if (current == prev + 1)
-                    prev = current;
-                else
+                start = sortedFileSectors[0];
+                prev = sortedFileSectors[0];
+                for (int i = 1; i < sortedFileSectors.Count; i++)
                 {
-                    fileRanges.Add((start, prev));
-                    start = current;
-                    prev = current;
+                    uint current = sortedFileSectors[i];
+                    if (current == prev + 1)
+                        prev = current;
+                    else
+                    {
+                        fileRanges.Add((start, prev));
+                        start = current;
+                        prev = current;
+                    }
                 }
+                fileRanges.Add((start, prev));
             }
-            fileRanges.Add((start, prev));
 
             return (allRanges, sysRanges, fileRanges);
         }

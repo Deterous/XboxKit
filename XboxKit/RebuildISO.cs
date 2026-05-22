@@ -134,7 +134,7 @@ namespace XboxKit
             using FileStream? rebuildFillerFS = File.Exists(opts.FillerPath) ? new FileStream(opts.FillerPath, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
 
             // Get XGD1 initial seed, if path exists
-            XboxPRNG prng = null!;
+            XboxPRNG? prng = null;
             if (rebuildFillerFS == null && opts.XGDType == 0 && File.Exists(opts.SeedPath))
             {
                 FileInfo seedInfo = new(opts.SeedPath);

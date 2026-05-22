@@ -130,7 +130,7 @@ namespace XboxKit
                         return;
                     }
                     var writer = new SabreTools.Serialization.Writers.XRD();
-                    if(!writer.SerializeFile(xrd, opts.XrdPath))
+                    if (!writer.SerializeFile(xrd, opts.XrdPath))
                     {
                         Console.WriteLine($"[ERROR] Failed to write XRD");
                         return;
@@ -183,28 +183,27 @@ namespace XboxKit
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Cannot extract seed from Xbox 360 discs");
             }
 
-            // Quit early if we're not extracting data from game partition
-            if (!opts.ExtractXISO && !opts.ExtractFiller && !opts.ExtractSkeleton)
-                return;
-
-            // Create file for game partition
-            string? xisoPath = opts.ExtractXISO ? opts.XisoPath : opts.ExtractSkeleton ? opts.SkeletonPath : null;
-            if (opts.ExtractXISO && !opts.Quiet)
-                Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
-            else if (opts.ExtractSkeleton && !opts.Quiet)
-                Console.WriteLine($"[INFO] Writing XISO skeleton to {opts.SkeletonPath}");
-            using FileStream? xisoFS = xisoPath != null ? new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
-
-            // Create file for filler data
-            if (opts.ExtractFiller && !opts.Quiet)
-                Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
-            using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
-
-            // Process XISO
-            if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS!, fillerFS!, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+            if (opts.ExtractXISO || opts.ExtractFiller || opts.ExtractSkeleton)
             {
-                Console.WriteLine("[ERROR] Failed processing XISO.");
-                return;
+                // Create file for game partition
+                string? xisoPath = opts.ExtractXISO ? opts.XisoPath : opts.ExtractSkeleton ? opts.SkeletonPath : null;
+                if (opts.ExtractXISO && !opts.Quiet)
+                    Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
+                else if (opts.ExtractSkeleton && !opts.Quiet)
+                    Console.WriteLine($"[INFO] Writing XISO skeleton to {opts.SkeletonPath}");
+                using FileStream? xisoFS = xisoPath != null ? new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
+
+                // Create file for filler data
+                if (opts.ExtractFiller && !opts.Quiet)
+                    Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
+                using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
+
+                // Process XISO
+                if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+                {
+                    Console.WriteLine("[ERROR] Failed processing XISO.");
+                    return;
+                }
             }
         }
     }
