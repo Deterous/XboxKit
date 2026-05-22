@@ -162,7 +162,7 @@ namespace LibXGD
             return index;
         }
 
-        // Collect files in BFS order (same order as file tree serialization)
+        // Collect files in BFS sorted order (same order as file tree serialization)
         private static void CollectFiles(PathNode root, List<PathNode> files, List<string> names)
         {
             var queue = new Queue<PathNode>();
