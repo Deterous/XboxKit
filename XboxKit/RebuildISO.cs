@@ -85,7 +85,6 @@ namespace XboxKit
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
 
-
             // Create redump ISO
             using FileStream redumpFS = new(opts.RedumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Writing redump ISO to {opts.RedumpPath}");
@@ -95,7 +94,7 @@ namespace XboxKit
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading video partition from {opts.VideoPath}");
 
             // Open filler data for reading if available
-            FileStream rebuildFillerFS = null!;
+            using FileStream? rebuildFillerFS = null;
             if (File.Exists(opts.FillerPath))
             {
                 rebuildFillerFS = new(opts.FillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -138,21 +137,18 @@ namespace XboxKit
                 securitySectors = parsed;
             }
 
-            // Rebuild redump ISO
-            if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, prng, securitySectors, opts.VideoType, opts.Quiet))
+            // Open system update file if available
+            using FileStream? updateFS = null;
+            if (File.Exists(opts.UpdatePath))
             {
-                Console.WriteLine("[ERROR] Failed rebuilding redump ISO.");
-                return;
+                updateFS = new(opts.UpdatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Reading system update from {opts.UpdatePath}");
             }
 
-            // Close filler file
-            if (rebuildFillerFS != null)
-                rebuildFillerFS.Dispose();
-
-            // Insert system update file if available
-            if (!XGD.RebuildWithUpdate(redumpFS, videoFS, opts.UpdatePath, opts.VideoType, opts.Quiet))
+            // Rebuild redump ISO
+            if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, updateFS, prng, securitySectors, opts.VideoType, opts.Quiet))
             {
-                Console.WriteLine("[ERROR] Failed writing system update file.");
+                Console.WriteLine("[ERROR] Failed rebuilding redump ISO.");
                 return;
             }
         }

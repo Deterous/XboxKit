@@ -154,7 +154,7 @@ namespace LibXGD
         }
 
         // Rebuild redump ISO from XISO + video + filler/seed
-        public static bool RebuildRedump(FileStream isoFS, FileStream redumpFS, FileStream videoFS, FileStream? fillerFS, XboxPRNG? prng, int[] securitySectors, int videoType, bool quiet)
+        public static bool RebuildRedump(FileStream isoFS, FileStream redumpFS, FileStream videoFS, FileStream? fillerFS, FileStream? updateFS, XboxPRNG? prng, int[] securitySectors, int videoType, bool quiet)
         {
             int xisoType = GetXISOTypeFromVideo(videoType);
             long xisoLength = XISO_LENGTH[xisoType];
@@ -293,43 +293,30 @@ namespace LibXGD
             Utils.WriteZeroes(redumpFS, -1, l1Padding);
 
             // Write layer 1 portion of video partition
-            if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Length))
-                return false;
+            if (updateFS != null)
+            {
+                long suSize = updateFS.Length;
+                long l1Trimmed = l1Length - suSize - XDVDFS.SECTOR_SIZE;
 
-            return true;
-        }
+                // Write layer 1 portion of video partition (minus update area)
+                if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Trimmed))
+                    return false;
 
-        // Rebuild redump ISO with system update file inserted into video partition
-        public static bool RebuildWithUpdate(FileStream redumpFS, FileStream videoFS, string updatePath, int videoType, bool quiet)
-        {
-            if (!File.Exists(updatePath))
-                return true; // No update to insert, not an error
+                // Write system update file
+                if (!Utils.WriteBytes(updateFS, redumpFS, 0, suSize))
+                    return false;
 
-            long l0Length = VIDEO_L0_LENGTH[videoType];
-            long l1Length = VIDEO_L1_LENGTH[videoType];
-
-            // Rewind redump to overwrite the last l1Length bytes
-            long redumpLength = GetRedumpLength(videoType);
-            redumpFS.Seek(redumpLength - l1Length, SeekOrigin.Begin);
-
-            FileInfo suInfo = new(updatePath);
-            long suSize = suInfo.Length;
-            long l1Trimmed = l1Length - suSize - XDVDFS.SECTOR_SIZE;
-
-            // Write layer 1 portion of video partition (minus update area)
-            if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Trimmed))
-                return false;
-
-            // Write system update file
-            using FileStream updateFS = new(updatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (!quiet) Console.WriteLine($"[INFO] Reading system update from {updatePath}");
-            if (!Utils.WriteBytes(updateFS, redumpFS, 0, suSize))
-                return false;
-
-            // Write final video partition sector
-            videoFS.Seek(-XDVDFS.SECTOR_SIZE, SeekOrigin.End);
-            if (!Utils.WriteBytes(videoFS, redumpFS, -1, XDVDFS.SECTOR_SIZE))
-                return false;
+                // Write final video partition sector
+                videoFS.Seek(-XDVDFS.SECTOR_SIZE, SeekOrigin.End);
+                if (!Utils.WriteBytes(videoFS, redumpFS, -1, XDVDFS.SECTOR_SIZE))
+                    return false;
+            }
+            else
+            {
+                // Copy layer 1 portion directly from Video ISO
+                if (!Utils.WriteBytes(videoFS, redumpFS, l0Length, l1Length))
+                    return false;
+            }
 
             return true;
         }

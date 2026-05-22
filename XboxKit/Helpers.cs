@@ -333,8 +333,13 @@ namespace XboxKit
             for (int i = 1; i < filePaths.Count; i++)
             {
                 string filePath = filePaths[i];
-                if (Directory.Exists(filePath) && string.IsNullOrEmpty(opts.OutputPath))
+                if (Directory.Exists(filePath))
                 {
+                    if (!string.IsNullOrEmpty(opts.OutputPath))
+                    {
+                        Console.WriteLine("[ERROR] Provide only one output directory");
+                        return false;
+                    }
                     opts.OutputPath = filePath;
                     continue;
                 }
@@ -349,7 +354,8 @@ namespace XboxKit
                 if (string.IsNullOrEmpty(opts.VideoPath) && (filePath.EndsWith(".video.iso", StringComparison.OrdinalIgnoreCase)
                     || Array.IndexOf(LibXGD.XGD.VIDEO_LENGTH, fileSize) >= 0))
                     opts.VideoPath = filePath;
-                else if (string.IsNullOrEmpty(opts.SkeletonPath) && filePath.EndsWith(".skeleton.xiso", StringComparison.OrdinalIgnoreCase))
+                else if (string.IsNullOrEmpty(opts.SkeletonPath) && (filePath.EndsWith(".skeleton.xiso", StringComparison.OrdinalIgnoreCase)
+                    || filePath.EndsWith(".skeleton", StringComparison.OrdinalIgnoreCase)))
                     opts.SkeletonPath = filePath;
                 else if (string.IsNullOrEmpty(opts.XisoPath) && (filePath.EndsWith(".xiso", StringComparison.OrdinalIgnoreCase)
                     || Array.IndexOf(LibXGD.XGD.XISO_LENGTH, fileSize) >= 0))
@@ -427,7 +433,7 @@ namespace XboxKit
             {
                 opts.Mode = Mode.ExtractVideo;
             }
-            else if (filePaths.Count == 1 && hasOptions)
+            else if (hasOptions)
             {
                 opts.Mode = Mode.ProcessXISO;
                 if (opts.XisoType >= 0)

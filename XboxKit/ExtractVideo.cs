@@ -7,7 +7,7 @@ namespace XboxKit
     internal static class ExtractVideo
     {
         // Heuristic to determine XGD3 system update file offset in video partition
-        // This algorithm is easier than parsing UDF, but reads backwards (bad I/O behaviour)
+        // This algorithm is simpler than parsing UDF, but reads backwards (bad I/O behaviour)
         static long SUOffset(FileStream videoFS)
         {
             long updateOffset = videoFS.Length;
@@ -33,7 +33,7 @@ namespace XboxKit
         }
 
         // Extracts then zeroes the SU file from Video ISO
-        internal static bool ExtractSU(string isoPath, string updatePath)
+        internal static bool ExtractSU(string isoPath, string updatePath, bool wipe)
         {
             using FileStream videoFS = new(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
             long updateOffset = SUOffset(videoFS);
@@ -44,7 +44,8 @@ namespace XboxKit
                 return false;
 
             // Zero out the update file in the video ISO
-            Utils.WriteZeroes(videoFS, updateOffset, updateLength);
+            if (wipe)
+                Utils.WriteZeroes(videoFS, updateOffset, updateLength);
 
             return true;
         }
@@ -135,7 +136,7 @@ namespace XboxKit
 
             if (!opts.Quiet) Console.WriteLine($"[INFO] Writing system update file to {opts.UpdatePath}");
             if (!opts.Quiet) Console.WriteLine($"[INFO] Zeroing system update file in {opts.IsoPath}");
-            if (!ExtractSU(opts.IsoPath, opts.UpdatePath))
+            if (!ExtractSU(opts.IsoPath, opts.UpdatePath, true))
             {
                 Console.WriteLine($"[ERROR] Failed extracting system update file.");
                 return;

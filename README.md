@@ -1,6 +1,6 @@
 # XboxKit
 
-**XboxKit** losslessly converts between Xbox / Xbox 360 file formats for archival and collection purposes. It supports Redump ISOs, XISO ([XDVDFS](https://multimedia.cx/xdvdfs.html) format) images of the game partition, video ISO (DVD-Video format) images of the video partition, extracted random filler padding data, XGD1 filler seeds, system update files (from XGD3 video ISOs), XISO skeletons, ZAR ([ZArchive](https://github.com/Exzap/ZArchive)), and individual game files.
+**XboxKit** losslessly converts between Xbox / Xbox 360 disc image formats for archival and collection purposes. It supports Redump ISOs, XISO ([XDVDFS](https://multimedia.cx/xdvdfs.html) format) images of the game partition, video ISO (DVD-Video format) images of the video partition, extracted random filler padding data, XGD1 filler seeds, system update files (from XGD3 video ISOs), XISO skeletons, ZAR ([ZArchive](https://github.com/Exzap/ZArchive)), and individual game files.
 
 ```mermaid
 graph LR
