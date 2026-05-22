@@ -11,6 +11,11 @@ namespace XboxKit
             if (!opts.AssumeYes && (opts.AssumeNo || !opts.Quiet))
             {
                 bool invalidOptions = false;
+                if (opts.ExtractXRD)
+                {
+                    Console.WriteLine("[INFO] Cannot extract XRD (-m), input file is not a redump ISO.");
+                    invalidOptions = true;
+                }
                 if (opts.ExtractXISO)
                 {
                     Console.WriteLine("[INFO] Cannot extract XISO (-x), input file is not a redump ISO.");
@@ -39,9 +44,10 @@ namespace XboxKit
                 return;
 
             bool writeXISO = opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton;
-            if (!writeXISO && !opts.ExtractFiller && !opts.ExtractSeed && !opts.ExtractFiles && !opts.ExtractZAR)
+            if (!writeXISO && !opts.ExtractFiller && !opts.ExtractSeed && !opts.OutputFiles && !opts.ExtractZAR)
             {
-                if (!opts.Quiet) Console.WriteLine("[ERROR] XISO file provided but nothing to do.");
+                if (!opts.Quiet)
+                    Console.WriteLine("[INFO] No applicable options for XISO input.");
                 return;
             }
 
