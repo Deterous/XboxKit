@@ -259,11 +259,11 @@ namespace LibXGD
             if (count == 0)
                 recordBase = (ulong)hs.Position;
 
-            // Compress with Zstd (level 6 to match canonical C++ implementation)
+            // Compress with Zstd
             byte[] compressed;
             using (var ms = new MemoryStream())
             {
-                using (var zstd = new ZstandardStream(ms, 6))
+                using (var zstd = new ZstandardStream(ms))
                     zstd.Write(data, 0, BLOCK_SIZE);
                 compressed = ms.ToArray();
             }
