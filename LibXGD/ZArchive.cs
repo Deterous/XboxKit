@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using SharpCompress.Compressors.ZStandard;
+using Nanook.GrindCore;
+using Nanook.GrindCore.ZStd;
 
 namespace LibXGD
 {
@@ -262,7 +263,12 @@ namespace LibXGD
             // Compress with Zstd (level 6 to match canonical C++ implementation)
             byte[] compressed;
             var ms = new MemoryStream();
-            using (var zstd = new ZStandardStream(ms, 6, false))
+            var options = new CompressionOptions
+            {
+                Type = CompressionType.Level6,
+                BufferSize = BLOCK_SIZE,
+            };
+            using (var zstd = new ZStdStream(ms, options))
                 zstd.Write(data, 0, BLOCK_SIZE);
             compressed = ms.ToArray();
 
