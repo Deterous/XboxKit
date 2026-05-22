@@ -29,6 +29,7 @@
   <ItemGroup>
     <PackageReference Include="SabreTools.Serialization" Version="2.3.0" />
     <PackageReference Include="GrindCore.SharpCompress" Version="0.48.0" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.5" />
   </ItemGroup>
 
 </Project>

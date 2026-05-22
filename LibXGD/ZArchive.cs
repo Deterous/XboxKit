@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using Nanook.GrindCore;
-using Nanook.GrindCore.ZStd;
+using ZstdSharp;
 
 namespace LibXGD
 {
@@ -262,15 +261,8 @@ namespace LibXGD
 
             // Compress with Zstd (level 6 to match canonical C++ implementation)
             byte[] compressed;
-            var ms = new MemoryStream();
-            var options = new CompressionOptions
-            {
-                Type = CompressionType.Level6,
-                BufferSize = BLOCK_SIZE,
-            };
-            using (var zstd = new ZStdStream(ms, options))
-                zstd.Write(data, 0, BLOCK_SIZE);
-            compressed = ms.ToArray();
+            using (var compressor = new Compressor(6))
+                compressed = compressor.Wrap(new ReadOnlySpan<byte>(data, 0, BLOCK_SIZE)).ToArray();
 
             bool useRaw = compressed.Length >= BLOCK_SIZE;
             byte[] toWrite = useRaw ? data : compressed;
