@@ -149,6 +149,9 @@ namespace LibXGD
         // Process XISO: extract filler, wipe, trim, and/or create skeleton
         public static bool ProcessXISO(FileStream isoFS, long isoOffset, long xisoLength, FileStream? xisoFS, FileStream? fillerFS, bool wipe, bool trim, bool skeleton, bool quiet)
         {
+            if (xisoFS == null && fillerFS == null)
+                return true;
+
             // Parse XISO filesystem for all file extents
             var validRanges = GetXISORanges(isoFS, isoOffset, quiet);
             if (!quiet)
@@ -223,13 +226,15 @@ namespace LibXGD
                 // Write to XISO file
                 if (writeXISO)
                 {
+                    bool fillerAlreadyRead = extractFiller && bytesToWipe > 0;
+
                     if (wipe && bytesToWipe > 0 && !skipEnd)
                     {
                         if (bytesToWipe % SECTOR_SIZE != 0)
                             return false;
                         Utils.WriteZeroes(xisoFS!, -1, bytesToWipe);
                         numBytes += bytesToWipe;
-                        if (!extractFiller)
+                        if (!fillerAlreadyRead)
                             isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                     }
                     else if (!skipEnd)
@@ -254,7 +259,20 @@ namespace LibXGD
                             }
                         }
 
-                        if (skeleton && !is_bone)
+                        if (fillerAlreadyRead)
+                        {
+                            if (wipe || skeleton)
+                            {
+                                Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
+                            }
+                            else
+                            {
+                                isoFS.Seek(-bytesToRead, SeekOrigin.Current);
+                                if (!Utils.WriteBytes(isoFS, xisoFS!, -1, bytesToRead))
+                                    return false;
+                            }
+                        }
+                        else if (skeleton && !is_bone)
                         {
                             Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
                             isoFS.Seek(bytesToRead, SeekOrigin.Current);
@@ -268,7 +286,8 @@ namespace LibXGD
                     }
                     else if (bytesToWipe > 0)
                     {
-                        isoFS.Seek(bytesToWipe, SeekOrigin.Current);
+                        if (!fillerAlreadyRead)
+                            isoFS.Seek(bytesToWipe, SeekOrigin.Current);
                         numBytes += bytesToWipe;
                     }
                 }
