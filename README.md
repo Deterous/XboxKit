@@ -34,10 +34,11 @@ graph LR
 ## Command-line help text
 
 ```
-Usage: xboxkit.exe [options] <input.iso> [files]
-
 Rebuild mode: Don't use any options (combines input files)
+Usage: xboxkit.exe <input.xiso> [files...]
+
 Extract mode: Use one or more options (splits input file)
+Usage: xboxkit.exe [options] <input.iso>
 
 Batch options (for redump ISO):
   -a, --all       All options for lossless XISO extraction (-rstuvwx)

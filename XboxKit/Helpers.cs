@@ -11,10 +11,11 @@ namespace XboxKit
             // Print help text to console
             Console.WriteLine("XboxKit (c) Deterous 2024-2026");
             Console.WriteLine("");
-            Console.WriteLine("Usage: xboxkit.exe [options] <input.iso> [files]");
-            Console.WriteLine("");
             Console.WriteLine("Rebuild mode: Don't use any options (combines input files)");
+            Console.WriteLine("Usage: xboxkit.exe <input.xiso> [files...]");
+            Console.WriteLine("");
             Console.WriteLine("Extract mode: Use one or more options (splits input file)");
+            Console.WriteLine("Usage: xboxkit.exe [options] <input.iso>");
             Console.WriteLine("");
             Console.WriteLine("Batch options (for redump ISO):");
             Console.WriteLine("  -a, --all       All options for lossless XISO extraction (-rstuvwx)");
