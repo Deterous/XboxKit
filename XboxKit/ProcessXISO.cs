@@ -52,23 +52,16 @@ namespace XboxKit
 
             // Create file for game partition
             bool writeXISO = opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton;
-            FileStream xisoFS = null!;
-            if (writeXISO)
-            {
-                if (opts.WipeXISO && !opts.Quiet)
-                    Console.WriteLine($"[INFO] Writing wiped XISO to {opts.XisoPath}");
-                else if (opts.TrimXISO && !opts.Quiet)
-                    Console.WriteLine($"[INFO] Writing XISO to {opts.XisoPath}");
-                xisoFS = new FileStream(opts.XisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            }
+            if (writeXISO && opts.WipeXISO && !opts.Quiet)
+                Console.WriteLine($"[INFO] Writing wiped XISO to {opts.XisoPath}");
+            else if (writeXISO && opts.TrimXISO && !opts.Quiet)
+                Console.WriteLine($"[INFO] Writing XISO to {opts.XisoPath}");
+            using FileStream? xisoFS = writeXISO ? new FileStream(opts.XisoPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
             // Create file for filler data
-            FileStream fillerFS = null!;
-            if (opts.ExtractFiller)
-            {
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Extracting filler data to {opts.FillerPath}");
-                fillerFS = new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            }
+            if (opts.ExtractFiller && !opts.Quiet)
+                Console.WriteLine($"[INFO] Extracting filler data to {opts.FillerPath}");
+            using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
             // Process XISO
             if (!XDVDFS.ProcessXISO(isoFS, 0, opts.IsoSize, xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
@@ -76,12 +69,6 @@ namespace XboxKit
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
             }
-
-            // Close files
-            if (xisoFS != null)
-                xisoFS.Dispose();
-            if (fillerFS != null)
-                fillerFS.Dispose();
         }
     }
 }

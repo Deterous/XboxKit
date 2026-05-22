@@ -188,25 +188,17 @@ namespace XboxKit
                 return;
 
             // Create file for game partition
-            using FileStream? xisoFS = null;
-            if (opts.ExtractXISO)
-            {
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
-                xisoFS = new FileStream(opts.XisoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            }
-            else if (opts.ExtractSkeleton)
-            {
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing XISO skeleton to {opts.SkeletonPath}");
-                xisoFS = new FileStream(opts.SkeletonPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            }
+            string? xisoPath = opts.ExtractXISO ? opts.XisoPath : opts.ExtractSkeleton ? opts.SkeletonPath : null;
+            if (opts.ExtractXISO && !opts.Quiet)
+                Console.WriteLine($"[INFO] Writing game partition to {opts.XisoPath}");
+            else if (opts.ExtractSkeleton && !opts.Quiet)
+                Console.WriteLine($"[INFO] Writing XISO skeleton to {opts.SkeletonPath}");
+            using FileStream? xisoFS = xisoPath != null ? new FileStream(xisoPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
             // Create file for filler data
-            using FileStream? fillerFS = null;
-            if (opts.ExtractFiller)
-            {
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
-                fillerFS = new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            }
+            if (opts.ExtractFiller && !opts.Quiet)
+                Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
+            using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
             // Process XISO
             if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS!, fillerFS!, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))

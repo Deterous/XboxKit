@@ -94,12 +94,9 @@ namespace XboxKit
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading video partition from {opts.VideoPath}");
 
             // Open filler data for reading if available
-            using FileStream? rebuildFillerFS = null;
-            if (File.Exists(opts.FillerPath))
-            {
-                rebuildFillerFS = new(opts.FillerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Reading random filler data from {opts.FillerPath}");
-            }
+            if (File.Exists(opts.FillerPath) && !opts.Quiet)
+                Console.WriteLine($"[INFO] Reading random filler data from {opts.FillerPath}");
+            using FileStream? rebuildFillerFS = File.Exists(opts.FillerPath) ? new FileStream(opts.FillerPath, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
 
             // Get XGD1 initial seed, if path exists
             XboxPRNG prng = null!;
@@ -138,12 +135,9 @@ namespace XboxKit
             }
 
             // Open system update file if available
-            using FileStream? updateFS = null;
-            if (File.Exists(opts.UpdatePath))
-            {
-                updateFS = new(opts.UpdatePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Reading system update from {opts.UpdatePath}");
-            }
+            if (File.Exists(opts.UpdatePath) && !opts.Quiet)
+                Console.WriteLine($"[INFO] Reading system update from {opts.UpdatePath}");
+            using FileStream? updateFS = File.Exists(opts.UpdatePath) ? new FileStream(opts.UpdatePath, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
 
             // Rebuild redump ISO
             if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, updateFS, prng, securitySectors, opts.VideoType, opts.Quiet))
