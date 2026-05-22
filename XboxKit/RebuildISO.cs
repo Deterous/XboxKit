@@ -76,6 +76,17 @@ namespace XboxKit
             return true;
         }
 
+        // Calculate expected filler size from XDVDFS ranges
+        static long GetExpectedFillerSize(FileStream isoFS, long xisoLength)
+        {
+            var validRanges = XDVDFS.GetXISORanges(isoFS, 0, true);
+            long validBytes = 0;
+            foreach (var (start, end) in validRanges.All)
+                validBytes += (end - start + 1) * XDVDFS.SECTOR_SIZE;
+            isoFS.Seek(0, SeekOrigin.Begin);
+            return xisoLength - validBytes;
+        }
+
         public static void Run(Options opts)
         {
             if (!Validate(opts))
@@ -84,6 +95,23 @@ namespace XboxKit
             // Open XISO for reading
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
+
+            // Validate filler file
+            if (File.Exists(opts.FillerPath) && opts.XisoType >= 0)
+            {
+                long xisoLength = XGD.XISO_LENGTH[opts.XisoType];
+                long expectedFillerSize = GetExpectedFillerSize(isoFS, xisoLength);
+                long actualFillerSize = new FileInfo(opts.FillerPath).Length;
+
+                // TODO: Allow for RC4 format file + sectors.txt / SS.bin
+                if (actualFillerSize != expectedFillerSize)
+                {
+                    Console.WriteLine($"[ERROR] Random filler data should be {expectedFillerSize} bytes, got {actualFillerSize} bytes.");
+                    if (actualFillerSize < expectedFillerSize)
+                        Console.WriteLine("        The filler file should contain the zeroed security sector ranges, not just the RC4 data!");
+                    return;
+                }
+            }
 
             // Create redump ISO
             using FileStream redumpFS = new(opts.RedumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
