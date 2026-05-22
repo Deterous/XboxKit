@@ -14,6 +14,20 @@ namespace LibXGD
         public static readonly byte[] MAGIC1 = Encoding.ASCII.GetBytes("MICROSOFT*XBOX*MEDIA");
         public static readonly byte[] MAGIC2 = Encoding.ASCII.GetBytes("XBOX_DVD_LAYOUT_TOOL_SIG");
 
+        // Validate XISO by checking for XDVDFS magic at volume descriptor
+        public static bool IsValidXISO(FileStream isoFS, long offset = 0)
+        {
+            long headerOffset = offset + XISO_HEADER_OFFSET;
+            if (isoFS.Length < headerOffset + MAGIC1.Length)
+                return false;
+            isoFS.Seek(headerOffset, SeekOrigin.Begin);
+            byte[] magic = new byte[MAGIC1.Length];
+            if (isoFS.Read(magic, 0, magic.Length) != magic.Length)
+                return false;
+            isoFS.Seek(0, SeekOrigin.Begin);
+            return magic.SequenceEqual(MAGIC1);
+        }
+
         // Traverse file tree to get all valid data sectors in XISO
         public static void GetValidSectors(FileStream isoFS, long isoOffset, List<uint> sysSectors, List<uint> fileSectors, long rootOffset, uint rootSize, long childOffset, bool quiet)
         {

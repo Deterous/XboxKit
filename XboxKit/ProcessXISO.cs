@@ -42,6 +42,13 @@ namespace XboxKit
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
 
+            // Validate XISO
+            if (!XDVDFS.IsValidXISO(isoFS))
+            {
+                Console.WriteLine($"[ERROR] Invalid XISO file: {opts.IsoPath}");
+                return;
+            }
+
             // Cannot extract/wipe/trim from invalid XISO size
             if (opts.XisoType < 0)
             {

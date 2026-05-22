@@ -96,6 +96,13 @@ namespace XboxKit
             using FileStream isoFS = new(opts.IsoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading XISO from {opts.IsoPath}");
 
+            // Validate XISO
+            if (!XDVDFS.IsValidXISO(isoFS))
+            {
+                Console.WriteLine($"[ERROR] Invalid XISO file: {opts.IsoPath}");
+                return;
+            }
+
             // Validate filler file
             if (File.Exists(opts.FillerPath) && opts.XisoType >= 0)
             {
@@ -106,7 +113,7 @@ namespace XboxKit
                 // TODO: Allow for RC4 format file + sectors.txt / SS.bin
                 if (actualFillerSize != expectedFillerSize)
                 {
-                    Console.WriteLine($"[ERROR] Random filler data should be {expectedFillerSize} bytes, got {actualFillerSize} bytes.");
+                    Console.WriteLine($"[ERROR] Random filler data should be {expectedFillerSize} bytes, got {actualFillerSize} bytes");
                     if (actualFillerSize < expectedFillerSize)
                         Console.WriteLine("        The filler file should contain the zeroed security sector ranges, not just the RC4 data!");
                     return;
