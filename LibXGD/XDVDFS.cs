@@ -46,7 +46,7 @@ namespace LibXGD
             if (leftChildOffset == 0xFFFF)
                 return;
             ushort rightChildOffset = Utils.ReadUShort(isoFS);
-            long entryOffset = (long)Utils.ReadUInt(isoFS) * SECTOR_SIZE;
+            long entryOffset = Utils.ReadUInt(isoFS) * SECTOR_SIZE;
             uint entrySize = Utils.ReadUInt(isoFS);
             bool isDirectory = ((byte)isoFS.ReadByte() & 0x10) != 0;
 
@@ -153,9 +153,8 @@ namespace LibXGD
                 return true;
 
             // Parse XISO filesystem for all file extents
-            var validRanges = GetXISORanges(isoFS, isoOffset, quiet);
-            if (!quiet)
-                foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
+            var (ranges, bones, _) = GetXISORanges(isoFS, isoOffset, quiet);
+            if (!quiet) foreach (var (start, end) in ranges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
             bool writeXISO = xisoFS != null;
             bool extractFiller = fillerFS != null;
@@ -171,7 +170,7 @@ namespace LibXGD
                 bool skipEnd = false;
 
                 // Determine whether current sector is after last file extent
-                if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
+                if (ranges.Count > 0 && currentSector > ranges[ranges.Count - 1].End)
                 {
                     long bytesUntilEnd = xisoLength - numBytes;
                     if (extractFiller || wipe)
@@ -190,16 +189,16 @@ namespace LibXGD
                 }
                 else if (extractFiller || writeXISO)
                 {
-                    for (int i = 0; i < validRanges.All.Count; i++)
+                    for (int i = 0; i < ranges.Count; i++)
                     {
-                        if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
+                        if (currentSector >= ranges[i].Start && currentSector <= ranges[i].End)
                         {
-                            bytesUntilEndOfExtent = (validRanges.All[i].End + 1) * SECTOR_SIZE - currentByte;
+                            bytesUntilEndOfExtent = (ranges[i].End + 1) * SECTOR_SIZE - currentByte;
                             break;
                         }
-                        else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
+                        else if (currentSector < ranges[i].Start && (i == 0 || currentSector > ranges[i - 1].End))
                         {
-                            bytesToWipe = validRanges.All[i].Start * SECTOR_SIZE - currentByte;
+                            bytesToWipe = ranges[i].Start * SECTOR_SIZE - currentByte;
                             break;
                         }
                     }
@@ -230,6 +229,7 @@ namespace LibXGD
 
                     if (wipe && bytesToWipe > 0 && !skipEnd)
                     {
+                        // Write zeroes to XISO
                         if (bytesToWipe % SECTOR_SIZE != 0)
                             return false;
                         Utils.WriteZeroes(xisoFS!, -1, bytesToWipe);
@@ -249,12 +249,12 @@ namespace LibXGD
 
                         // Check if current sector is a filesystem sector
                         bool is_bone = false;
-                        for (int i = 0; i < validRanges.Sys.Count; i++)
+                        for (int i = 0; i < bones.Count; i++)
                         {
-                            if (currentSector >= validRanges.Sys[i].Start && currentSector <= validRanges.Sys[i].End)
+                            if (currentSector >= bones[i].Start && currentSector <= bones[i].End)
                             {
                                 is_bone = true;
-                                bytesToRead = (validRanges.Sys[i].End + 1) * SECTOR_SIZE - currentByte;
+                                bytesToRead = (bones[i].End + 1) * SECTOR_SIZE - currentByte;
                                 break;
                             }
                         }
@@ -263,10 +263,12 @@ namespace LibXGD
                         {
                             if (wipe || skeleton)
                             {
+                                // Write zeroes over filler data area
                                 Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
                             }
                             else
                             {
+                                // Filler already extracted, but needs to be retained in XISO too
                                 isoFS.Seek(-bytesToRead, SeekOrigin.Current);
                                 if (!Utils.WriteBytes(isoFS, xisoFS!, -1, bytesToRead))
                                     return false;
@@ -274,14 +276,17 @@ namespace LibXGD
                         }
                         else if (skeleton && !is_bone)
                         {
+                            // Skip file data in XISO
                             Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
                             isoFS.Seek(bytesToRead, SeekOrigin.Current);
                         }
                         else
                         {
+                            // Write file data to XISO
                             if (!Utils.WriteBytes(isoFS, xisoFS!, -1, bytesToRead))
                                 return false;
                         }
+
                         numBytes += bytesToRead;
                     }
                     else if (bytesToWipe > 0)
