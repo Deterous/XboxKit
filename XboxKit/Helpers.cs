@@ -64,7 +64,7 @@ namespace XboxKit
                 return null;
             }
             bool endOfOptions = false;
-            bool optsProvided = false;
+            opts.OptionsProvided = false;
             foreach (var arg in args)
             {
                 if (endOfOptions)
@@ -85,7 +85,7 @@ namespace XboxKit
                             opts.Help = true;
                             break;
                         case "--all":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractFiller = true;
                             opts.ExtractSeed = true;
                             opts.TrimXISO = true;
@@ -95,69 +95,69 @@ namespace XboxKit
                             opts.ExtractXISO = true;
                             break;
                         case "--best":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.TrimXISO = true;
                             opts.WipeXISO = true;
                             opts.ExtractXISO = true;
                             break;
                         case "--compress":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractSkeleton = true;
                             opts.ExtractUpdate = true;
                             opts.ExtractVideo = true;
                             opts.ExtractZAR = true;
                             break;
                         case "--metadata":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractXRD = true;
                             break;
                         case "--no":
                             opts.AssumeNo = true;
                             break;
                         case "--output":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.OutputFiles = true;
                             break;
                         case "--petrify":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractSkeleton = true;
                             break;
                         case "--quiet":
                             opts.Quiet = true;
                             break;
                         case "--random":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractFiller = true;
                             break;
                         case "--seed":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractSeed = true;
                             break;
                         case "--trim":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.TrimXISO = true;
                             break;
                         case "--update":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractUpdate = true;
                             break;
                         case "--video":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractVideo = true;
                             break;
                         case "--wipe":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.WipeXISO = true;
                             break;
                         case "--xiso":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractXISO = true;
                             break;
                         case "--yes":
                             opts.AssumeYes = true;
                             break;
                         case "--zar":
-                            optsProvided = true;
+                            opts.OptionsProvided = true;
                             opts.ExtractZAR = true;
                             break;
                         default:
@@ -188,7 +188,7 @@ namespace XboxKit
                                 opts.Help = true;
                                 break;
                             case 'a':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractFiller = true;
                                 opts.ExtractSeed = true;
                                 opts.TrimXISO = true;
@@ -198,69 +198,69 @@ namespace XboxKit
                                 opts.ExtractXISO = true;
                                 break;
                             case 'b':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.TrimXISO = true;
                                 opts.WipeXISO = true;
                                 opts.ExtractXISO = true;
                                 break;
                             case 'c':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractSkeleton = true;
                                 opts.ExtractUpdate = true;
                                 opts.ExtractVideo = true;
                                 opts.ExtractZAR = true;
                                 break;
                             case 'm':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractXRD = true;
                                 break;
                             case 'n':
                                 opts.AssumeNo = true;
                                 break;
                             case 'o':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.OutputFiles = true;
                                 break;
                             case 'p':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractSkeleton = true;
                                 break;
                             case 'q':
                                 opts.Quiet = true;
                                 break;
                             case 'r':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractFiller = true;
                                 break;
                             case 's':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractSeed = true;
                                 break;
                             case 't':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.TrimXISO = true;
                                 break;
                             case 'u':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractUpdate = true;
                                 break;
                             case 'v':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractVideo = true;
                                 break;
                             case 'w':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.WipeXISO = true;
                                 break;
                             case 'x':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractXISO = true;
                                 break;
                             case 'y':
                                 opts.AssumeYes = true;
                                 break;
                             case 'z':
-                                optsProvided = true;
+                                opts.OptionsProvided = true;
                                 opts.ExtractZAR = true;
                                 break;
                             default:
@@ -286,20 +286,20 @@ namespace XboxKit
                 return null;
             }
 
-            if (filePaths.Count > 1 && optsProvided)
+            if (filePaths.Count > 1 && opts.OptionsProvided)
             {
                 Console.WriteLine("[ERROR] Extract mode only accepts one input file");
                 return null;
             }
 
-            if (!ResolvePaths(opts, filePaths, optsProvided))
+            if (!ResolvePaths(opts, filePaths))
                 return null;
 
             return opts;
         }
 
         /// Determines all output paths on the Options object based on the input file
-        static bool ResolvePaths(Options opts, List<string> filePaths, bool hasOptions)
+        static bool ResolvePaths(Options opts, List<string> filePaths)
         {
             opts.IsoPath = filePaths[0];
             if (string.IsNullOrEmpty(opts.IsoPath) || !File.Exists(opts.IsoPath))
@@ -433,7 +433,7 @@ namespace XboxKit
             {
                 opts.Mode = Mode.ExtractVideo;
             }
-            else if (hasOptions)
+            else if (opts.OptionsProvided)
             {
                 opts.Mode = Mode.ProcessXISO;
                 if (opts.XisoType >= 0)

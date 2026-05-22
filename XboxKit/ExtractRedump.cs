@@ -9,7 +9,7 @@ namespace XboxKit
         static bool Validate(Options opts)
         {
             // Must be doing something
-            if (!opts.OutputFiles && !opts.ExtractXRD && !opts.ExtractSkeleton && !opts.ExtractFiller && !opts.ExtractSeed && !opts.ExtractUpdate && !opts.ExtractVideo && !opts.ExtractXISO && !opts.ExtractZAR)
+            if (!opts.OptionsProvided)
             {
                 Console.WriteLine("[ERROR] Redump ISO provided with no options, nothing to do");
                 Console.WriteLine("");

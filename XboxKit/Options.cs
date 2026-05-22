@@ -12,6 +12,7 @@ namespace XboxKit
     {
         // Program mode
         public Mode Mode;
+        public bool OptionsProvided;
 
         // Program flags
         public bool Help;
