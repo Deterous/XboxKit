@@ -63,6 +63,8 @@ namespace XboxKit
             // Check that files don't already exist
             if (!opts.AssumeYes && opts.ExtractXISO && !Helpers.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
                 return false;
+            if (!opts.AssumeYes && opts.ExtractSkeleton && !Helpers.ConfirmOverwrite(opts.SkeletonPath, opts.AssumeNo))
+                return false;
             if (!opts.AssumeYes && opts.ExtractVideo && !Helpers.ConfirmOverwrite(opts.VideoPath, opts.AssumeNo))
                 return false;
             if (!opts.AssumeYes && opts.ExtractFiller && !Helpers.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
@@ -70,6 +72,12 @@ namespace XboxKit
             if (!opts.AssumeYes && opts.ExtractUpdate && !Helpers.ConfirmOverwrite(opts.UpdatePath, opts.AssumeNo))
                 return false;
             if (!opts.AssumeYes && opts.ExtractSeed && !Helpers.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractXRD && !Helpers.ConfirmOverwrite(opts.XrdPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractZAR && !Helpers.ConfirmOverwrite(opts.ZarPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractZAR && !Helpers.ConfirmOverwrite(opts.HashPath, opts.AssumeNo))
                 return false;
 
             return true;
