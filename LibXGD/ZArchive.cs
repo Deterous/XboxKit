@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using Nanook.Grindcore;
+using Nanook.GrindCore;
 
 namespace LibXGD
 {
