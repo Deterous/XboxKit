@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using ZstdSharp;
 
 namespace LibXGD
 {
@@ -260,13 +259,20 @@ namespace LibXGD
                 recordBase = (ulong)hs.Position;
 
             // Compress with Zstd (level 6 to match canonical C++ implementation)
-            byte[] compressed;
-            using (var compressor = new Compressor(6))
-                compressed = compressor.Wrap(new ReadOnlySpan<byte>(data, 0, BLOCK_SIZE)).ToArray();
+            byte[] compressed = new byte[BLOCK_SIZE + 384];
+            int compressedSize = 0;
+            using (var compressor = CompressionBlockFactory.Create(
+                CompressionAlgorithm.ZStd,
+                new CompressionOptions
+                {
+                    BlockSize = BLOCK_SIZE,
+                    Type = (Nanook.GrindCore.CompressionType)6
+                }))
+                compressor.Compress(data, 0, BLOCK_SIZE, compressed, 0, ref compressedSize);
 
-            bool useRaw = compressed.Length >= BLOCK_SIZE;
+            bool useRaw = compressedSize >= BLOCK_SIZE;
             byte[] toWrite = useRaw ? data : compressed;
-            int storedSize = useRaw ? BLOCK_SIZE : compressed.Length;
+            int storedSize = useRaw ? BLOCK_SIZE : compressedSize;
 
             hs.Write(toWrite, 0, storedSize);
             sizes[count++] = (ushort)(storedSize - 1);
