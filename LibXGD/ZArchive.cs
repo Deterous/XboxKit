@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using Nanook.Grindcore;
 
 namespace LibXGD
 {
@@ -266,7 +267,7 @@ namespace LibXGD
                 new CompressionOptions
                 {
                     BlockSize = BLOCK_SIZE,
-                    Type = (Nanook.GrindCore.CompressionType)6
+                    Type = (CompressionType)6
                 }))
                 compressor.Compress(data, 0, BLOCK_SIZE, compressed, 0, ref compressedSize);
 
