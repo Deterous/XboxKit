@@ -261,7 +261,7 @@ namespace LibXGD
 
             // Compress with Zstd (level 6 to match canonical C++ implementation)
             byte[] compressed = new byte[BLOCK_SIZE + 384];
-            int compressedSize = 0;
+            int compressedSize = BLOCK_SIZE;
             using (var compressor = CompressionBlockFactory.Create(
                 CompressionAlgorithm.ZStd,
                 new CompressionOptions
@@ -271,7 +271,7 @@ namespace LibXGD
                 }))
                 compressor.Compress(data, 0, BLOCK_SIZE, compressed, 0, ref compressedSize);
 
-            bool useRaw = compressedSize >= BLOCK_SIZE;
+            bool useRaw = compressedSize >= BLOCK_SIZE || compressedSize < 0;
             byte[] toWrite = useRaw ? data : compressed;
             int storedSize = useRaw ? BLOCK_SIZE : compressedSize;
 
