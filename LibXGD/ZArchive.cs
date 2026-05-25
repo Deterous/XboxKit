@@ -16,17 +16,17 @@ namespace LibXGD
 
         private class PathNode
         {
+            public List<PathNode> Subnodes = new();
             public bool IsFile;
             public int NameIndex;
-            public List<PathNode> Subnodes = new();
             public long SourceOffset;
             public ulong FileOffset;
             public ulong FileSize;
             public uint NodeStartIndex;
         }
 
-        // Stream wrapper that hashes all written bytes
-        private class HashingStream(FileStream fs)
+        // Filestream wrapper that SHA-256 hashes all written bytes
+        private class HashingStream(FileStream fs) : IDisposable
         {
             private readonly FileStream _fs = fs;
             private readonly SHA256 _sha = SHA256.Create();
@@ -56,10 +56,13 @@ namespace LibXGD
             public void Write(ushort v) =>
                 Write([(byte)(v >> 8), (byte)v], 0, 2);
 
-            public byte[] FinalizeHash(byte[] lastBlock)
-            {
+            public byte[] FinalizeHash(byte[] lastBlock) =>
                 _sha.TransformFinalBlock(lastBlock, 0, lastBlock.Length);
-                return _sha.Hash!;
+            
+            public void Dispose()
+            {
+                _sha.Dispose();
+                _fs.Dispose();
             }
         }
 
@@ -69,14 +72,14 @@ namespace LibXGD
             // Parse XDVDFS volume descriptor to get root directory
             long headerOffset = xisoOffset + XDVDFS.XISO_HEADER_OFFSET;
             isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
-            uint rootSector = Utils.ReadUInt(isoFS);
+            uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
 
             // Build path tree from XDVDFS
             var names = new List<string>();
             var nameLookup = new Dictionary<string, int>();
             var rootNode = new PathNode { IsFile = false, NameIndex = GetOrAddName(names, nameLookup, "") };
-            BuildPathTree(isoFS, xisoOffset, (long)rootSector * XDVDFS.SECTOR_SIZE, rootSize, 0, rootNode, names, nameLookup);
+            BuildPathTree(isoFS, xisoOffset, (long)rootOffset * XDVDFS.SECTOR_SIZE, rootSize, 0, rootNode, names, nameLookup);
 
             // Collect files in BFS order (determines data layout)
             var allFiles = new List<PathNode>();
@@ -92,7 +95,9 @@ namespace LibXGD
                 return false;
             ulong compressedDataSize = (ulong)hs.Position;
 
-            while (hs.Position % 8 != 0) hs.Write((byte)0);
+            // Pad to 8-byte alignment
+            while (hs.Position % 8 != 0)
+                hs.Write((byte)0);
 
             ulong offsetRecordsStart = (ulong)hs.Position;
             WriteOffsetRecords(hs, offsetRecords);
@@ -109,8 +114,7 @@ namespace LibXGD
         }
 
         // Recursively build path tree from XDVDFS directory structure
-        private static void BuildPathTree(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset,
-            PathNode parentNode, List<string> names, Dictionary<string, int> nameLookup)
+        private static void BuildPathTree(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, PathNode parentNode, List<string> names, Dictionary<string, int> nameLookup)
         {
             if (childOffset >= dirSize)
                 return;
@@ -154,8 +158,11 @@ namespace LibXGD
 
         private static int GetOrAddName(List<string> names, Dictionary<string, int> nameLookup, string name)
         {
+            // Get name index if it already exists in dictionary
             if (nameLookup.TryGetValue(name, out int index))
                 return index;
+
+            // Add new name to list and dictionary
             index = names.Count;
             names.Add(name);
             nameLookup[name] = index;
@@ -185,19 +192,23 @@ namespace LibXGD
             {
                 char c1 = n1[i];
                 char c2 = n2[i];
-                if (c1 >= 'A' && c1 <= 'Z') c1 = (char)(c1 + ('a' - 'A'));
-                if (c2 >= 'A' && c2 <= 'Z') c2 = (char)(c2 + ('a' - 'A'));
+                if (c1 >= 'A' && c1 <= 'Z')
+                    c1 = (char)(c1 + ('a' - 'A'));
+                if (c2 >= 'A' && c2 <= 'Z')
+                    c2 = (char)(c2 + ('a' - 'A'));
                 if (c1 != c2)
                     return (int)(byte)c1 - (int)(byte)c2;
             }
-            if (n1.Length < n2.Length) return -1;
-            if (n1.Length > n2.Length) return 1;
-            return 0;
+            if (n1.Length < n2.Length)
+                return -1;
+            else if (n1.Length > n2.Length)
+                return 1;
+            else
+                return 0;
         }
 
         // Write all file data as Zstd-compressed 64KB blocks
-        private static bool WriteCompressedData(FileStream isoFS, long xisoOffset, HashingStream hs,
-            List<PathNode> allFiles, out List<(ulong BaseOffset, ushort[] Sizes)> offsetRecords)
+        private static bool WriteCompressedData(FileStream isoFS, long xisoOffset, HashingStream hs, List<PathNode> allFiles, out List<(ulong BaseOffset, ushort[] Sizes)> offsetRecords)
         {
             offsetRecords = new List<(ulong BaseOffset, ushort[] Sizes)>();
             ushort[] sizes = new ushort[BLOCKS_PER_RECORD];
@@ -245,9 +256,7 @@ namespace LibXGD
         }
 
         // Compress and write a single 64KB block, tracking offset records
-        private static void FlushBlock(HashingStream hs, byte[] data,
-            List<(ulong BaseOffset, ushort[] Sizes)> offsetRecords,
-            ref ushort[] sizes, ref int count, ref ulong recordBase)
+        private static void FlushBlock(HashingStream hs, byte[] data, List<(ulong BaseOffset, ushort[] Sizes)> offsetRecords, ref ushort[] sizes, ref int count, ref ulong recordBase)
         {
             if (count == BLOCKS_PER_RECORD)
             {
@@ -359,16 +368,14 @@ namespace LibXGD
             }
         }
 
-        // Write footer with SHA-256 integrity hash
-        private static void WriteFooter(FileStream zarFS, HashingStream hs,
-            ulong compressedDataSize, ulong offsetRecordsStart, ulong nameTableStart, ulong fileTreeStart)
+        private static void WriteFooter(FileStream zarFS, HashingStream hs, ulong compressedDataSize, ulong offsetRecordsStart, ulong nameTableStart, ulong fileTreeStart)
         {
             ulong end = (ulong)hs.Position;
             ulong totalSize = end + 144;
 
             using var ms = new MemoryStream(144);
             using var bw = new BinaryWriter(ms);
-            WriteBE(bw, (ulong)0);                          // compressed data offset
+            WriteBE(bw, (ulong)0);
             WriteBE(bw, compressedDataSize);
             WriteBE(bw, offsetRecordsStart);
             WriteBE(bw, nameTableStart - offsetRecordsStart);
@@ -376,24 +383,23 @@ namespace LibXGD
             WriteBE(bw, fileTreeStart - nameTableStart);
             WriteBE(bw, fileTreeStart);
             WriteBE(bw, end - fileTreeStart);
-            WriteBE(bw, end);                               // meta directory offset
+            WriteBE(bw, end);
             WriteBE(bw, (ulong)0);
-            WriteBE(bw, end);                               // metadata offset
+            WriteBE(bw, end);
             WriteBE(bw, (ulong)0);
-            bw.Write(new byte[32]);                         // integrity hash (zeroed for hashing)
+            bw.Write(new byte[32]); // SHA-256 hash
             WriteBE(bw, totalSize);
             bw.Write(VERSION1);
             bw.Write(MAGIC);
 
             byte[] footerBytes = ms.ToArray();
             byte[] hash = hs.FinalizeHash(footerBytes);
-            Array.Copy(hash, 0, footerBytes, 96, 32);
+            Array.Copy(hash, 0, footerBytes, 96, 32); // Overwrite with the calculated hash
             zarFS.Write(footerBytes, 0, footerBytes.Length);
         }
 
         // Big-endian write helper for BinaryWriter (footer construction only)
         private static void WriteBE(BinaryWriter bw, ulong v) =>
-            bw.Write((byte[])[(byte)(v >> 56), (byte)(v >> 48), (byte)(v >> 40), (byte)(v >> 32),
-                              (byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v]);
+            bw.Write((byte[])[(byte)(v >> 56), (byte)(v >> 48), (byte)(v >> 40), (byte)(v >> 32), (byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v]);
     }
 }
