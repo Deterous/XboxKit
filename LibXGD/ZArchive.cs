@@ -122,17 +122,7 @@ namespace LibXGD
             uint rootSize = Utils.ReadUInt(isoFS);
 
             // Build path tree from XDVDFS
-            var names = new List<string>();
-            var nameLookup = new Dictionary<string, int>();
-            var rootNode = new PathNode();
-            ParseXDVDFS(isoFS, xisoOffset, (long)rootOffset * XDVDFS.SECTOR_SIZE, rootSize, 0, rootNode, names, nameLookup);
-
-            // Optionally exclude system update from ZAR
-            if (removeUpdate)
-                rootNode.Subnodes.RemoveAll(n => !n.IsFile && names[n.NameIndex] == "$SystemUpdate");
-            
-            // Sort root directory entries (case-insensitive)
-            rootNode.Subnodes.Sort((a, b) => CompareNodeName(names[a.NameIndex], names[b.NameIndex]));
+            ParseXDVDFS(isoFS, xisoOffset, (long)rootOffset * XDVDFS.SECTOR_SIZE, rootSize, removeUpdate, out var rootNode, out var names);
 
             // Create ZAR file
             if (!quiet) Console.WriteLine($"[INFO] Writing ZArchive to {zarPath}");
@@ -165,8 +155,24 @@ namespace LibXGD
             return true;
         }
 
-        // Recursively build path tree from XDVDFS directory structure
-        private static void ParseXDVDFS(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, PathNode parentNode, List<string> names, Dictionary<string, int> nameLookup)
+        // Parse XDVDFS filesystem into a path tree and list of names
+        private static void ParseXDVDFS(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, bool removeUpdate, out PathNode rootNode, out List<string> names)
+        {
+            var nameList = new List<string>();
+            var nameLookup = new Dictionary<string, int>();
+            rootNode = new PathNode();
+            ParseNode(isoFS, isoOffset, dirOffset, dirSize, 0, rootNode, nameList, nameLookup);
+
+            // Optionally exclude system update from ZAR
+            if (removeUpdate)
+                rootNode.Subnodes.RemoveAll(n => !n.IsFile && nameList[n.NameIndex] == "$SystemUpdate");
+
+            rootNode.Subnodes.Sort((a, b) => CompareNodeName(nameList[a.NameIndex], nameList[b.NameIndex]));
+            names = nameList;
+        }
+
+        // Recursively traverse XDVDFS file entries
+        private static void ParseNode(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, PathNode parentNode, List<string> names, Dictionary<string, int> nameLookup)
         {
             if (childOffset >= dirSize)
                 return;
@@ -191,7 +197,7 @@ namespace LibXGD
 
             // Traverse left subtree
             if (leftChild != 0 && leftChild != 0xFFFF)
-                ParseXDVDFS(isoFS, isoOffset, dirOffset, dirSize, (long)leftChild * 4, parentNode, names, nameLookup);
+                ParseNode(isoFS, isoOffset, dirOffset, dirSize, (long)leftChild * 4, parentNode, names, nameLookup);
 
             // Create node for current entry
             int nameIndex = GetOrAddName(names, nameLookup, name);
@@ -200,7 +206,7 @@ namespace LibXGD
             if (isDirectory)
             {
                 // Recurse into subdirectory and sort its children
-                ParseXDVDFS(isoFS, isoOffset, entryOffset, entrySize, 0, node, names, nameLookup);
+                ParseNode(isoFS, isoOffset, entryOffset, entrySize, 0, node, names, nameLookup);
                 node.Subnodes.Sort((a, b) => CompareNodeName(names[a.NameIndex], names[b.NameIndex]));
             }
             else
@@ -213,7 +219,7 @@ namespace LibXGD
 
             // Traverse right subtree
             if (rightChild != 0 && rightChild != 0xFFFF)
-                ParseXDVDFS(isoFS, isoOffset, dirOffset, dirSize, (long)rightChild * 4, parentNode, names, nameLookup);
+                ParseNode(isoFS, isoOffset, dirOffset, dirSize, (long)rightChild * 4, parentNode, names, nameLookup);
         }
 
         // Write all file data as Zstd-compressed 64KB blocks
