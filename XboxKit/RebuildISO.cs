@@ -15,11 +15,11 @@ namespace XboxKit
             }
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading security sector ranges {opts.SectorsTXTPath}");
 
-            int[] securitySectors = new int[16];
+            List<int> securitySectors = new();
             using FileStream sectorsFS = new(opts.SectorsTXTPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using StreamReader sectorsSR = new StreamReader(sectorsFS);
             string? line;
-            int i = 0;
+            int lineCount = 0;
             while ((line = sectorsSR.ReadLine()) != null)
             {
                 if (string.IsNullOrWhiteSpace(line))
@@ -28,13 +28,15 @@ namespace XboxKit
                 string[] range = line.Split('-');
                 if (range.Length == 2 && int.TryParse(range[0], out int startSector) && int.TryParse(range[1], out int endSector))
                 {
-                    if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095 || i > 15)
+                    if (startSector < 0 || startSector > (redumpLength / XDVDFS.SECTOR_SIZE - 4096) || endSector - startSector != 4095)
                     {
                         Console.WriteLine("[ERROR] Invalid security sectors in sectors.txt");
                         return null;
                     }
-                    securitySectors[i] = startSector;
-                    i += 1;
+                    lineCount++;
+                    // For XGD2/3, only keep the first range (the one within the XISO)
+                    if (opts.XGDType == 0 || lineCount == 1)
+                        securitySectors.Add(startSector);
                 }
                 else
                 {
@@ -42,7 +44,19 @@ namespace XboxKit
                     return null;
                 }
             }
-            return securitySectors;
+
+            if (opts.XGDType == 0 && lineCount != 16)
+            {
+                Console.WriteLine($"[ERROR] Expected 16 security sector ranges in sectors.txt, got {lineCount}");
+                return null;
+            }
+            if (opts.XGDType != 0 && lineCount != 1 && lineCount != 2)
+            {
+                Console.WriteLine($"[ERROR] Expected 1 or 2 security sector ranges in sectors.txt, got {lineCount}");
+                return null;
+            }
+
+            return securitySectors.ToArray();
         }
 
         static bool Validate(Options opts)
@@ -88,6 +102,31 @@ namespace XboxKit
             return xisoLength - validBytes;
         }
 
+        // Calculate total bytes of security sectors within the XISO that would be skipped
+        static long GetSkippedSecuritySectorBytes(Options opts, long xisoLength)
+        {
+            if (!File.Exists(opts.SectorsTXTPath))
+                return 0;
+
+            long redumpLength = XGD.GetRedumpLength(opts.VideoType);
+            int[]? securitySectors = ParseSecuritySectors(opts, redumpLength);
+            if (securitySectors == null)
+                return 0;
+
+            long xisoOffset = XGD.XISO_OFFSET[opts.XisoType];
+            long xisoStartSector = xisoOffset / XDVDFS.SECTOR_SIZE;
+            long xisoEndSector = (xisoOffset + xisoLength) / XDVDFS.SECTOR_SIZE;
+            int count = 0;
+
+            foreach (int startSector in securitySectors)
+            {
+                if (startSector >= xisoStartSector && startSector + 4096 <= xisoEndSector)
+                    count++;
+            }
+
+            return count * 4096 * XDVDFS.SECTOR_SIZE;
+        }
+
         public static void Run(Options opts)
         {
             if (!Validate(opts))
@@ -111,13 +150,22 @@ namespace XboxKit
                 long expectedFillerSize = GetExpectedFillerSize(isoFS, xisoLength);
                 long actualFillerSize = new FileInfo(opts.FillerPath).Length;
 
-                // TODO: Allow for RC4 format file + sectors.txt / SS.bin
                 if (actualFillerSize != expectedFillerSize)
                 {
-                    Console.WriteLine($"[ERROR] Random filler data should be {expectedFillerSize} bytes, got {actualFillerSize} bytes");
-                    if (actualFillerSize < expectedFillerSize)
-                        Console.WriteLine("        The filler file should contain the zeroed security sector ranges, not just the RC4 data!");
-                    return;
+                    // Check if filler excludes security sector ranges (RC4 format)
+                    long skippedBytes = GetSkippedSecuritySectorBytes(opts, xisoLength);
+                    if (skippedBytes > 0 && actualFillerSize == expectedFillerSize - skippedBytes)
+                    {
+                        if (!opts.Quiet) Console.WriteLine($"[INFO] Filler file excludes {skippedBytes} bytes of security sector ranges.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ERROR] Random filler data should be {expectedFillerSize} bytes, got {actualFillerSize} bytes");
+                        long securitySectorBytes = (opts.XGDType == 0 ? 16 : 1) * 4096 * XDVDFS.SECTOR_SIZE;
+                        if (actualFillerSize == expectedFillerSize - securitySectorBytes)
+                            Console.WriteLine("        The filler file may be missing security sector ranges. Provide a sectors.txt file with the sector ranges.");
+                        return;
+                    }
                 }
             }
 
