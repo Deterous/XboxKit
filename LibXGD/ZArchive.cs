@@ -113,7 +113,7 @@ namespace LibXGD
         }
 
         // Create ZArchive from game files in an XISO
-        public static bool CreateZAR(FileStream isoFS, long xisoOffset, string zarPath, bool quiet)
+        public static bool CreateZAR(FileStream isoFS, long xisoOffset, string zarPath, bool removeUpdate, bool quiet)
         {
             // Parse XDVDFS volume descriptor to get root directory
             long headerOffset = xisoOffset + XDVDFS.XISO_HEADER_OFFSET;
@@ -126,6 +126,12 @@ namespace LibXGD
             var nameLookup = new Dictionary<string, int>();
             var rootNode = new PathNode { NameIndex = GetOrAddName(names, nameLookup, "") };
             ParseXDVDFS(isoFS, xisoOffset, (long)rootOffset * XDVDFS.SECTOR_SIZE, rootSize, 0, rootNode, names, nameLookup);
+
+            // Optionally exclude system update from ZAR
+            if (removeUpdate)
+                rootNode.Subnodes.RemoveAll(n => !n.IsFile && names[n.NameIndex] == "$SystemUpdate");
+            
+            // Sort root directory entries (case-insensitive)
             rootNode.Subnodes.Sort((a, b) => CompareNodeName(names[a.NameIndex], names[b.NameIndex]));
 
             // Create ZAR file
@@ -414,22 +420,22 @@ namespace LibXGD
 
             using var ms = new MemoryStream(144);
             using var bw = new BinaryWriter(ms);
-            WriteBE(bw, (ulong)0);
-            WriteBE(bw, compressedDataSize);
-            WriteBE(bw, offsetRecordsStart);
-            WriteBE(bw, nameTableStart - offsetRecordsStart);
-            WriteBE(bw, nameTableStart);
-            WriteBE(bw, fileTreeStart - nameTableStart);
-            WriteBE(bw, fileTreeStart);
-            WriteBE(bw, end - fileTreeStart);
-            WriteBE(bw, end);
-            WriteBE(bw, (ulong)0);
-            WriteBE(bw, end);
-            WriteBE(bw, (ulong)0);
+            WriteBE(bw, (ulong)0); // Location of compressed data
+            WriteBE(bw, compressedDataSize); // Size of compressed data
+            WriteBE(bw, offsetRecordsStart); // Location of offset records
+            WriteBE(bw, nameTableStart - offsetRecordsStart); // Size of offset records
+            WriteBE(bw, nameTableStart); // Location of name table
+            WriteBE(bw, fileTreeStart - nameTableStart); // Size of name table
+            WriteBE(bw, fileTreeStart); // Location of file tree
+            WriteBE(bw, end - fileTreeStart); // Size of file tree
+            WriteBE(bw, end); // Location of meta directory
+            WriteBE(bw, (ulong)0); // Size of meta directory
+            WriteBE(bw, end); // Location of meta data
+            WriteBE(bw, (ulong)0); // Size of meta data
             bw.Write(new byte[32]); // SHA-256 hash
-            WriteBE(bw, totalSize);
-            bw.Write(VERSION1);
-            bw.Write(MAGIC);
+            WriteBE(bw, totalSize); // Total size of ZAR file
+            bw.Write(VERSION1); // Version bytes / extended magic bytes
+            bw.Write(MAGIC); // Magic bytes
 
             byte[] footerBytes = ms.ToArray();
             byte[] hash = hs.FinalizeHash(footerBytes);
