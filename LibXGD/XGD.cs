@@ -200,8 +200,8 @@ namespace LibXGD
                     long xisoBytes = 0;
                     long fillerBytes = 0;
 
-                    // Write zeroes into security sector range (only needed for rebuilding from initial seed)
-                    if (prng != null)
+                    // Write zeroes into security sector range
+                    if (prng != null || fillerFS != null)
                     {
                         bool wipedSectors = false;
                         for (int i = 0; i < securitySectors.Length; i++)
@@ -211,7 +211,8 @@ namespace LibXGD
                                 if (!quiet) Console.WriteLine($"[INFO] Wiping security sectors {securitySectors[i]}-{securitySectors[i] + 4095}");
                                 long securitySectorBytes = 4096 * XDVDFS.SECTOR_SIZE;
                                 Utils.WriteZeroes(redumpFS, -1, securitySectorBytes);
-                                prng.SimulateSectors(securitySectorBytes / XDVDFS.SECTOR_SIZE);
+                                // If rebuilding from seed, discard the output during security sector
+                                prng?.SimulateSectors(securitySectorBytes / XDVDFS.SECTOR_SIZE);
                                 currentByte += securitySectorBytes;
                                 isoFS.Seek(securitySectorBytes, SeekOrigin.Current);
                                 wipedSectors = true;
@@ -244,8 +245,8 @@ namespace LibXGD
                         }
                     }
 
-                    // If rebuilding from initial seed, trim bytes to read/write until next security sector
-                    if (prng != null)
+                    // If rebuilding from initial seed or RC4 filler, trim bytes to read/write until next security sector
+                    if (prng != null || fillerFS != null)
                     {
                         for (int i = 0; i < securitySectors.Length; i++)
                         {

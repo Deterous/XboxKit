@@ -218,6 +218,22 @@ namespace XboxKit
                 securitySectors = parsed;
             }
 
+            // Parse sectors.txt if filler file is RC4 format (excludes security sectors)
+            if (rebuildFillerFS != null && opts.XisoType >= 0)
+            {
+                long xisoLength = XGD.XISO_LENGTH[opts.XisoType];
+                long expectedFillerSize = GetExpectedFillerSize(isoFS, xisoLength);
+                long actualFillerSize = new FileInfo(opts.FillerPath).Length;
+                if (actualFillerSize < expectedFillerSize)
+                {
+                    long redumpLength = XGD.GetRedumpLength(opts.VideoType);
+                    int[]? parsed = ParseSecuritySectors(opts, redumpLength);
+                    if (parsed == null)
+                        return;
+                    securitySectors = parsed;
+                }
+            }
+
             // Open system update file if available
             if (File.Exists(opts.UpdatePath) && !opts.Quiet)
                 Console.WriteLine($"[INFO] Reading system update from {opts.UpdatePath}");
