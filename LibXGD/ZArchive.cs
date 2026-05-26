@@ -236,43 +236,48 @@ namespace LibXGD
             int bufPos = 0;
             ulong inputOffset = 0;
 
-            // Parse directory nodes
-            var queue = new Queue<PathNode>([rootNode]);
-            while (queue.Count > 0)
+            // Parse directory nodes as a stack
+            var stack = new Stack<(PathNode node, int index)>();
+            stack.Push((rootNode, 0));
+            while (stack.Count > 0)
             {
-                var node = queue.Dequeue();
-
-                // If node is a directory, traverse in BFS order
-                if (!node.IsFile)
+                var (dir, i) = stack.Pop();
+                while (i < dir.Subnodes.Count)
                 {
-                    foreach (var child in node.Subnodes)
-                        queue.Enqueue(child);
-
-                    continue;
-                }
-
-                // Compress file data in 64KB blocks
-                node.FileOffset = inputOffset;
-                isoFS.Seek(xisoOffset + node.SourceOffset, SeekOrigin.Begin);
-                long remaining = (long)node.FileSize;
-
-                while (remaining > 0)
-                {
-                    // Fill buffer (64KiB)
-                    int toRead = (int)Math.Min(BLOCK_SIZE - bufPos, remaining);
-                    int bytesRead = isoFS.Read(buf, bufPos, toRead);
-                    if (bytesRead == 0)
-                        return false;
-
-                    bufPos += bytesRead;
-                    remaining -= bytesRead;
-                    inputOffset += (ulong)bytesRead;
-
-                    // Flush full block
-                    if (bufPos == BLOCK_SIZE)
+                    // Get node off the stack
+                    var child = dir.Subnodes[i];
+                    i++;
+                    if (!child.IsFile)
                     {
-                        FlushBlock(hs, buf, offsetRecords, ref sizes, ref count, ref recordBase);
-                        bufPos = 0;
+                        // If node is a directory, traverse in DFS order
+                        stack.Push((dir, i));
+                        dir = child;
+                        i = 0;
+                        continue;
+                    }
+
+                    // Compress file data in 64KB blocks
+                    child.FileOffset = inputOffset;
+                    isoFS.Seek(xisoOffset + child.SourceOffset, SeekOrigin.Begin);
+                    long remaining = (long)child.FileSize;
+                    while (remaining > 0)
+                    {
+                        // Fill buffer (64KiB)
+                        int toRead = (int)Math.Min(BLOCK_SIZE - bufPos, remaining);
+                        int bytesRead = isoFS.Read(buf, bufPos, toRead);
+                        if (bytesRead == 0)
+                            return false;
+
+                        bufPos += bytesRead;
+                        remaining -= bytesRead;
+                        inputOffset += (ulong)bytesRead;
+
+                        // Flush full block
+                        if (bufPos == BLOCK_SIZE)
+                        {
+                            FlushBlock(hs, buf, offsetRecords, ref sizes, ref count, ref recordBase);
+                            bufPos = 0;
+                        }
                     }
                 }
             }
@@ -291,6 +296,7 @@ namespace LibXGD
 
             return true;
         }
+
 
         // Compress and write a single 64KB block, tracking offset records
         private static void FlushBlock(HashingStream hs, byte[] data, List<(ulong BaseOffset, ushort[] Sizes)> offsetRecords, ref ushort[] sizes, ref int count, ref ulong recordBase)
