@@ -93,7 +93,7 @@ namespace XboxKit
             if (opts.ExtractZAR)
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
-                if (!ZArchive.CreateZAR(isoFS, 0, opts.ZarPath, opts.Quiet))
+                if (!ZArchive.CreateZAR(isoFS, 0, opts.ZarPath, false, opts.Quiet))
                 {
                     Console.WriteLine("[ERROR] Failed creating ZArchive.");
                     return;
