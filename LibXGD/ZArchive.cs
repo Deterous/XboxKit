@@ -124,7 +124,7 @@ namespace LibXGD
             // Build path tree from XDVDFS
             var names = new List<string>();
             var nameLookup = new Dictionary<string, int>();
-            var rootNode = new PathNode { NameIndex = GetOrAddName(names, nameLookup, "") };
+            var rootNode = new PathNode();
             ParseXDVDFS(isoFS, xisoOffset, (long)rootOffset * XDVDFS.SECTOR_SIZE, rootSize, 0, rootNode, names, nameLookup);
 
             // Optionally exclude system update from ZAR
