@@ -186,9 +186,10 @@ namespace LibXGD
             else
             {
                 // Parse XISO filesystem for all file extents
-                var validRanges = XDVDFS.GetXISORanges(isoFS, 0, quiet);
+                var (sysRanges, fileRanges) = XDVDFS.GetXISORanges(isoFS, 0, quiet);
+                var ranges = XDVDFS.MergeRanges(sysRanges, fileRanges);
                 if (!quiet)
-                    foreach (var (start, end) in validRanges.All) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
+                    foreach (var (start, end) in ranges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
                 long xisoOffsetSector = xisoOffset / XDVDFS.SECTOR_SIZE;
                 long currentByte = 0;
@@ -222,22 +223,22 @@ namespace LibXGD
                     }
 
                     // Determine whether current sector is after last file extent
-                    if (validRanges.All.Count > 0 && currentSector > validRanges.All[validRanges.All.Count - 1].End)
+                    if (ranges.Count > 0 && currentSector > ranges[ranges.Count - 1].End)
                     {
                         fillerBytes = xisoLength - currentByte;
                     }
                     else
                     {
-                        for (int i = 0; i < validRanges.All.Count; i++)
+                        for (int i = 0; i < ranges.Count; i++)
                         {
-                            if (currentSector >= validRanges.All[i].Start && currentSector <= validRanges.All[i].End)
+                            if (currentSector >= ranges[i].Start && currentSector <= ranges[i].End)
                             {
-                                xisoBytes = (validRanges.All[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
+                                xisoBytes = (ranges[i].End + 1) * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
-                            else if (currentSector < validRanges.All[i].Start && (i == 0 || currentSector > validRanges.All[i - 1].End))
+                            else if (currentSector < ranges[i].Start && (i == 0 || currentSector > ranges[i - 1].End))
                             {
-                                fillerBytes = validRanges.All[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
+                                fillerBytes = ranges[i].Start * XDVDFS.SECTOR_SIZE - currentByte;
                                 break;
                             }
                         }

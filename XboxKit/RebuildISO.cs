@@ -79,9 +79,10 @@ namespace XboxKit
         // Calculate expected filler size from XDVDFS ranges
         static long GetExpectedFillerSize(FileStream isoFS, long xisoLength)
         {
-            var validRanges = XDVDFS.GetXISORanges(isoFS, 0, true);
+            var (sysRanges, fileRanges) = XDVDFS.GetXISORanges(isoFS, 0, true);
+            var allRanges = XDVDFS.MergeRanges(sysRanges, fileRanges);
             long validBytes = 0;
-            foreach (var (start, end) in validRanges.All)
+            foreach (var (start, end) in allRanges)
                 validBytes += (end - start + 1) * XDVDFS.SECTOR_SIZE;
             isoFS.Seek(0, SeekOrigin.Begin);
             return xisoLength - validBytes;

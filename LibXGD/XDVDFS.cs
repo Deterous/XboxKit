@@ -67,8 +67,32 @@ namespace LibXGD
                 GetValidSectors(isoFS, isoOffset, sysSectors, fileSectors, rootOffset, rootSize, (long)rightChildOffset * 4, quiet);
         }
 
+        // Merge two sorted range lists into a single sorted, coalesced range list
+        public static List<(uint Start, uint End)> MergeRanges(List<(uint Start, uint End)> a, List<(uint Start, uint End)> b)
+        {
+            var merged = new List<(uint, uint)>(a.Count + b.Count);
+            int i = 0, j = 0;
+            while (i < a.Count && j < b.Count)
+                merged.Add(a[i].Start <= b[j].Start ? a[i++] : b[j++]);
+            while (i < a.Count) merged.Add(a[i++]);
+            while (j < b.Count) merged.Add(b[j++]);
+
+            if (merged.Count == 0) return merged;
+
+            var result = new List<(uint, uint)> { merged[0] };
+            for (int k = 1; k < merged.Count; k++)
+            {
+                var last = result[result.Count - 1];
+                if (merged[k].Item1 <= last.Item2 + 1)
+                    result[result.Count - 1] = (last.Item1, Math.Max(last.Item2, merged[k].Item2));
+                else
+                    result.Add(merged[k]);
+            }
+            return result;
+        }
+
         // Get list of valid XISO ranges
-        public static (List<(uint Start, uint End)> All, List<(uint Start, uint End)> Sys, List<(uint Start, uint End)> Files) GetXISORanges(FileStream isoFS, long offset, bool quiet)
+        public static (List<(uint Start, uint End)> Sys, List<(uint Start, uint End)> Files) GetXISORanges(FileStream isoFS, long offset, bool quiet)
         {
             List<uint> sysSectors = new List<uint>();
             List<uint> fileSectors = new List<uint>();
@@ -89,28 +113,10 @@ namespace LibXGD
 
             GetValidSectors(isoFS, offset, sysSectors, fileSectors, (long)rootOffset * SECTOR_SIZE, rootSize, 0, quiet);
 
-            var allRanges = new List<(uint, uint)>();
-            var sortedAllSectors = fileSectors.Union(sysSectors).Distinct().OrderBy(x => x).ToList();
-            uint start = sortedAllSectors[0];
-            uint prev = sortedAllSectors[0];
-            for (int i = 1; i < sortedAllSectors.Count; i++)
-            {
-                uint current = sortedAllSectors[i];
-                if (current == prev + 1)
-                    prev = current;
-                else
-                {
-                    allRanges.Add((start, prev));
-                    start = current;
-                    prev = current;
-                }
-            }
-            allRanges.Add((start, prev));
-
             var sysRanges = new List<(uint, uint)>();
             var sortedSysSectors = sysSectors.Distinct().OrderBy(x => x).ToList();
-            start = sortedSysSectors[0];
-            prev = sortedSysSectors[0];
+            uint start = sortedSysSectors[0];
+            uint prev = sortedSysSectors[0];
             for (int i = 1; i < sortedSysSectors.Count; i++)
             {
                 uint current = sortedSysSectors[i];
@@ -146,7 +152,7 @@ namespace LibXGD
                 fileRanges.Add((start, prev));
             }
 
-            return (allRanges, sysRanges, fileRanges);
+            return (sysRanges, fileRanges);
         }
 
         // Process XISO: extract filler, wipe, trim, and/or create skeleton
@@ -156,7 +162,8 @@ namespace LibXGD
                 return true;
 
             // Parse XISO filesystem for all file extents
-            var (ranges, bones, _) = GetXISORanges(isoFS, isoOffset, quiet);
+            var (bones, fileRanges) = GetXISORanges(isoFS, isoOffset, quiet);
+            var ranges = MergeRanges(bones, fileRanges);
             if (!quiet) foreach (var (start, end) in ranges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
 
             bool writeXISO = xisoFS != null;
