@@ -198,7 +198,7 @@ namespace LibXGD
             if (isDirectory)
                 CollectFileEntries(isoFS, isoOffset, entryOffset, entrySize, 0, entryPath, results);
             else
-                results.Add((entryPath, isoOffset + entryOffset, entrySize));
+                results.Add((Path: entryPath, Offset: isoOffset + entryOffset, Size: entrySize));
 
             if (rightChild != 0 && rightChild != 0xFFFF)
                 CollectFileEntries(isoFS, isoOffset, dirOffset, dirSize, (long)rightChild * 4, dirPath, results);
