@@ -75,6 +75,8 @@ namespace XboxKit
                 return false;
             if (!opts.AssumeYes && opts.ExtractXRD && !Helpers.ConfirmOverwrite(opts.XrdPath, opts.AssumeNo))
                 return false;
+            if (!opts.AssumeYes && opts.ExtractSkeleton && !Helpers.ConfirmOverwrite(opts.HashPath, opts.AssumeNo))
+                return false;
             if (!opts.AssumeYes && opts.ExtractZAR && !Helpers.ConfirmOverwrite(opts.ZarPath, opts.AssumeNo))
                 return false;
             if (!opts.AssumeYes && opts.ExtractZAR && !Helpers.ConfirmOverwrite(opts.HashPath, opts.AssumeNo))
@@ -198,8 +200,13 @@ namespace XboxKit
                     Console.WriteLine($"[INFO] Writing random filler data to {opts.FillerPath}");
                 using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
+                // Create hash file for skeleton
+                if (opts.ExtractSkeleton && !opts.Quiet)
+                    Console.WriteLine($"[INFO] Hashing game files to {opts.HashPath}");
+                using StreamWriter? hashWriter = opts.ExtractSkeleton ? new StreamWriter(opts.HashPath, false, System.Text.Encoding.UTF8) : null;
+
                 // Process XISO
-                if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+                if (!XDVDFS.ProcessXISO(isoFS, XGD.XISO_OFFSET[opts.XGDType], XGD.XISO_LENGTH[opts.XGDType], xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet, hashWriter))
                 {
                     Console.WriteLine("[ERROR] Failed processing XISO.");
                     return;

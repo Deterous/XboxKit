@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace LibXGD
@@ -155,8 +156,56 @@ namespace LibXGD
             return (sysRanges, fileRanges);
         }
 
+        public static List<(string Path, long Offset, uint Size)> GetFileEntries(FileStream isoFS, long isoOffset)
+        {
+            long headerOffset = isoOffset + XISO_HEADER_OFFSET;
+            isoFS.Seek(headerOffset + 20, SeekOrigin.Begin);
+            uint rootOffset = Utils.ReadUInt(isoFS);
+            uint rootSize = Utils.ReadUInt(isoFS);
+
+            var results = new List<(string, long, uint)>();
+            CollectFileEntries(isoFS, isoOffset, (long)rootOffset * SECTOR_SIZE, rootSize, 0, "", results);
+            results.Sort((a, b) => a.Offset.CompareTo(b.Offset));
+            return results;
+        }
+
+        private static void CollectFileEntries(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, string dirPath, List<(string, long, uint)> results)
+        {
+            if (childOffset >= dirSize)
+                return;
+
+            long pos = isoOffset + dirOffset + childOffset;
+            isoFS.Seek(pos, SeekOrigin.Begin);
+
+            ushort leftChild = Utils.ReadUShort(isoFS);
+            ushort rightChild = Utils.ReadUShort(isoFS);
+            uint entrySector = Utils.ReadUInt(isoFS);
+            uint entrySize = Utils.ReadUInt(isoFS);
+            byte attributes = (byte)isoFS.ReadByte();
+            byte nameLength = (byte)isoFS.ReadByte();
+            byte[] nameBytes = new byte[nameLength];
+            if (isoFS.Read(nameBytes, 0, nameLength) != nameLength)
+                return;
+
+            string name = Encoding.ASCII.GetString(nameBytes);
+            bool isDirectory = (attributes & 0x10) != 0;
+            long entryOffset = (long)entrySector * SECTOR_SIZE;
+            string entryPath = dirPath.Length > 0 ? dirPath + "/" + name : name;
+
+            if (leftChild != 0 && leftChild != 0xFFFF)
+                CollectFileEntries(isoFS, isoOffset, dirOffset, dirSize, (long)leftChild * 4, dirPath, results);
+
+            if (isDirectory)
+                CollectFileEntries(isoFS, isoOffset, entryOffset, entrySize, 0, entryPath, results);
+            else
+                results.Add((entryPath, isoOffset + entryOffset, entrySize));
+
+            if (rightChild != 0 && rightChild != 0xFFFF)
+                CollectFileEntries(isoFS, isoOffset, dirOffset, dirSize, (long)rightChild * 4, dirPath, results);
+        }
+
         // Process XISO: extract filler, wipe, trim, and/or create skeleton
-        public static bool ProcessXISO(FileStream isoFS, long isoOffset, long xisoLength, FileStream? xisoFS, FileStream? fillerFS, bool wipe, bool trim, bool skeleton, bool quiet)
+        public static bool ProcessXISO(FileStream isoFS, long isoOffset, long xisoLength, FileStream? xisoFS, FileStream? fillerFS, bool wipe, bool trim, bool skeleton, bool quiet, StreamWriter? hashWriter = null)
         {
             if (xisoFS == null && fillerFS == null)
                 return true;
@@ -165,6 +214,10 @@ namespace LibXGD
             var (bones, fileRanges) = GetXISORanges(isoFS, isoOffset, quiet);
             var ranges = MergeRanges(bones, fileRanges);
             if (!quiet) foreach (var (start, end) in ranges) Console.WriteLine($"[INFO] XISO File Extent: {start}-{end}");
+
+            // Pre-collect file entries sorted by offset for single-pass hashing
+            List<(string Path, long Offset, uint Size)>? fileEntries = (skeleton && hashWriter != null) ? GetFileEntries(isoFS, isoOffset) : null;
+            int fileEntryIndex = 0;
 
             bool writeXISO = xisoFS != null;
             bool extractFiller = fillerFS != null;
@@ -286,7 +339,30 @@ namespace LibXGD
                         }
                         else if (skeleton && !is_bone)
                         {
-                            // Skip file data in XISO
+                            // Hash file bytes before zeroing
+                            if (hashWriter != null && fileEntries != null)
+                            {
+                                long endByte = currentByte + bytesToRead;
+                                while (fileEntryIndex < fileEntries.Count && fileEntries[fileEntryIndex].Offset < endByte)
+                                {
+                                    var (entryPath, entryOffset, entrySize) = fileEntries[fileEntryIndex++];
+                                    using SHA1 sha1 = SHA1.Create();
+                                    byte[] hashBuf = new byte[64 * SECTOR_SIZE];
+                                    long remaining = entrySize;
+                                    isoFS.Seek(entryOffset, SeekOrigin.Begin);
+                                    while (remaining > 0)
+                                    {
+                                        int toRead = (int)Math.Min(hashBuf.Length, remaining);
+                                        int bytesRead = isoFS.Read(hashBuf, 0, toRead);
+                                        if (bytesRead == 0) break;
+                                        sha1.TransformBlock(hashBuf, 0, bytesRead, null, 0);
+                                        remaining -= bytesRead;
+                                    }
+                                    sha1.TransformFinalBlock([], 0, 0);
+                                    hashWriter.WriteLine($"{Convert.ToHexString(sha1.Hash!).ToLowerInvariant()} {entryPath}");
+                                }
+                            }
+                            // Zero file data in skeleton
                             Utils.WriteZeroes(xisoFS!, -1, bytesToRead);
                             isoFS.Seek(bytesToRead, SeekOrigin.Current);
                         }

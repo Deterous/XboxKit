@@ -136,8 +136,13 @@ namespace XboxKit
                 Console.WriteLine($"[INFO] Extracting filler data to {opts.FillerPath}");
             using FileStream? fillerFS = opts.ExtractFiller ? new FileStream(opts.FillerPath, FileMode.Create, FileAccess.Write, FileShare.None) : null;
 
+            // Create hash file for skeleton
+            if (opts.ExtractSkeleton && !opts.Quiet)
+                Console.WriteLine($"[INFO] Hashing game files to {opts.HashPath}");
+            using StreamWriter? hashWriter = opts.ExtractSkeleton ? new StreamWriter(opts.HashPath, false, System.Text.Encoding.UTF8) : null;
+
             // Process XISO
-            if (!XDVDFS.ProcessXISO(isoFS, 0, opts.IsoSize, xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet))
+            if (!XDVDFS.ProcessXISO(isoFS, 0, opts.IsoSize, xisoFS, fillerFS, opts.WipeXISO, opts.TrimXISO, opts.ExtractSkeleton, opts.Quiet, hashWriter))
             {
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
