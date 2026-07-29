@@ -169,6 +169,8 @@ namespace LibXGD
 
             // Write layer 0 padding
             long l0Padding = xisoOffset - l0Length;
+            if (l0Padding < 0)
+                return false;
             Utils.WriteZeroes(redumpFS, -1, l0Padding);
 
             // Write game partition

@@ -170,10 +170,6 @@ namespace XboxKit
                 }
             }
 
-            // Create redump ISO
-            using FileStream redumpFS = new(opts.RedumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            if (!opts.Quiet) Console.WriteLine($"[INFO] Writing redump ISO to {opts.RedumpPath}");
-
             // Open video ISO for reading
             using FileStream videoFS = new(opts.VideoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!opts.Quiet) Console.WriteLine($"[INFO] Reading video partition from {opts.VideoPath}");
@@ -239,6 +235,10 @@ namespace XboxKit
             if (File.Exists(opts.UpdatePath) && !opts.Quiet)
                 Console.WriteLine($"[INFO] Reading system update from {opts.UpdatePath}");
             using FileStream? updateFS = File.Exists(opts.UpdatePath) ? new FileStream(opts.UpdatePath, FileMode.Open, FileAccess.Read, FileShare.Read) : null;
+
+            // Create redump ISO
+            using FileStream redumpFS = new(opts.RedumpPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            if (!opts.Quiet) Console.WriteLine($"[INFO] Writing redump ISO to {opts.RedumpPath}");
 
             // Rebuild redump ISO
             if (!XGD.RebuildRedump(isoFS, redumpFS, videoFS, rebuildFillerFS, updateFS, prng, securitySectors, opts.VideoType, opts.Quiet))

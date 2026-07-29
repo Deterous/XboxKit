@@ -46,7 +46,6 @@ Batch options (for redump ISO):
   -c, --compress  Options for lossless ZArchive compression (-puvz)
 
 Manual options:
-  -m, --metadata  Extract metadata in the form of an XRD file
   -n, --no        Assume no (stops at warnings, never overwrites)
   -o, --output    Outputs the game files from the XISO
   -p, --petrify   Extracts XDVDFS skeleton (XISO with zeroed files)

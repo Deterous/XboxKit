@@ -23,7 +23,7 @@ namespace XboxKit
             Console.WriteLine("  -c, --compress  Options for lossless ZArchive compression (-puvz)");
             Console.WriteLine("");
             Console.WriteLine("Manual options:");
-            Console.WriteLine("  -m, --metadata  Extract metadata in the form of an XRD file");
+            // Console.WriteLine("  -m, --metadata  Extract metadata in the form of an XRD file");
             Console.WriteLine("  -n, --no        Assume no (stops at warnings, never overwrites)");
             Console.WriteLine("  -o, --output    Extracts and outputs the game files from the XISO");
             Console.WriteLine("  -p, --petrify   Extracts XDVDFS skeleton (XISO with zeroed files)");

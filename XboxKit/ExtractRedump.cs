@@ -173,7 +173,7 @@ namespace XboxKit
                     using FileStream seedFS = new(opts.SeedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                     byte[] seedBytes = BitConverter.GetBytes(seed.Value);
                     seedFS.Write(seedBytes, 0, seedBytes.Length);
-                    if (!opts.Quiet) Console.WriteLine($"[INFO] Writing filler data to {opts.SeedPath}");
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Writing filler seed to {opts.SeedPath}");
                 }
                 else
                 {

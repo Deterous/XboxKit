@@ -35,6 +35,18 @@ namespace XboxKit
                     return false;
             }
 
+            // Check that files don't already exist
+            if (!opts.AssumeYes && (opts.WipeXISO || opts.TrimXISO || opts.ExtractSkeleton) && !Helpers.ConfirmOverwrite(opts.XisoPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractFiller && !Helpers.ConfirmOverwrite(opts.FillerPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractSeed && !Helpers.ConfirmOverwrite(opts.SeedPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractSkeleton && !Helpers.ConfirmOverwrite(opts.HashPath, opts.AssumeNo))
+                return false;
+            if (!opts.AssumeYes && opts.ExtractZAR && !Helpers.ConfirmOverwrite(opts.ZarPath, opts.AssumeNo))
+                return false;
+
             return true;
         }
 
@@ -62,7 +74,7 @@ namespace XboxKit
                 return;
             }
 
-            // Extract game files
+            // Extract game files (works on trimmed XISOs)
             if (opts.OutputFiles)
             {
                 var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
@@ -83,7 +95,7 @@ namespace XboxKit
                 }
             }
 
-            // Create ZArchive of game files
+            // Create ZArchive of game files (works on trimmed XISOs)
             if (opts.ExtractZAR)
             {
                 if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
