@@ -65,6 +65,8 @@ Manual options:
 
 ## Example usage
 
+'''Note''': Rebuilding Redump ISO from loose game files or a ZAR is documented but not yet complete, this will be implemented in a future update (at least in the future v1.0 release). ZArchive creation is currently one-way.
+
 For lossless conversion from a redump ISO to an XISO, run:
 `./xboxkit.exe -a game.iso`
 
