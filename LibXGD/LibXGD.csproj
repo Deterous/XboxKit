@@ -1,22 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- Assembly Properties -->
-    <OutputType>Exe</OutputType>
-    <TargetName>xboxkit</TargetName>
-    <AssemblyName>xboxkit</AssemblyName>
-    <TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
-    <RuntimeIdentifiers>win-x86;win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <TargetFrameworks>net20;net35;net40;net452;net462;net472;net48;netcoreapp3.1;net5.0;net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
+    <PackageOutputPath>../nupkg</PackageOutputPath>
     
     <!-- Package Properties -->
     <Authors>Deterous</Authors>
     <Description>Xbox ISO Toolkit</Description>
-    <Copyright>Copyright (c) Deterous 2024-2025</Copyright>
+    <Copyright>Copyright (c) Deterous 2024-2026</Copyright>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Deterous/XboxKit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -26,6 +24,11 @@
 
   <ItemGroup>
     <None Include="./README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SabreTools.Serialization" Version="3.1.0" />
+    <PackageReference Include="GrindCore" Version="0.7.1" />
   </ItemGroup>
 
 </Project>
