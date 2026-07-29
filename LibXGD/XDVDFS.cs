@@ -163,13 +163,13 @@ namespace LibXGD
             uint rootOffset = Utils.ReadUInt(isoFS);
             uint rootSize = Utils.ReadUInt(isoFS);
 
-            var results = new List<(string, long, uint)>();
+            var results = new List<(string Path, long Offset, uint Size)>();
             CollectFileEntries(isoFS, isoOffset, (long)rootOffset * SECTOR_SIZE, rootSize, 0, "", results);
             results.Sort((a, b) => a.Offset.CompareTo(b.Offset));
             return results;
         }
 
-        private static void CollectFileEntries(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, string dirPath, List<(string, long, uint)> results)
+        private static void CollectFileEntries(FileStream isoFS, long isoOffset, long dirOffset, uint dirSize, long childOffset, string dirPath, List<(string Path, long Offset, uint Size)> results)
         {
             if (childOffset >= dirSize)
                 return;
