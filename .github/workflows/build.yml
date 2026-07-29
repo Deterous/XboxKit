@@ -5,15 +5,34 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          # - os: windows-latest
+          #   rid: win-x86
+          # - os: windows-latest
+          #   rid: win-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+          # - os: ubuntu-latest
+          #   rid: linux-arm
+          # - os: ubuntu-24.04-arm
+          #   rid: linux-arm64
+          - os: macos-latest
+            rid: osx-arm64
+          # - os: macos-26-intel
+          #   rid: osx-x64
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0.x
 
@@ -21,10 +40,10 @@ jobs:
       run: dotnet restore XboxKit/XboxKit.csproj
 
     - name: Build project
-      run: dotnet publish XboxKit/XboxKit.csproj --configuration Release -f net10.0 -r win-x64 --no-self-contained -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols= -p:IncludeNativeLibrariesForSelfExtract=true
+      run: dotnet publish XboxKit/XboxKit.csproj --configuration Release -f net10.0 -r ${{ matrix.rid }} --no-self-contained -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols= -p:IncludeNativeLibrariesForSelfExtract=true
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
-        name: xboxkit
-        path: /home/runner/work/XboxKit/XboxKit/XboxKit/bin/Release/net10.0/win-x64/publish/
+        name: xboxkit-${{ matrix.rid }}
+        path: XboxKit/bin/Release/net10.0/${{ matrix.rid }}/publish/

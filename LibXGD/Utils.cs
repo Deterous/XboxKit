@@ -31,7 +31,7 @@ namespace LibXGD
                 fs.Seek(offset, SeekOrigin.Begin);
             while (numBytes < outBA.Length)
             {
-                int bytesRead = fs.Read(outBA, 0, (int)(outBA.Length - numBytes));
+                int bytesRead = fs.Read(outBA, (int)numBytes, (int)(outBA.Length - numBytes));
                 if (bytesRead == 0)
                     break;
 

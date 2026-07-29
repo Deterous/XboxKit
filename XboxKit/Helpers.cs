@@ -330,6 +330,13 @@ namespace XboxKit
                 return false;
             }
 
+            // TODO: Implement XRD metadata extraction
+            if (opts.ExtractXRD)
+            {
+                Console.WriteLine("XRD metadata extraction is coming soon!");
+                return false;
+            }
+
             // Detect additional input files by extension and size
             for (int i = 1; i < filePaths.Count; i++)
             {
