@@ -62,8 +62,62 @@ namespace XboxKit
                 return;
             }
 
-            // Cannot extract/wipe/trim from invalid XISO size
-            if (opts.XisoType < 0)
+            // Extract game files
+            if (opts.OutputFiles)
+            {
+                var wrapper = SabreTools.Wrappers.XboxISO.Create(isoFS);
+                if (wrapper is null)
+                {
+                    Console.WriteLine("[ERROR] Invalid ISO");
+                    return;
+                }
+
+                if (!Directory.Exists(opts.OutputPath))
+                    Directory.CreateDirectory(opts.OutputPath);
+
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Outputting game files to {opts.OutputPath}");
+                if (!wrapper.ExtractGamePartition(opts.OutputPath, !opts.Quiet))
+                {
+                    Console.WriteLine($"[ERROR] Failed to extract files from {opts.IsoPath}");
+                    return;
+                }
+            }
+
+            // Create ZArchive of game files
+            if (opts.ExtractZAR)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
+                if (!ZArchive.CreateZAR(isoFS, 0, opts.ZarPath, false, opts.Quiet))
+                {
+                    Console.WriteLine("[ERROR] Failed creating ZArchive.");
+                    return;
+                }
+            }
+
+            // If XGD1, try brute force the filler data seed
+            if (opts.ExtractSeed && opts.XGDType == 0)
+            {
+                uint? seed = XboxPRNG.ExtractSeed(isoFS, 0, opts.Quiet);
+                if (seed.HasValue)
+                {
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Filler data seed: {seed.Value:X8}");
+                    using FileStream seedFS = new(opts.SeedPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    byte[] seedBytes = BitConverter.GetBytes(seed.Value);
+                    seedFS.Write(seedBytes, 0, seedBytes.Length);
+                    if (!opts.Quiet) Console.WriteLine($"[INFO] Writing filler data seed to {opts.SeedPath}");
+                }
+                else
+                {
+                    Console.WriteLine("[ERROR] Failed to extract XGD1 seed.");
+                }
+            }
+            else if (opts.ExtractSeed)
+            {
+                if (!opts.Quiet) Console.WriteLine($"[INFO] Cannot extract seed from Xbox 360 discs");
+            }
+
+            // Cannot wipe/trim/extract filler from unknown XISO size
+            if (opts.XisoType < 0 && (writeXISO || opts.ExtractFiller))
             {
                 Console.WriteLine("[ERROR] Unexpected XISO size. Your file may be trimmed or corrupt.");
                 Console.WriteLine("        Use the full XISO if you want to trim/wipe/extract filler.");
@@ -87,17 +141,6 @@ namespace XboxKit
             {
                 Console.WriteLine("[ERROR] Failed processing XISO.");
                 return;
-            }
-
-            // Create ZArchive of game files
-            if (opts.ExtractZAR)
-            {
-                if (!opts.Quiet) Console.WriteLine($"[INFO] Creating ZArchive at {opts.ZarPath}");
-                if (!ZArchive.CreateZAR(isoFS, 0, opts.ZarPath, false, opts.Quiet))
-                {
-                    Console.WriteLine("[ERROR] Failed creating ZArchive.");
-                    return;
-                }
             }
         }
     }
